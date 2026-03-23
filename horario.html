@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horario Semanal - Equipo COT</title>
+    <link rel="stylesheet" href="horario.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo-area">
+                <h1>EQUIPO COT - Gestión de Horarios</h1>
+            </div>
+            
+            <nav class="user-selector">
+                <button class="user-btn" data-user="Eduardo">Eduardo</button>
+                <button class="user-btn" data-user="José">José</button>
+                <button class="user-btn" data-user="Jorge">Jorge</button>
+                <button class="user-btn" data-user="Carlos">Carlos</button>
+                <button class="user-btn" data-user="Mirko">Mirko</button>
+                <button class="user-btn" data-user="Luis">Luis</button>
+            </nav>
+
+            <div class="action-bar">
+                <button id="addCourseBtn" class="primary-btn">
+                    <i class="fas fa-plus"></i> Agregar Curso
+                </button>
+            </div>
+        </header>
+
+        <main class="schedule-grid-container">
+            <div id="scheduleGrid" class="schedule-grid">
+                <div class="grid-header">
+                    <div class="time-col">Hora</div>
+                    <div class="day-col">Lunes</div>
+                    <div class="day-col">Martes</div>
+                    <div class="day-col">Miércoles</div>
+                    <div class="day-col">Jueves</div>
+                    <div class="day-col">Viernes</div>
+                    <div class="day-col">Sábado</div>
+                </div>
+                
+                <div class="grid-body" id="gridBody">
+                    <!-- Rows will be injected by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Adding/Editing Course -->
+    <div id="courseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Nuevo Curso</h2>
+                <span class="close" style="cursor:pointer">&times;</span>
+            </div>
+            <form id="courseForm">
+                <input type="hidden" id="courseId">
+                <input type="hidden" id="clickedDay">
+                
+                <div class="form-group">
+                    <label for="courseUserSelect">Usuario</label>
+                    <select id="courseUserSelect" required>
+                        <option value="TODOS">👥 TODOS (Evento Conjunto)</option>
+                        <option value="Eduardo">Eduardo</option>
+                        <option value="José">José</option>
+                        <option value="Jorge">Jorge</option>
+                        <option value="Carlos">Carlos</option>
+                        <option value="Mirko">Mirko</option>
+                        <option value="Luis">Luis</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="courseName">Nombre del Curso</label>
+                    <input type="text" id="courseName" required placeholder="Ej: Matematica">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="courseModality">Modalidad</label>
+                        <select id="courseModality" required>
+                            <option value="Presencial">Presencial</option>
+                            <option value="Virtual">Virtual</option>
+                            <option value="Híbrido">Híbrido</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="courseSede">Sede</label>
+                        <input type="text" id="courseSede" required placeholder="Sede">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="startTime">Hora Inicio</label>
+                        <input type="time" id="startTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="endTime">Hora Fin</label>
+                        <input type="time" id="endTime" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Días</label>
+                    <div class="days-checklist">
+                        <label><input type="checkbox" name="days" value="0"> Lu</label>
+                        <label><input type="checkbox" name="days" value="1"> Ma</label>
+                        <label><input type="checkbox" name="days" value="2"> Mi</label>
+                        <label><input type="checkbox" name="days" value="3"> Ju</label>
+                        <label><input type="checkbox" name="days" value="4"> Vi</label>
+                        <label><input type="checkbox" name="days" value="5"> Sá</label>
+                    </div>
+                </div>
+                
+                <div class="delete-options hidden" id="deleteOptions">
+                    <button type="button" id="deleteDayBtn" class="danger-btn-outline">Eliminar solo este día</button>
+                    <button type="button" id="deleteBtn" class="danger-btn">Eliminar todo el curso</button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="success-btn">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="horario.js"></script>
+</body>
+</html>

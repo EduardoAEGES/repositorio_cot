@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQUIPO-COT-PLN - Repositorio de Archivos</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <div class="certus-logo">CERTUS</div>
+            <div class="site-title">EQUIPO-COT-PLN</div>
+        </div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-link active">Página principal <i class="fas fa-chevron-down" style="font-size: 0.8rem; margin-left: 5px;"></i></a>
+            <div class="search-icon"><i class="fas fa-search"></i></div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Repositorio de archivos Contabilidad PLN 2026</h1>
+            <div class="underline"></div>
+        </section>
+
+        <div class="grid-container">
+            <a href="#" class="card">
+                <img src="assets/contabilidad.png" alt="Coordinación Contabilidad">
+                <span class="card-title">Coordinación Contabilidad</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/curricular.png" alt="Coordinación Curricular">
+                <span class="card-title">Coordinación Curricular</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/academica.png" alt="Coordinación Académica">
+                <span class="card-title">Coordinación Académica</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/marketing.png" alt="Coordinación Marketing">
+                <span class="card-title">Coordinación Marketing</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/programacion.png" alt="Coordinación Programación">
+                <span class="card-title">Coordinación Programación</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/emprendimiento.png" alt="Coordinación Emprendimiento">
+                <span class="card-title">Coordinación Emprendimiento</span>
+            </a>
+            <a href="#" class="card">
+                <img src="assets/seleccion.png" alt="Coordinación Selección - PTP">
+                <span class="card-title">Coordinación Selección - PTP</span>
+            </a>
+            <a href="#" class="card highlight">
+                <img src="assets/bienvenida.png" alt="Bienvenida Docente">
+                <span class="card-title">Bienvenida Docente</span>
+            </a>
+        </div>
+    </main>
+
+    <script>
+        // Smooth reveal animation for cards
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100 * index);
+            });
+        });
+    </script>
+</body>
+</html>
