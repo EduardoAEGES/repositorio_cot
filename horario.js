@@ -84,6 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.querySelector('.close');
     const form = document.getElementById('courseForm');
     const deleteBtn = document.getElementById('deleteBtn');
+    const schedulesContainer = document.getElementById('schedulesContainer');
+    const addScheduleBlockBtn = document.getElementById('addScheduleBlockBtn');
     
     // Constants
     const START_HOUR = 7;
@@ -158,36 +160,83 @@ document.addEventListener('DOMContentLoaded', () => {
         saveCourse();
     };
 
+    addScheduleBlockBtn.onclick = () => addScheduleBlock();
+
+    function addScheduleBlock(data = {}) {
+        const block = document.createElement('div');
+        block.className = 'schedule-block';
+        
+        const blockId = Date.now() + Math.random().toString(36).substr(2, 9);
+        
+        block.innerHTML = `
+            <button type="button" class="remove-block-btn" title="Eliminar este horario">&times;</button>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Hora Inicio</label>
+                    <input type="time" name="startTime" value="${data.startTime || ''}" required>
+                </div>
+                <div class="form-group">
+                    <label>Hora Fin</label>
+                    <input type="time" name="endTime" value="${data.endTime || ''}" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Días</label>
+                <div class="days-checklist">
+                    ${[0,1,2,3,4,5].map(d => {
+                        const daysShort = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+                        const checked = data.days && data.days.includes(d) ? 'checked' : '';
+                        return `<label><input type="checkbox" name="days_${blockId}" value="${d}" ${checked}> ${daysShort[d]}</label>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+        
+        block.querySelector('.remove-block-btn').onclick = () => {
+            if (schedulesContainer.querySelectorAll('.schedule-block').length > 1) {
+                block.remove();
+            } else {
+                alert('El curso debe tener al menos un horario.');
+            }
+        };
+        
+        schedulesContainer.appendChild(block);
+    }
+
     deleteBtn.onclick = () => {
-        const id = document.getElementById('courseId').value;
+        const name = document.getElementById('courseName').value;
         const owner = document.getElementById('courseUserSelect').value;
-        if (confirm('¿Eliminar TODO el curso (todos los días)?')) {
-            removeCourse(id, owner);
+        const modality = document.getElementById('courseModality').value;
+        const sede = document.getElementById('courseSede').value;
+        
+        if (confirm(`¿Eliminar TODO el curso "${name}" (todos sus horarios)?`)) {
+            removeCourseGroup(owner, name, modality, sede);
         }
     };
 
-    document.getElementById('deleteDayBtn').onclick = () => {
+    async function removeCourseGroup(owner, name, modality, sede) {
+        const related = courses[owner].filter(c => 
+            c.name === name && 
+            c.modality === modality && 
+            c.sede === sede
+        );
+        
+        for (const c of related) {
+            await removeFromSupabase(c.id);
+        }
+        modal.style.display = 'none';
+    }
+
+    document.getElementById('deleteDayBtn').onclick = async () => {
         const id = document.getElementById('courseId').value;
         const owner = document.getElementById('courseUserSelect').value;
         const clickedDay = parseInt(document.getElementById('clickedDay').value);
         if (confirm('¿Eliminar solo este día?')) {
-            removeCourseDay(id, owner, clickedDay);
+            await removeCourseDay(id, owner, clickedDay);
         }
     };
 
-    function removeCourseDay(id, owner, day) {
-        if (!courses[owner]) return;
-        const course = courses[owner].find(c => c.id === id);
-        if (course) {
-            course.days = course.days.filter(d => d !== day);
-            if (course.days.length === 0) {
-                courses[owner] = courses[owner].filter(c => c.id !== id);
-            }
-        }
-        persist();
-        renderCourses();
-        modal.style.display = 'none';
-    }
+
 
     function initGrid() {
         gridBody.innerHTML = '';
@@ -326,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openModal(course = null, owner = null, clickedDay = null) {
         form.reset();
+        schedulesContainer.innerHTML = '';
         const deleteOptions = document.getElementById('deleteOptions');
         deleteOptions.classList.add('hidden');
         document.getElementById('modalTitle').innerText = course ? 'Editar Curso' : 'Nuevo Curso';
@@ -339,56 +389,86 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('courseName').value = course.name;
             document.getElementById('courseModality').value = course.modality;
             document.getElementById('courseSede').value = course.sede;
-            document.getElementById('startTime').value = course.startTime;
-            document.getElementById('endTime').value = course.endTime;
             userSelect.value = owner;
             userSelect.disabled = true;
+
+            // Find all related schedules (soft grouping)
+            const relatedSchedules = courses[owner].filter(c => 
+                c.name === course.name && 
+                c.modality === course.modality && 
+                c.sede === course.sede
+            );
+
+            relatedSchedules.forEach(s => addScheduleBlock(s));
             
-            const checks = document.querySelectorAll('input[name="days"]');
-            course.days.forEach(d => {
-                const cb = Array.from(checks).find(c => c.value == d);
-                if (cb) cb.checked = true;
-            });
             deleteOptions.classList.remove('hidden');
-            // Set up delete button actions
-            const deleteBtn = document.getElementById('deleteBtn');
-            const deleteDayBtn = document.getElementById('deleteDayBtn');
             
-            deleteBtn.onclick = () => removeCourse(course.id, owner);
-            
-            if (course.days.length > 1 && clickedDay !== null) {
-                deleteDayBtn.style.display = 'block';
-                deleteDayBtn.onclick = () => removeCourseDay(course.id, owner, parseInt(clickedDay));
+            if (relatedSchedules.some(s => s.days.length > 1) || relatedSchedules.length > 1) {
+                document.getElementById('deleteDayBtn').style.display = 'block';
             } else {
-                deleteDayBtn.style.display = 'none';
+                document.getElementById('deleteDayBtn').style.display = 'none';
             }
+        } else {
+            addScheduleBlock();
         }
 
         modal.style.display = 'block';
     }
 
     async function saveCourse() {
-        const id = document.getElementById('courseId').value || Date.now().toString();
-        const days = Array.from(document.querySelectorAll('input[name="days"]:checked')).map(c => parseInt(c.value));
-        
-        if (days.length === 0) {
-            alert('Selecciona al menos un día');
-            return;
+        const owner = document.getElementById('courseUserSelect').value;
+        const name = document.getElementById('courseName').value;
+        const modality = document.getElementById('courseModality').value;
+        const sede = document.getElementById('courseSede').value;
+        const isEditing = !!document.getElementById('courseId').value;
+
+        const scheduleBlocks = schedulesContainer.querySelectorAll('.schedule-block');
+        const newSchedules = [];
+
+        for (const block of scheduleBlocks) {
+            const startTime = block.querySelector('input[name="startTime"]').value;
+            const endTime = block.querySelector('input[name="endTime"]').value;
+            const daysCheckboxes = block.querySelectorAll('input[type="checkbox"]:checked');
+            const days = Array.from(daysCheckboxes).map(cb => parseInt(cb.value));
+
+            if (days.length === 0) {
+                alert('Cada bloque de horario debe tener al menos un día seleccionado');
+                return;
+            }
+            if (!startTime || !endTime) {
+                alert('Por favor completa las horas de inicio y fin');
+                return;
+            }
+
+            newSchedules.push({ startTime, endTime, days });
         }
 
-        const owner = document.getElementById('courseUserSelect').value;
+        // If editing, find and remove old related records first to avoid duplicates or orphans
+        if (isEditing) {
+            const related = courses[owner].filter(c => 
+                c.name === name && 
+                c.modality === modality && 
+                c.sede === sede
+            );
+            for (const c of related) {
+                await removeFromSupabase(c.id);
+            }
+        }
 
-        const newCourse = {
-            id,
-            name: document.getElementById('courseName').value,
-            modality: document.getElementById('courseModality').value,
-            sede: document.getElementById('courseSede').value,
-            startTime: document.getElementById('startTime').value,
-            endTime: document.getElementById('endTime').value,
-            days
-        };
+        // Save all blocks as new records
+        for (const sched of newSchedules) {
+            const newCourse = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                name,
+                modality,
+                sede,
+                startTime: sched.startTime,
+                endTime: sched.endTime,
+                days: sched.days
+            };
+            await saveToSupabase(newCourse, owner);
+        }
 
-        await saveToSupabase(newCourse, owner);
         modal.style.display = 'none';
     }
 
