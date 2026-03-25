@@ -16,19 +16,29 @@
                 <h1>EQUIPO COT - Gestión de Horarios</h1>
             </div>
             
-            <nav class="user-selector">
-                <button class="user-btn" data-user="Eduardo">Eduardo</button>
-                <button class="user-btn" data-user="José">José</button>
-                <button class="user-btn" data-user="Jorge">Jorge</button>
-                <button class="user-btn" data-user="Carlos">Carlos</button>
-                <button class="user-btn" data-user="Mirko">Mirko</button>
-                <button class="user-btn" data-user="Luis">Luis</button>
+            <div class="group-controls">
+                <nav class="group-selector" id="groupSelector">
+                    <!-- Groups will be injected by JS -->
+                </nav>
+                <button id="addGroupBtn" class="icon-btn" title="Agregar Grupo">
+                    <i class="fas fa-folder-plus"></i>
+                </button>
+            </div>
+            
+            <!-- User search area removed as all groups use the button selector now -->
+            
+            <nav class="user-selector" id="userSelector" style="display: none;">
+                <!-- Legacy container, hidden but kept for JS stability -->
             </nav>
 
             <div class="action-bar">
                 <button id="addCourseBtn" class="primary-btn">
                     <i class="fas fa-plus"></i> Agregar Curso
                 </button>
+                <button id="importCSVBtn" class="primary-btn-outline">
+                    <i class="fas fa-file-csv"></i> Importar CSV
+                </button>
+                <input type="file" id="csvInput" accept=".csv" style="display: none;">
             </div>
         </header>
 
@@ -66,12 +76,6 @@
                     <label for="courseUserSelect">Usuario</label>
                     <select id="courseUserSelect" required>
                         <option value="TODOS">👥 TODOS (Evento Conjunto)</option>
-                        <option value="Eduardo">Eduardo</option>
-                        <option value="José">José</option>
-                        <option value="Jorge">Jorge</option>
-                        <option value="Carlos">Carlos</option>
-                        <option value="Mirko">Mirko</option>
-                        <option value="Luis">Luis</option>
                     </select>
                 </div>
 
@@ -82,6 +86,21 @@
                 
                 <div class="form-row">
                     <div class="form-group">
+                        <label for="courseSection">Sección (Opcional)</label>
+                        <input type="text" id="courseSection" placeholder="Ej: 222M">
+                    </div>
+                    <div class="form-group">
+                        <label for="courseNRC">NRC (Opcional)</label>
+                        <input type="text" id="courseNRC" placeholder="Ej: 1331">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="courseRoom">Salón (Opcional)</label>
+                        <input type="text" id="courseRoom" placeholder="Ej: A-301">
+                    </div>
+                    <div class="form-group">
                         <label for="courseModality">Modalidad</label>
                         <select id="courseModality" required>
                             <option value="Presencial">Presencial</option>
@@ -89,10 +108,19 @@
                             <option value="Híbrido">Híbrido</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="courseSede">Sede</label>
-                        <input type="text" id="courseSede" required placeholder="Sede">
-                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="courseSede">Sede</label>
+                    <select id="courseSede" required>
+                        <option value="AQP">AQP</option>
+                        <option value="SURCO">SURCO</option>
+                        <option value="NOR">NOR</option>
+                        <option value="SJL">SJL</option>
+                        <option value="VIRTUAL">VIRTUAL</option>
+                        <option value="VES">VES</option>
+                        <option value="OTROS">OTROS</option>
+                    </select>
                 </div>
                 
                 <div id="schedulesContainer">
