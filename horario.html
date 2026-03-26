@@ -38,6 +38,9 @@
                 <button id="importCSVBtn" class="primary-btn-outline">
                     <i class="fas fa-file-csv"></i> Importar CSV
                 </button>
+                <button id="returnToPtcBtn" class="primary-btn-outline" style="display: none; border-color: #ef4444; color: #ef4444;">
+                    <i class="fas fa-undo"></i> Volver a PTC
+                </button>
                 <input type="file" id="csvInput" accept=".csv" style="display: none;">
             </div>
         </header>
@@ -52,6 +55,7 @@
                     <div class="day-col">Jueves</div>
                     <div class="day-col">Viernes</div>
                     <div class="day-col">Sábado</div>
+                    <div class="day-col">Domingo</div>
                 </div>
                 
                 <div class="grid-body" id="gridBody">
@@ -59,6 +63,12 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div style="margin-top: 50px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 20px; padding-bottom: 20px;">
+        <button id="masterBtn" style="background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 5px; transition: color 0.3s;">
+            <i class="fas fa-shield-alt"></i> Acceso Master
+        </button>
     </div>
 
     <!-- Modal for Adding/Editing Course -->

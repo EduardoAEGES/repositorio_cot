@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let groups = JSON.parse(localStorage.getItem('cot_groups')) || defaultGroups;
     
-    // Force cleanup of specific groups if they exist
-    if (groups["OTROS"]) delete groups["OTROS"];
+    // Keep OTROS group if it exists to preserve searchable history
+    if (!groups["OTROS"]) groups["OTROS"] = [];
     
     // Ensure default groups exist and are populated if missing
     Object.keys(defaultGroups).forEach(gn => {
@@ -20,8 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save cleaned/updated groups back to storage
     localStorage.setItem('cot_groups', JSON.stringify(groups));
 
+    let isMasterMode = false;
     let activeGroup = Object.keys(groups)[0] || "PTC";
-    let activeUsers = new Set();
+    // Default to Eduardo selected for "Modo Master"
+    let activeUsers = new Set(['Eduardo']);
     
     console.log('Groups initialized:', groups);
     console.log('Active group:', activeGroup);
@@ -143,13 +145,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let courses = {}; // Will be filled from Supabase
 
     async function loadFromSupabase() {
-        const [res1, res2] = await Promise.all([
-            supabaseClient.from('cot_horarios').select('*'),
-            supabaseClient.from('cot_horarios_externos').select('*')
-        ]);
+        let res1, res2;
+        
+        if (isMasterMode) {
+            // Master mode only loads from the private table
+            res1 = await supabaseClient.from('cot_horarios_privados').select('*');
+            res2 = { data: [], error: null }; // No external schedules in Master mode
+        } else {
+            // Regular mode loads from public and external tables
+            res1 = await supabaseClient.from('cot_horarios').select('*');
+            res2 = await supabaseClient.from('cot_horarios_externos').select('*');
+        }
         
         const data = [...(res1.data || []), ...(res2.data || [])];
-        const error = res1.error; // Primary error check
+        const error = res1.error;
 
         if (error) {
             console.error('Error loading from Supabase:', error);
@@ -158,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Group by user
         const grouped = {};
         data.forEach(item => {
             if (!grouped[item.user_id]) grouped[item.user_id] = [];
@@ -174,7 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 endTime: item.end_time,
                 days: item.days,
                 user: item.user_id,
-                sourceTable: (res2.data && res2.data.some(d => d.id === item.id)) ? 'cot_horarios_externos' : 'cot_horarios'
+                sourceTable: isMasterMode ? 'cot_horarios_privados' : ((res2.data && res2.data.some(d => d.id === item.id)) ? 'cot_horarios_externos' : 'cot_horarios')
             });
         });
         courses = grouped;
@@ -182,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveToSupabase(course, owner, tableName = 'cot_horarios') {
+        const targetTable = isMasterMode ? 'cot_horarios_privados' : (tableName || 'cot_horarios');
         const payload = {
             id: course.id,
             user_id: owner,
@@ -197,11 +206,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const { error } = await supabaseClient
-            .from(tableName || 'cot_horarios')
+            .from(targetTable)
             .upsert(payload, { onConflict: 'id' });
 
         if (error) {
-            if (error.code === '42P01' && tableName !== 'cot_horarios') {
+            if (error.code === '42P01' && !isMasterMode && tableName !== 'cot_horarios') {
                  console.warn(`Table ${tableName} not found, falling back to cot_horarios`);
                  return saveToSupabase(course, owner, 'cot_horarios');
             }
@@ -210,12 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function removeFromSupabase(id, tableName = 'cot_horarios') {
+        const targetTable = isMasterMode ? 'cot_horarios_privados' : (tableName || 'cot_horarios');
         const { error } = await supabaseClient
-            .from(tableName || 'cot_horarios')
+            .from(targetTable)
             .delete()
             .eq('id', id);
         
-        if (error && tableName === 'cot_horarios') {
+        if (error && !isMasterMode && targetTable === 'cot_horarios') {
             return removeFromSupabase(id, 'cot_horarios_externos');
         } else if (error) {
             console.error('Error removing from Supabase:', error);
@@ -237,8 +247,61 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Optional/Legacy elements (might be null)
     const userSearchInput = document.getElementById('userSearchInput');
+    const returnToPtcBtn = document.getElementById('returnToPtcBtn');
     const userSearchResults = document.getElementById('userSearchResults');
     const selectedUsersContainer = document.getElementById('selectedUsersContainer');
+    const masterBtn = document.getElementById('masterBtn');
+    
+    if (masterBtn) {
+        masterBtn.onclick = () => {
+            if (isMasterMode) {
+                isMasterMode = false;
+                document.querySelector('h1').innerText = 'EQUIPO COT - Gestión de Horarios';
+                document.querySelector('.app-container').style.borderColor = 'transparent';
+                if (groupSelector) groupSelector.style.display = 'flex';
+                switchGroup('PTC');
+                alert('Modo Master desactivado');
+            } else {
+                const pwd = prompt('Ingrese contraseña Master:');
+                if (pwd === 'Conta-2026') {
+                    isMasterMode = true;
+                    document.querySelector('h1').innerText = 'EQUIPO COT - MODO MASTER';
+                    document.querySelector('.app-container').style.border = '2px solid #7c3aed';
+                    if (groupSelector) groupSelector.style.display = 'none';
+                    activeUsers = new Set(['EDUARDO']);
+                    renderUserSelector();
+                    renderCourses();
+                    alert('Modo Master Activado - Vista de Eduardo');
+                } else {
+                    alert('Contraseña incorrecta');
+                }
+            }
+            updateReturnVisibility();
+        };
+    }
+
+    if (returnToPtcBtn) {
+        returnToPtcBtn.onclick = () => {
+            isMasterMode = false;
+            document.querySelector('h1').innerText = 'EQUIPO COT - Gestión de Horarios';
+            document.querySelector('.app-container').style.borderColor = 'transparent';
+            if (groupSelector) groupSelector.style.display = 'flex';
+            switchGroup('PTC');
+            activeUsers = new Set(['EDUARDO']);
+            renderUserSelector();
+            renderCourses();
+            updateReturnVisibility();
+        };
+    }
+
+    function updateReturnVisibility() {
+        if (!returnToPtcBtn) return;
+        if (isMasterMode || activeGroup !== 'PTC') {
+            returnToPtcBtn.style.display = 'inline-flex';
+        } else {
+            returnToPtcBtn.style.display = 'none';
+        }
+    }
     
     // Constants
     const START_HOUR = 7;
@@ -271,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderGroupSelector();
         renderUserSelector();
         updateModalUserSelect(); // CRITICAL: Update the modal dropdown when group changes
+        updateReturnVisibility();
         renderCourses();
     }
 
@@ -591,8 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group">
                 <label>Días</label>
                 <div class="days-checklist">
-                    ${[0,1,2,3,4,5].map(d => {
-                        const daysShort = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+                    ${[0,1,2,3,4,5,6].map(d => {
+                        const daysShort = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
                         const checked = data.days && data.days.includes(d) ? 'checked' : '';
                         return `<label><input type="checkbox" name="days_${blockId}" value="${d}" ${checked}> ${daysShort[d]}</label>`;
                     }).join('')}
@@ -678,7 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             row.innerHTML = `
                 <div class="hour-label">${timeStr}</div>
-                ${'<div class="grid-cell"></div>'.repeat(6)}
+                ${'<div class="grid-cell"></div>'.repeat(7)}
             `;
             gridBody.appendChild(row);
             currentIndex++;
@@ -725,14 +789,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // --- End Dynamic Grid logic ---
 
-        const coursesByDay = [[], [], [], [], [], []]; // 6 days
+        const coursesByDay = [[], [], [], [], [], [], []]; // 7 days (including Sunday)
         activeCoursesList.forEach(course => {
             course.days.forEach(day => {
-                if (day < 6) coursesByDay[day].push(course);
+                if (day < 7) coursesByDay[day].push(course);
             });
         });
 
-        for (let day = 0; day < 6; day++) {
+        // For each day, find overlapping groups and render them
+        for (let day = 0; day < 7; day++) { // Iterate for 7 days
             const dayCourses = coursesByDay[day];
             renderDayCourses(dayCourses, day);
         }
@@ -788,12 +853,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlapIndex = concurrent.findIndex(c => c.id === course.id && c.user === course.user);
         const totalConcurrent = concurrent.length;
 
-        const cellWidth = (gridBody.offsetWidth - 120) / 6;
+        const cellWidth = (gridBody.offsetWidth - 120) / 7;
         const cardWidth = (cellWidth - 4) / totalConcurrent;
         const left = 120 + (day * cellWidth) + (overlapIndex * cardWidth) + 2;
 
         const card = document.createElement('div');
-        card.className = `course-card`;
+        card.className = `course-card ${isMasterMode ? 'master-card' : ''}`;
         card.dataset.user = course.user;
         card.style.top = `${top}px`;
         card.style.height = `${height}px`;
@@ -887,7 +952,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveCourse() {
-        const owner = document.getElementById('courseUserSelect').value;
+        let owner = document.getElementById('courseUserSelect').value;
+        if (isMasterMode) owner = 'EDUARDO'; // Force Eduardo in Master Mode
+        
         const name = document.getElementById('courseName').value;
         const modality = document.getElementById('courseModality').value;
         const sede = document.getElementById('courseSede').value;
@@ -943,8 +1010,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 endTime: sched.endTime,
                 days: sched.days
             };
-            // Default to main table for manual entries
-            await saveToSupabase(newCourse, owner, 'cot_horarios');
+            // Determine which table to use based on the owner's group
+            let targetTable = 'cot_horarios';
+            if (groups["OTROS"] && groups["OTROS"].includes(owner.trim().toUpperCase())) {
+                targetTable = 'cot_horarios_externos';
+            }
+            
+            await saveToSupabase(newCourse, owner, targetTable);
         }
 
         modal.style.display = 'none';

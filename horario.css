@@ -372,7 +372,7 @@ header {
 
 .schedule-grid {
     display: grid;
-    grid-template-columns: 120px repeat(6, 1fr); /* 120px for '22:00 - 22:45' */
+    grid-template-columns: 120px repeat(7, 1fr); /* 120px for '22:00 - 22:45' */
     background-color: var(--grid-color);
     position: relative;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
@@ -424,7 +424,7 @@ header {
 
 .hour-row {
     display: grid;
-    grid-template-columns: 120px repeat(6, 1fr);
+    grid-template-columns: 120px repeat(7, 1fr);
     position: absolute;
     width: 100%;
     border-bottom: 1px solid #e2e8f0;
@@ -552,7 +552,40 @@ header {
     position: relative;
 }
 
-/* Media Queries for Responsiveness */
+/* Media Queries for Responsive Adjustments */
+@media (max-width: 1024px) {
+    .schedule-grid {
+        min-width: 1000px;
+    }
+}
+
+/* Master Mode Specific Styling */
+.course-card.master-card {
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+    border-left: 5px solid #fbbf24 !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    z-index: 100;
+}
+
+.course-card.master-card .user-tag {
+    background: #fbbf24 !important;
+    color: #1e1b4b !important;
+    font-weight: 700 !important;
+}
+
+.course-card.master-card .course-name {
+    color: white !important;
+    font-weight: 700;
+}
+
+.course-card.master-card .course-info {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.course-card.master-card .info-label {
+    color: #fbbf24 !important;
+}    
 @media (max-width: 768px) {
     body {
         padding: 5px;
