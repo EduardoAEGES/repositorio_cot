@@ -715,6 +715,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 (c.nrc || '') === oldNRC
             );
             
+            if (related.length === 0) {
+                console.warn('No related records found to delete.');
+            }
+
             for (const c of related) {
                 await removeFromSupabase(c.id, c.sourceTable);
             }
@@ -978,7 +982,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const relatedSchedules = (courses[owner] || []).filter(c => 
                 c.name === course.name && 
                 c.modality === course.modality && 
-                c.sede === course.sede
+                c.sede === course.sede &&
+                (c.section || '') === (course.section || '') &&
+                (c.nrc || '') === (course.nrc || '')
             );
 
             relatedSchedules.forEach(s => addScheduleBlock(s));
@@ -1040,7 +1046,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const oldNRC = document.getElementById('oldCourseNRC').value;
 
             // Use original values to find related records, in case user changed name/owner/etc.
-            // Also include Section and NRC to avoid deleting other sections
             const related = (courses[oldOwner] || []).filter(c => 
                 c.name === oldName && 
                 c.modality === oldModality && 
@@ -1048,36 +1053,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 (c.section || '') === oldSection &&
                 (c.nrc || '') === oldNRC
             );
+            
             for (const c of related) {
                 await removeFromSupabase(c.id, c.sourceTable);
             }
         }
 
-        // Save all blocks as new records
-        for (const sched of newSchedules) {
-            const newCourse = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                name,
-                modality,
-                sede,
-                section,
-                nrc,
-                room,
-                startTime: sched.startTime,
-                endTime: sched.endTime,
-                days: sched.days
-            };
-            // Determine which table to use based on the owner's group
-            let targetTable = 'cot_horarios';
-            if (groups["OTROS"] && groups["OTROS"].includes(owner.trim().toUpperCase())) {
-                targetTable = 'cot_horarios_externos';
-            }
-            
-            await saveToSupabase(newCourse, owner, targetTable);
-        }
+        const successBtn = form.querySelector('.success-btn');
+        const originalBtnText = successBtn.innerText;
+        successBtn.disabled = true;
+        successBtn.innerText = 'Guardando...';
 
-        modal.style.display = 'none';
-        await loadFromSupabase();
+        try {
+            // Save all blocks as new records
+            for (const sched of newSchedules) {
+                const newCourse = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                    name,
+                    modality,
+                    sede,
+                    section,
+                    nrc,
+                    room,
+                    startTime: sched.startTime,
+                    endTime: sched.endTime,
+                    days: sched.days
+                };
+                
+                let targetTable = 'cot_horarios';
+                if (groups["OTROS"] && groups["OTROS"].includes(owner.trim().toUpperCase())) {
+                    targetTable = 'cot_horarios_externos';
+                }
+                
+                await saveToSupabase(newCourse, owner, targetTable);
+            }
+        } finally {
+            successBtn.disabled = false;
+            successBtn.innerText = originalBtnText;
+            modal.style.display = 'none';
+            await loadFromSupabase();
+        }
     }
 
     async function removeCourse(id, owner) {
