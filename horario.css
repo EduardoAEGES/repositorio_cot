@@ -481,10 +481,12 @@ header {
 
 .course-card .course-name {
     font-weight: 700;
+    font-size: 0.8rem;
     margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.2;
 }
 
 .course-card .course-info {
@@ -492,6 +494,44 @@ header {
     font-size: 0.65rem;
     line-height: 1.2;
     font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Responsive visibility for short cards (<= 90 min) */
+.card-short .time-info,
+.card-short .sede-info, 
+.card-short .mod-info,
+.card-short .nrc-info { 
+    display: none !important; 
+}
+
+.card-short .course-name {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.card-short .user-tag {
+    font-size: 0.55rem;
+    padding: 2px 8px;
+    display: inline-flex;
+    width: fit-content;
+}
+
+/* Tiny cards (<= 45 min) */
+.card-tiny .user-tag {
+    display: none !important;
+}
+
+.card-tiny {
+    justify-content: center;
+    padding: 2px 4px;
+}
+
+.card-tiny .course-name {
+    margin-bottom: 0;
+    font-size: 0.7rem;
+    text-align: center;
 }
 
 .course-card .info-label {
@@ -499,16 +539,17 @@ header {
     font-size: 0.6rem;
     text-transform: uppercase;
     color: inherit;
-    opacity: 0.8;
+    opacity: 0.7;
 }
 
-/* User specific card colors */
-.course-card[data-user="Eduardo"] { background-color: #dbeafe; color: #1e40af; border-left: 4px solid var(--u-eduardo); }
-.course-card[data-user="José"] { background-color: #dcfce7; color: #166534; border-left: 4px solid var(--u-jose); }
-.course-card[data-user="Jorge"] { background-color: #ffedd5; color: #9a3412; border-left: 4px solid var(--u-jorge); }
-.course-card[data-user="Carlos"] { background-color: #f3e8ff; color: #6b21a8; border-left: 4px solid var(--u-carlos); }
-.course-card[data-user="Mirko"] { background-color: #fee2e2; color: #991b1b; border-left: 4px solid var(--u-mirko); }
-.course-card[data-user="Luis"] { background-color: #cffafe; color: #155e75; border-left: 4px solid var(--u-luis); }
+/* User specific card colors - Uppercase for consistency with JS normalization */
+.course-card[data-user="EDUARDO"] { background-color: #dbeafe; color: #1e40af; border-left: 4px solid var(--u-eduardo); }
+.course-card[data-user="JOSÉ"] { background-color: #dcfce7; color: #166534; border-left: 4px solid var(--u-jose); }
+.course-card[data-user="JORGE"] { background-color: #ffedd5; color: #9a3412; border-left: 4px solid var(--u-jorge); }
+.course-card[data-user="CARLOS"] { background-color: #f3e8ff; color: #6b21a8; border-left: 4px solid var(--u-carlos); }
+.course-card[data-user="MIRKO"] { background-color: #fee2e2; color: #991b1b; border-left: 4px solid var(--u-mirko); }
+.course-card[data-user="LUIS"] { background-color: #cffafe; color: #155e75; border-left: 4px solid var(--u-luis); }
+.course-card[data-user="TODOS"] { background-color: #f1f5f9; color: #475569; border-left: 4px solid #94a3b8; }
 
 /* Modal */
 .modal {

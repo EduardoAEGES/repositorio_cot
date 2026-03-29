@@ -1,11 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
     // State
     const defaultGroups = {
-        "PTC": ['Eduardo', 'José', 'Jorge', 'Carlos', 'Mirko', 'Luis'],
+        "PTC": ['EDUARDO', 'JOSÉ', 'JORGE', 'CARLOS', 'MIRKO', 'LUIS'],
         "AQP-CIX": ['MARILYN ASTULLE', 'JUAN CARLOS COSTILLA']
     };
     
     let groups = JSON.parse(localStorage.getItem('cot_groups')) || defaultGroups;
+    
+    // Normalize all names in groups to uppercase
+    Object.keys(groups).forEach(gn => {
+        groups[gn] = groups[gn].map(u => u.trim().toUpperCase());
+    });
     
     // Keep OTROS group if it exists to preserve searchable history
     if (!groups["OTROS"]) groups["OTROS"] = [];
@@ -22,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isMasterMode = false;
     let activeGroup = Object.keys(groups)[0] || "PTC";
-    // Default to Eduardo selected for "Modo Master"
-    let activeUsers = new Set(['Eduardo']);
+    // Default to EDUARDO selected for "Modo Master"
+    let activeUsers = new Set(['EDUARDO']);
     
     console.log('Groups initialized:', groups);
     console.log('Active group:', activeGroup);
@@ -169,8 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const grouped = {};
         data.forEach(item => {
-            if (!grouped[item.user_id]) grouped[item.user_id] = [];
-            grouped[item.user_id].push({
+            const uid = item.user_id ? item.user_id.trim().toUpperCase() : 'UNKNOWN';
+            if (!grouped[uid]) grouped[uid] = [];
+            grouped[uid].push({
                 id: item.id,
                 name: item.name,
                 modality: item.modality,
@@ -181,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 startTime: item.start_time,
                 endTime: item.end_time,
                 days: item.days,
-                user: item.user_id,
+                user: uid,
                 sourceTable: isMasterMode ? 'cot_horarios_privados' : ((res2.data && res2.data.some(d => d.id === item.id)) ? 'cot_horarios_externos' : 'cot_horarios')
             });
         });
@@ -219,16 +225,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function removeFromSupabase(id, tableName = 'cot_horarios') {
-        const targetTable = isMasterMode ? 'cot_horarios_privados' : (tableName || 'cot_horarios');
+        // If tableName is provided specifically from sourceTable, use that. 
+        // Otherwise fallback to context-based logic.
+        const targetTable = tableName || (isMasterMode ? 'cot_horarios_privados' : 'cot_horarios');
+        
         const { error } = await supabaseClient
             .from(targetTable)
             .delete()
             .eq('id', id);
         
-        if (error && !isMasterMode && targetTable === 'cot_horarios') {
+        if (error && !tableName && !isMasterMode && targetTable === 'cot_horarios') {
             return removeFromSupabase(id, 'cot_horarios_externos');
         } else if (error) {
-            console.error('Error removing from Supabase:', error);
+            console.error(`Error removing ${id} from ${targetTable}:`, error);
         }
     }
     
@@ -360,8 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         users.forEach(user => {
             const btn = document.createElement('button');
-            const cleanName = user.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const isActive = activeUsers.has(user);
+            const normalizedUser = user.trim().toUpperCase();
+            const cleanName = normalizedUser.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const isActive = activeUsers.has(normalizedUser);
             
             btn.className = `user-btn ${isActive ? 'active' : ''}`;
             if (isActive) {
@@ -372,10 +382,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             btn.innerText = user;
             btn.onclick = () => {
-                if (activeUsers.has(user)) {
-                    activeUsers.delete(user);
+                if (activeUsers.has(normalizedUser)) {
+                    activeUsers.delete(normalizedUser);
                 } else {
-                    activeUsers.add(user);
+                    activeUsers.add(normalizedUser);
                 }
                 renderLegacyButtons();
                 renderCourses();
@@ -415,20 +425,22 @@ document.addEventListener('DOMContentLoaded', () => {
         
         groupUsers.forEach(user => {
             const opt = document.createElement('option');
-            opt.value = user;
-            opt.textContent = user;
+            const normalized = user.trim().toUpperCase();
+            opt.value = normalized;
+            opt.textContent = normalized;
             userSelect.appendChild(opt);
         });
         
         // If we are editing and the owner isn't in this group (unlikely but possible), add them
-        if (currentValue && currentValue !== 'TODOS' && !groupUsers.includes(currentValue)) {
+        if (currentValue && currentValue !== 'TODOS' && !groupUsers.map(u => u.toUpperCase()).includes(currentValue.toUpperCase())) {
+            const normalized = currentValue.trim().toUpperCase();
             const opt = document.createElement('option');
-            opt.value = currentValue;
-            opt.textContent = currentValue;
+            opt.value = normalized;
+            opt.textContent = normalized;
             userSelect.appendChild(opt);
-            userSelect.value = currentValue;
+            userSelect.value = normalized;
         } else if (currentValue) {
-            userSelect.value = currentValue;
+            userSelect.value = currentValue.toUpperCase();
         }
     }
 
@@ -687,16 +699,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function removeCourseGroup(owner, name, modality, sede) {
-        const related = courses[owner].filter(c => 
-            c.name === name && 
-            c.modality === modality && 
-            c.sede === sede
-        );
-        
-        for (const c of related) {
-            await removeFromSupabase(c.id, c.sourceTable);
+        try {
+            const oldName = document.getElementById('oldCourseName').value || name;
+            const oldOwner = (document.getElementById('oldCourseUser').value || owner).trim().toUpperCase();
+            const oldModality = document.getElementById('oldCourseModality').value || modality;
+            const oldSede = document.getElementById('oldCourseSede').value || sede;
+            const oldSection = document.getElementById('oldCourseSection').value || '';
+            const oldNRC = document.getElementById('oldCourseNRC').value || '';
+
+            const related = (courses[oldOwner] || []).filter(c => 
+                c.name === oldName && 
+                c.modality === oldModality && 
+                c.sede === oldSede &&
+                (c.section || '') === oldSection &&
+                (c.nrc || '') === oldNRC
+            );
+            
+            for (const c of related) {
+                await removeFromSupabase(c.id, c.sourceTable);
+            }
+        } catch (err) {
+            console.error('Error in removeCourseGroup:', err);
+        } finally {
+            modal.style.display = 'none';
+            await loadFromSupabase();
         }
-        modal.style.display = 'none';
     }
 
     document.getElementById('deleteDayBtn').onclick = async () => {
@@ -858,7 +885,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const left = 120 + (day * cellWidth) + (overlapIndex * cardWidth) + 2;
 
         const card = document.createElement('div');
-        card.className = `course-card ${isMasterMode ? 'master-card' : ''}`;
+        const isShort = durationMin <= 90;
+        const isTiny = durationMin <= 45;
+        
+        card.className = `course-card ${isMasterMode ? 'master-card' : ''} ${isShort ? 'card-short' : ''} ${isTiny ? 'card-tiny' : ''}`;
         card.dataset.user = course.user;
         card.style.top = `${top}px`;
         card.style.height = `${height}px`;
@@ -875,12 +905,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let roomText = course.room ? ` - Salón: ${course.room}` : "";
 
         card.innerHTML = `
+            <div class="course-name" title="${course.name}">${course.name}</div>
             <span class="user-tag" style="color: ${userColorVar}">${course.user}</span>
-            <div class="course-name">${course.name}</div>
-            ${nrcSecText ? `<div class="course-info" style="font-weight:600; font-size: 0.75rem;">${nrcSecText}</div>` : ''}
-            <div class="course-info">${course.startTime} - ${course.endTime}</div>
-            <div class="course-info"><span class="info-label">Sede:</span> ${course.sede}${roomText}</div>
-            <div class="course-info"><span class="info-label">Mod:</span> ${course.modality}</div>
+            ${nrcSecText ? `<div class="course-info nrc-info" style="font-weight:600;">${nrcSecText}</div>` : ''}
+            <div class="course-info time-info">${course.startTime} - ${course.endTime}</div>
+            <div class="course-info sede-info"><span class="info-label">Sede:</span> ${course.sede}${roomText}</div>
+            <div class="course-info mod-info"><span class="info-label">Mod:</span> ${course.modality}</div>
         `;
 
         // Apply background and border color if teacher is not one of the hardcoded BTC ones
@@ -888,11 +918,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const hardcoded = ["eduardo", "jose", "jorge", "carlos", "mirko", "luis"];
         if (!hardcoded.includes(cleanName)) {
             card.style.borderLeft = `4px solid ${userColorVar}`;
+            card.style.backgroundColor = `${userColorVar}15`; // 15 is hex for ~8% opacity
         }
 
         if (course.modality?.toLowerCase() === 'virtual') {
             card.style.border = '2px dashed #64748b';
-            card.style.background = 'repeating-linear-gradient(45deg, #f8fafc, #f8fafc 5px, #ffffff 5px, #ffffff 10px)';
+            // Use an overlay to keep the teacher color visible
+            card.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.4) 5px, rgba(255,255,255,0.4) 10px)';
         } else if (course.sede?.toUpperCase() === 'OTROS' || course.sede?.toUpperCase() === 'OTRO') {
             card.style.backgroundColor = '#f1f5f9';
             card.style.opacity = '0.9';
@@ -914,6 +946,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('modalTitle').innerText = course ? 'Editar Curso' : 'Nuevo Curso';
         document.getElementById('clickedDay').value = clickedDay !== null ? clickedDay : '';
         
+        // Reset original values
+        document.getElementById('oldCourseName').value = '';
+        document.getElementById('oldCourseUser').value = '';
+        document.getElementById('oldCourseModality').value = '';
+        document.getElementById('oldCourseSede').value = '';
+        
         const userSelect = document.getElementById('courseUserSelect');
         userSelect.disabled = false;
 
@@ -922,6 +960,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('courseName').value = course.name;
             document.getElementById('courseModality').value = course.modality;
             document.getElementById('courseSede').value = course.sede;
+            
+            document.getElementById('oldCourseName').value = course.name;
+            document.getElementById('oldCourseUser').value = owner.trim().toUpperCase();
+            document.getElementById('oldCourseModality').value = course.modality;
+            document.getElementById('oldCourseSede').value = course.sede;
+            document.getElementById('oldCourseSection').value = course.section || '';
+            document.getElementById('oldCourseNRC').value = course.nrc || '';
+
             document.getElementById('courseSection').value = course.section || '';
             document.getElementById('courseNRC').value = course.nrc || '';
             document.getElementById('courseRoom').value = course.room || '';
@@ -952,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveCourse() {
-        let owner = document.getElementById('courseUserSelect').value;
+        let owner = document.getElementById('courseUserSelect').value.trim().toUpperCase();
         if (isMasterMode) owner = 'EDUARDO'; // Force Eduardo in Master Mode
         
         const name = document.getElementById('courseName').value;
@@ -986,10 +1032,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // If editing, find and remove old related records first to avoid duplicates or orphans
         if (isEditing) {
-            const related = (courses[owner] || []).filter(c => 
-                c.name === name && 
-                c.modality === modality && 
-                c.sede === sede
+            const oldName = document.getElementById('oldCourseName').value;
+            const oldOwner = document.getElementById('oldCourseUser').value.trim().toUpperCase();
+            const oldModality = document.getElementById('oldCourseModality').value;
+            const oldSede = document.getElementById('oldCourseSede').value;
+            const oldSection = document.getElementById('oldCourseSection').value;
+            const oldNRC = document.getElementById('oldCourseNRC').value;
+
+            // Use original values to find related records, in case user changed name/owner/etc.
+            // Also include Section and NRC to avoid deleting other sections
+            const related = (courses[oldOwner] || []).filter(c => 
+                c.name === oldName && 
+                c.modality === oldModality && 
+                c.sede === oldSede &&
+                (c.section || '') === oldSection &&
+                (c.nrc || '') === oldNRC
             );
             for (const c of related) {
                 await removeFromSupabase(c.id, c.sourceTable);
