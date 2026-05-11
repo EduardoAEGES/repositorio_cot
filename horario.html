@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="horario.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -25,23 +26,47 @@
                 </button>
             </div>
             
-            <!-- User search area removed as all groups use the button selector now -->
+            <div class="user-search-area" id="teacherSearchArea" style="display: flex; margin-bottom: 20px;">
+                <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 5px; display: flex; align-items: center; gap: 5px;">
+                    <i class="far fa-user"></i> DOCENTE
+                </label>
+                <div class="search-input-wrapper" style="max-width: 100%; width: 350px; position: relative;">
+                    <i class="fas fa-search search-icon" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                    <input type="text" id="userSearchInput" placeholder="Buscar por apellidos y nombres..." autocomplete="off" style="width: 100%; padding: 8px 12px 8px 35px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <ul id="searchResults" class="search-results hidden"></ul>
+                </div>
+            </div>
             
-            <nav class="user-selector" id="userSelector" style="display: none;">
+            <nav class="user-selector" id="userSelector" style="display: none; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px;">
                 <!-- Legacy container, hidden but kept for JS stability -->
             </nav>
 
             <div class="action-bar">
+                <div class="module-filters" style="display: flex; gap: 10px; align-items: center; margin-right: 15px; font-weight: 500; font-size: 0.9rem; color: #1e293b;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="mod1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;"> MARZO 1
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="mod2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;"> MARZO 2
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="abril1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;"> ABRIL 1
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="abril2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;"> ABRIL 2
+                    </label>
+                </div>
                 <button id="addCourseBtn" class="primary-btn">
                     <i class="fas fa-plus"></i> Agregar Curso
                 </button>
-                <button id="importCSVBtn" class="primary-btn-outline">
-                    <i class="fas fa-file-csv"></i> Importar CSV
+                <button id="btnConvertExcel" class="primary-btn-outline" style="border-color: #10b981; color: #10b981;">
+                    <i class="fas fa-file-excel"></i> Exportar a Excel
                 </button>
                 <button id="returnToPtcBtn" class="primary-btn-outline" style="display: none; border-color: #ef4444; color: #ef4444;">
                     <i class="fas fa-undo"></i> Volver a PTC
                 </button>
                 <input type="file" id="csvInput" accept=".csv" style="display: none;">
+                <input type="file" id="rawCsvToExcelInput" accept=".csv" style="display: none;">
             </div>
         </header>
 

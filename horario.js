@@ -12,8 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
         groups[gn] = groups[gn].map(u => u.trim().toUpperCase());
     });
     
-    // Keep OTROS group if it exists to preserve searchable history
-    if (!groups["OTROS"]) groups["OTROS"] = [];
+    // Remove OTROS group if it exists
+    if (groups["OTROS"]) {
+        delete groups["OTROS"];
+    }
     
     // Ensure default groups exist and are populated if missing
     Object.keys(defaultGroups).forEach(gn => {
@@ -148,6 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     let courses = {}; // Will be filled from Supabase
+    let googleSheetCourses = {}; // Will be filled from Google Sheet
 
     async function loadFromSupabase() {
         let res1, res2;
@@ -193,6 +196,169 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         courses = grouped;
         renderCourses();
+    }
+
+    function parseHorarios(diasStr, horasStr) {
+        if (!diasStr || !horasStr) return [];
+        
+        let daysRaw = [];
+        const dayRegex = /\((.*?)\)/g;
+        let match;
+        while ((match = dayRegex.exec(diasStr)) !== null) {
+            daysRaw.push(match[1].trim().toUpperCase());
+        }
+        if (daysRaw.length === 0) {
+            if (diasStr.includes('-')) {
+                daysRaw = diasStr.split('-').map(s => s.trim().toUpperCase());
+            } else {
+                daysRaw = [diasStr.trim().toUpperCase()];
+            }
+        }
+
+        let hoursRaw = [];
+        const hourRegex = /\((.*?)\)/g;
+        while ((match = hourRegex.exec(horasStr)) !== null) {
+            hoursRaw.push(match[1].trim());
+        }
+        if (hoursRaw.length === 0) {
+            hoursRaw = [horasStr.trim()];
+        }
+
+        const dayMap = {
+            'LUNES': 0, 'MARTES': 1, 'MIERCOLES': 2, 'MIÉRCOLES': 2,
+            'JUEVES': 3, 'VIERNES': 4, 'SABADO': 5, 'SÁBADO': 5, 'DOMINGO': 6
+        };
+
+        const results = [];
+        for (let i = 0; i < daysRaw.length; i++) {
+            const dStr = daysRaw[i];
+            let hStr = hoursRaw[i] || hoursRaw[0]; 
+            if (!hStr) continue;
+
+            const dayIdx = dayMap[dStr];
+            if (dayIdx === undefined) continue;
+
+            const timeMatch = hStr.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+            if (timeMatch) {
+                results.push({
+                    day: dayIdx,
+                    startTime: timeMatch[1].padStart(5, '0'),
+                    endTime: timeMatch[2].padStart(5, '0')
+                });
+            }
+        }
+        return results;
+    }
+
+    async function loadFromGoogleSheet() {
+        try {
+            const res = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv');
+            const text = await res.text();
+            const workbook = XLSX.read(text, { type: 'string' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const dataRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }).slice(1); // skip header
+            
+            googleSheetCourses = {};
+            
+            dataRows.forEach(row => {
+                const name = row[2] != null ? String(row[2]).trim().toUpperCase() : '';
+                const dni = row[1] != null ? String(row[1]).trim() : '';
+                if (!name) return;
+                
+                const cursoName = row[4] != null ? String(row[4]).trim() : '';
+                const seccion = row[5] != null ? String(row[5]).trim() : '';
+                const modulo = row[6] != null ? String(row[6]).trim() : '';
+                const nrc = row[7] != null ? String(row[7]).trim() : '';
+                const sede = row[3] != null ? String(row[3]).trim() : '';
+                const periodo = row[11] != null ? String(row[11]).trim().toUpperCase() : '';
+                const modalidad = row[15] != null ? String(row[15]).trim() : '';
+                const diasStr = row[16] != null ? String(row[16]).trim() : '';
+                const horasStr = row[17] != null ? String(row[17]).trim() : '';
+
+                const parsedSchedules = parseHorarios(diasStr, horasStr);
+                
+                if (!googleSheetCourses[name]) googleSheetCourses[name] = [];
+                
+                parsedSchedules.forEach(sch => {
+                    googleSheetCourses[name].push({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        name: cursoName,
+                        modality: modalidad,
+                        sede: sede,
+                        section: seccion,
+                        nrc: nrc,
+                        modulo: modulo,
+                        dni: dni,
+                        periodo: periodo,
+                        room: '',
+                        startTime: sch.startTime,
+                        endTime: sch.endTime,
+                        days: [sch.day],
+                        user: name,
+                        sourceTable: 'google_sheet'
+                    });
+                });
+            });
+            
+            console.log("Loaded Google Sheet Data");
+            setupAutocomplete();
+            renderCourses();
+        } catch (err) {
+            console.error("Error loading Google Sheet:", err);
+        }
+    }
+
+    function setupAutocomplete() {
+        const searchInput = document.getElementById('userSearchInput');
+        const searchResults = document.getElementById('searchResults');
+        if (!searchInput || !searchResults) return;
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim().toUpperCase();
+            searchResults.innerHTML = '';
+            
+            if (!val) {
+                searchResults.classList.add('hidden');
+                return;
+            }
+
+            const allTeachers = Object.keys(googleSheetCourses);
+            const normalizedVal = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            const matches = allTeachers.filter(t => {
+                const normT = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                return normT.includes(normalizedVal);
+            }).sort();
+
+            if (matches.length > 0) {
+                searchResults.classList.remove('hidden');
+                matches.forEach(m => {
+                    const li = document.createElement('li');
+                    li.className = 'search-result-item';
+                    li.textContent = m;
+                    li.addEventListener('click', () => {
+                        searchInput.value = m;
+                        searchResults.classList.add('hidden');
+                        
+                        // Set active user and render
+                        document.querySelectorAll('.user-btn').forEach(btn => btn.classList.remove('active'));
+                        activeUsers = new Set([m]);
+                        renderCourses();
+                    });
+                    searchResults.appendChild(li);
+                });
+            } else {
+                searchResults.classList.add('hidden');
+            }
+        });
+
+        // Hide when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('hidden');
+            }
+        });
     }
 
     async function saveToSupabase(course, owner, tableName = 'cot_horarios') {
@@ -324,6 +490,16 @@ document.addEventListener('DOMContentLoaded', () => {
     renderGroupSelector();
     renderUserSelector();
     loadFromSupabase();
+    loadFromGoogleSheet();
+
+    const mod1Check = document.getElementById('mod1Check');
+    const mod2Check = document.getElementById('mod2Check');
+    const abril1Check = document.getElementById('abril1Check');
+    const abril2Check = document.getElementById('abril2Check');
+    if (mod1Check) mod1Check.addEventListener('change', renderCourses);
+    if (mod2Check) mod2Check.addEventListener('change', renderCourses);
+    if (abril1Check) abril1Check.addEventListener('change', renderCourses);
+    if (abril2Check) abril2Check.addEventListener('change', renderCourses);
 
     // Group Logic
     function renderGroupSelector() {
@@ -338,6 +514,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchGroup(groupName) {
+        if (groupName === 'AQP-CIX' && activeGroup !== 'AQP-CIX') {
+            const pass = prompt('Ingrese contraseña para acceder a AQP-CIX:');
+            if (pass !== 'Software-2026') {
+                alert('Contraseña incorrecta');
+                return;
+            }
+        }
         activeGroup = groupName;
         activeUsers = new Set(); // Start empty for all groups
         renderGroupSelector();
@@ -363,6 +546,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // Helper to generate a stable color from a string
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+        return '#' + '00000'.substring(0, 6 - c.length) + c;
+    }
+
+    function getUserColor(cleanName) {
+        const hardcoded = ["eduardo", "jose", "jorge", "carlos", "mirko", "luis"];
+        if (hardcoded.includes(cleanName)) {
+            return `var(--u-${cleanName})`;
+        }
+        return stringToColor(cleanName);
+    }
+
     function renderLegacyButtons() {
         userSelector.innerHTML = '';
         const users = groups[activeGroup] || [];
@@ -374,19 +575,55 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActive = activeUsers.has(normalizedUser);
             
             btn.className = `user-btn ${isActive ? 'active' : ''}`;
+            btn.style.display = 'inline-flex';
+            btn.style.alignItems = 'center';
+            btn.style.gap = '8px';
+            
+            const userColor = getUserColor(cleanName);
+            
             if (isActive) {
-                btn.style.backgroundColor = `var(--u-${cleanName})`;
-                btn.style.borderColor = `var(--u-${cleanName})`;
+                btn.style.backgroundColor = userColor;
+                btn.style.borderColor = userColor;
                 btn.style.color = 'white';
             }
             
-            btn.innerText = user;
-            btn.onclick = () => {
+            const nameSpan = document.createElement('span');
+            nameSpan.innerText = user;
+            btn.appendChild(nameSpan);
+            
+            // Delete button for user
+            const delIcon = document.createElement('i');
+            delIcon.className = 'fas fa-times';
+            delIcon.style.opacity = '0.5';
+            delIcon.style.fontSize = '0.8em';
+            delIcon.style.transition = 'opacity 0.2s';
+            delIcon.onmouseover = () => delIcon.style.opacity = '1';
+            delIcon.onmouseout = () => delIcon.style.opacity = '0.5';
+            delIcon.title = `Eliminar a ${user}`;
+            delIcon.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm(`¿Estás seguro de eliminar a ${user} de este grupo?`)) {
+                    groups[activeGroup] = groups[activeGroup].filter(u => u !== user);
+                    activeUsers.delete(normalizedUser);
+                    persistGroups();
+                    updateModalUserSelect();
+                    renderLegacyButtons();
+                    renderCourses();
+                }
+            };
+            btn.appendChild(delIcon);
+            
+            btn.onclick = (e) => {
+                if (e.target === delIcon) return; // handled above
                 if (activeUsers.has(normalizedUser)) {
                     activeUsers.delete(normalizedUser);
                 } else {
                     activeUsers.add(normalizedUser);
                 }
+                
+                const searchInput = document.getElementById('userSearchInput');
+                if (searchInput) searchInput.value = '';
+
                 renderLegacyButtons();
                 renderCourses();
             };
@@ -398,13 +635,24 @@ document.addEventListener('DOMContentLoaded', () => {
         addUserBtn.innerHTML = '<i class="fas fa-plus"></i> Añadir';
         addUserBtn.onclick = () => {
             const name = prompt('Nombre del docente:');
-            if (name && !groups[activeGroup].includes(name)) {
-                groups[activeGroup].push(name);
-                activeUsers.add(name);
-                persistGroups();
-                renderLegacyButtons();
-                updateModalUserSelect();
-                renderCourses();
+            if (name) {
+                const normalizedName = name.trim().toUpperCase();
+                if (!groups[activeGroup].includes(normalizedName)) {
+                    const dni = prompt(`DNI de ${normalizedName} (Para ubicarlo con exactitud en Google Sheets):`);
+                    groups[activeGroup].push(normalizedName);
+                    activeUsers.add(normalizedName);
+                    
+                    if (dni && dni.trim()) {
+                        let customDnis = JSON.parse(localStorage.getItem('cot_custom_dnis')) || {};
+                        customDnis[normalizedName] = dni.trim();
+                        localStorage.setItem('cot_custom_dnis', JSON.stringify(customDnis));
+                    }
+                    
+                    persistGroups();
+                    renderLegacyButtons();
+                    updateModalUserSelect();
+                    renderCourses();
+                }
             }
         };
         userSelector.appendChild(addUserBtn);
@@ -447,27 +695,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Call updateModalUserSelect initially
     updateModalUserSelect();
 
-    const importCSVBtn = document.getElementById('importCSVBtn');
-    const csvInput = document.getElementById('csvInput');
-
     if (addBtn) addBtn.onclick = () => {
         console.log('Add button clicked');
         openModal();
     };
     if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
     window.onclick = (e) => { if (modal && e.target == modal) modal.style.display = 'none'; };
-
-    if (importCSVBtn) importCSVBtn.onclick = () => csvInput.click();
-    if (csvInput) csvInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = (event) => processCSV(event.target.result);
-        reader.readAsText(file);
-        // Clear input so same file can be uploaded again
-        csvInput.value = '';
-    };
 
     async function processCSV(text) {
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -782,19 +1015,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCourses() {
-        // Clear previous cards
         const existingCards = document.querySelectorAll('.course-card');
         existingCards.forEach(c => c.remove());
 
         const activeCoursesList = [];
+        const renderedCourseKeys = new Set();
         
-        activeUsers.forEach(user => {
-            if (courses[user]) {
-                courses[user].forEach(c => activeCoursesList.push({ ...c, user }));
+        const mod1Check = document.getElementById('mod1Check');
+        const mod2Check = document.getElementById('mod2Check');
+        const abril1Check = document.getElementById('abril1Check');
+        const abril2Check = document.getElementById('abril2Check');
+
+        const showMarzo1 = mod1Check ? mod1Check.checked : true;
+        const showMarzo2 = mod2Check ? mod2Check.checked : true;
+        const showAbril1 = abril1Check ? abril1Check.checked : true;
+        const showAbril2 = abril2Check ? abril2Check.checked : true;
+
+        const isCourseVisible = (c) => {
+            const p = (c.periodo || '').toUpperCase();
+            const m = (c.modulo || '').toString();
+
+            if (p === '' && m === '') {
+                return showMarzo1 || showMarzo2 || showAbril1 || showAbril2;
             }
+
+            if (showMarzo1 && ((p === 'ENE' || p === 'ENERO') && m === '2' || p === 'MARZO' && m === '1')) return true;
+            if (showMarzo2 && p === 'MARZO' && m === '2') return true;
+            if (showAbril1 && p === 'ABRIL' && m === '1') return true;
+            if (showAbril2 && p === 'ABRIL' && m === '2') return true;
+
+            return false;
+        };
+
+        activeUsers.forEach(user => {
+            if (isMasterMode && courses[user]) {
+                courses[user].forEach(c => {
+                    if (!isCourseVisible(c)) return;
+                    activeCoursesList.push({ ...c, user });
+                });
+            }
+            
+            const userDniMap = {
+                'EDUARDO': '46069339',
+                'JOSÉ': '41403863',
+                'JOSE': '41403863',
+                'JORGE': '70092982',
+                'CARLOS': '8133862',
+                'LUIS': '40073403',
+                'MIRKO': '42670470'
+            };
+            let customDnis = JSON.parse(localStorage.getItem('cot_custom_dnis')) || {};
+            const reqDni = userDniMap[user.trim().toUpperCase()] || customDnis[user.trim().toUpperCase()];
+
+            Object.keys(googleSheetCourses).forEach(gsUser => {
+                const normalizedGsUser = gsUser.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const normalizedUser = user.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const isMatch = normalizedGsUser.includes(normalizedUser);
+
+                googleSheetCourses[gsUser].forEach(c => {
+                    if (reqDni) {
+                        if (c.dni === reqDni || c.dni === reqDni.padStart(8, '0')) {
+                            if (!isCourseVisible(c)) return;
+                            const courseKey = `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
+                            if (!renderedCourseKeys.has(courseKey)) {
+                                activeCoursesList.push({ ...c, user: gsUser });
+                                renderedCourseKeys.add(courseKey);
+                            }
+                        }
+                    } else if (isMatch) {
+                        if (!isCourseVisible(c)) return;
+                        const courseKey = `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
+                        if (!renderedCourseKeys.has(courseKey)) {
+                            activeCoursesList.push({ ...c, user: gsUser });
+                            renderedCourseKeys.add(courseKey);
+                        }
+                    }
+                });
+            });
         });
 
-        if (activeGroup === 'PTC' && courses['TODOS']) {
+        if (isMasterMode && activeGroup === 'PTC' && courses['TODOS']) {
             courses['TODOS'].forEach(c => activeCoursesList.push({ ...c, user: 'TODOS' }));
         }
 
@@ -900,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.style.width = `${cardWidth - 4}px`;
         
         const cleanName = course.user.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const userColorVar = `var(--u-${cleanName})`;
+        const userColorVar = getUserColor(cleanName);
 
         let nrcSecText = "";
         if (course.nrc) nrcSecText += `NRC: ${course.nrc} `;
@@ -922,7 +1222,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const hardcoded = ["eduardo", "jose", "jorge", "carlos", "mirko", "luis"];
         if (!hardcoded.includes(cleanName)) {
             card.style.borderLeft = `4px solid ${userColorVar}`;
-            card.style.backgroundColor = `${userColorVar}15`; // 15 is hex for ~8% opacity
+            // Add slight transparency by appending '15' (hex for ~8% opacity) if it's a hex code, or use a trick for variables
+            if (userColorVar.startsWith('#')) {
+                card.style.backgroundColor = `${userColorVar}15`;
+            } else {
+                card.style.backgroundColor = `${userColorVar}15`; // Variables still have fallback
+            }
         }
 
         if (course.modality?.toLowerCase() === 'virtual') {
@@ -975,8 +1280,23 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('courseSection').value = course.section || '';
             document.getElementById('courseNRC').value = course.nrc || '';
             document.getElementById('courseRoom').value = course.room || '';
-            userSelect.value = owner;
+            
+            if (owner && !Array.from(userSelect.options).some(o => o.value.toUpperCase() === owner.toUpperCase())) {
+                const opt = document.createElement('option');
+                opt.value = owner.toUpperCase();
+                opt.textContent = owner.toUpperCase();
+                userSelect.appendChild(opt);
+            }
+            userSelect.value = owner.toUpperCase();
             userSelect.disabled = true;
+
+            // Normalize modality to Title Case for dropdown compatibility
+            if (course.modality) {
+                const m = course.modality.toLowerCase();
+                if (m === 'virtual') document.getElementById('courseModality').value = 'Virtual';
+                else if (m === 'presencial') document.getElementById('courseModality').value = 'Presencial';
+                else if (m === 'híbrido' || m === 'hibrido') document.getElementById('courseModality').value = 'Híbrido';
+            }
 
             // Find all related schedules (soft grouping)
             const relatedSchedules = (courses[owner] || []).filter(c => 
@@ -1125,6 +1445,334 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!timeStr) return 0;
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
+    }
+
+    // --- CSV to Excel Converter Logic ---
+    const btnConvertExcel = document.getElementById('btnConvertExcel');
+    const rawCsvToExcelInput = document.getElementById('rawCsvToExcelInput');
+
+    if (btnConvertExcel && rawCsvToExcelInput) {
+        btnConvertExcel.addEventListener('click', () => rawCsvToExcelInput.click());
+        rawCsvToExcelInput.addEventListener('change', handleRawCsvToExcel);
+    }
+
+    function parseCourseStringToRow(text, defaultSede) {
+        if (!text || typeof text !== 'string') return null;
+
+        let d = {
+            curso: "DESCONOCIDO",
+            seccion: "N/A",
+            modulo: "",
+            nrc: "0",
+            sedeLarga: defaultSede,
+            sedeCorta: defaultSede,
+            carga: "",
+            periodo: "",
+            ciclo: "",
+            modalidad: ""
+        };
+
+        const parts = text.split('-').map(p => p.trim());
+        const secMatch = text.match(/(\d{3,4}[A-Z])/i); 
+
+        let extractedSede = defaultSede;
+        if (secMatch) {
+            const seccion = secMatch[1].toUpperCase();
+            const idx = parts.findIndex(p => p.toUpperCase() === seccion);
+            if (idx > 0) {
+                extractedSede = parts[idx - 1].toUpperCase();
+            }
+        }
+
+        const sedesMap = {
+            'AQP': 'AREQUIPA',
+            'ATE': 'ATE',
+            'VES': 'VILLA EL SALVADOR',
+            'NOR': 'NORTE',
+            'VIRTUAL': 'VIRTUAL',
+            'PRC': 'SURCO',
+            'SJL': 'SAN JUAN DE LURIGANCHO',
+            'CRT': 'CERTUS',
+            'SUR': 'SURCO',
+            'CEN': 'CENTRO',
+            'CHY': 'CHICLAYO'
+        };
+
+        d.sedeCorta = extractedSede;
+        d.sedeLarga = sedesMap[extractedSede] || extractedSede;
+
+        const nrcMatch = text.match(/NRC[\s:-]*(\d+)/i);
+        if (nrcMatch) { d.nrc = nrcMatch[1]; }
+        else {
+            const lastParts = parts.slice(-2);
+            for (let p of lastParts) {
+                const pClean = p.replace(/[^\w\s]/g, '').trim();
+                if (/^\d{3,5}$/.test(pClean)) {
+                    d.nrc = pClean;
+                    break;
+                }
+            }
+        }
+
+        const bloqueMatch = text.match(/BLOQUE\s*(\d)/i);
+        if (bloqueMatch) { d.modulo = bloqueMatch[1]; }
+
+        if (secMatch) { d.seccion = secMatch[1]; }
+
+        const clMatch = text.match(/C\.L\.(\d{4})/i);
+        if (clMatch) { d.carga = clMatch[1]; }
+
+        const periodoMatch = text.match(/BLOQUE \d (\w+) \(/i) || text.match(/(MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)/i);
+        if (periodoMatch) { d.periodo = periodoMatch[1].toUpperCase(); }
+
+        const cicloMatch = text.match(/([IVXLCDM]+)\s*CICLO/i);
+        if (cicloMatch) { d.ciclo = cicloMatch[1].toUpperCase(); }
+
+        const matchCurso = text.match(/-(\d{4,5})-(.*?)-(?:[IVXLCDM]+)\s*CICLO/i);
+        if (matchCurso) {
+            d.curso = matchCurso[2].trim();
+        } else {
+            if (parts.length > 6) {
+                d.curso = parts.slice(6, parts.length - 2).join('-').replace(/-[IVXLCDM]+\s*CICLO.*$/, '').trim();
+                if (d.curso === "") d.curso = parts[6] || "DESCONOCIDO";
+            }
+        }
+        
+        d.modalidad = (d.sedeCorta === 'VIRTUAL') ? 'VIRTUAL' : 'PRESENCIAL';
+
+        return d;
+    }
+
+    async function handleRawCsvToExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const btn = document.getElementById('btnConvertExcel');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        btn.disabled = true;
+
+        try {
+            const data = await processRawCSVToExcelData(file);
+            if (data.length === 0) {
+                alert('No se encontraron datos procesables en el CSV.');
+            } else {
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "CARGA_HORARIA");
+                XLSX.writeFile(wb, "CARGA_HORARIA.xlsx");
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error al procesar el archivo CSV.');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            e.target.value = ''; // reset
+        }
+    }
+
+    function processRawCSVToExcelData(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    // Use windows-1252 to properly decode ANSI CSVs downloaded from corporate systems
+                    const decoder = new TextDecoder("windows-1252");
+                    const decodedString = decoder.decode(data);
+                    
+                    const workbook = XLSX.read(decodedString, { type: 'string' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+                    let headerRowIdx = -1;
+                    for (let i = 0; i < Math.min(20, rawData.length); i++) {
+                        const row = rawData[i];
+                        if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('DNI'))) {
+                            headerRowIdx = i;
+                            break;
+                        }
+                    }
+
+                    if (headerRowIdx === -1) {
+                        throw new Error("No se encontró la fila con 'DNI'.");
+                    }
+
+                    const colHeaders = Array.from(rawData[headerRowIdx] || []).map(h => String(h || "").trim().toUpperCase());
+                    const dniIdx = colHeaders.indexOf('DNI');
+                    const nameIdx = colHeaders.findIndex(h => h.includes('NOMBRE'));
+                    const horaInicioIdx = colHeaders.findIndex(h => h.includes('HORA INICIO'));
+                    const horaFinIdx = colHeaders.findIndex(h => h.includes('HORA FIN'));
+
+                    const dayNames = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
+                    const dayIndices = [];
+                    dayNames.forEach((d, i) => {
+                        const idx = colHeaders.findIndex(h => h.includes(d) || h.includes(d.replace('E', 'É')) || h.includes(d.replace('A', 'Á')));
+                        if (idx !== -1) dayIndices.push({ day: d, idx });
+                    });
+
+                    const colSedeMap = new Map();
+                    let lastSedeFound = "VIRTUAL";
+                    const knownSedes = ['ATE', 'VES', 'NOR', 'AQP', 'VIRTUAL', 'PRC', 'SJL', 'CRT', 'CEN', 'SUR', 'CHY'];
+
+                    for (let c = 0; c < colHeaders.length; c++) {
+                        for (let r = 0; r < headerRowIdx; r++) {
+                            const val = String(rawData[r][c] || "").trim().toUpperCase();
+                            if (knownSedes.includes(val)) {
+                                lastSedeFound = val;
+                                break;
+                            }
+                        }
+                        colSedeMap.set(c, lastSedeFound);
+                    }
+
+                    const groups = new Map(); 
+
+                    for (let i = headerRowIdx + 1; i < rawData.length; i++) {
+                        const row = rawData[i];
+                        if (!row || row.length === 0) continue;
+
+                        let dni = String(row[dniIdx] || "").trim();
+                        if (!dni || dni === "nan" || !/^\d+$/.test(dni)) continue;
+                        
+                        const name = String(row[nameIdx] || "").trim();
+                        let hInicioStr = String(row[horaInicioIdx] || "").trim();
+                        let hFinStr = String(row[horaFinIdx] || "").trim();
+
+                        if (hInicioStr.length === 7) hInicioStr = "0" + hInicioStr; 
+                        if (hFinStr.length === 7) hFinStr = "0" + hFinStr;
+                        
+                        const hInicio = hInicioStr.substring(0, 5);
+                        const hFin = hFinStr.substring(0, 5);
+
+                        dayIndices.forEach(dObj => {
+                            const cellValue = String(row[dObj.idx] || "").trim();
+                            if (!cellValue || cellValue === "nan" || cellValue.startsWith('#')) return;
+
+                            const entries = cellValue.split(/(?=C\.L\.)/);
+
+                            for (let entry of entries) {
+                                entry = entry.trim();
+                                if (!entry) continue;
+
+                                const contextualSede = colSedeMap.get(dObj.idx) || "VIRTUAL";
+                                const parsed = parseCourseStringToRow(entry, contextualSede);
+                                
+                                if (parsed && parsed.nrc && parsed.nrc !== "0") {
+                                    const key = `${dni}-${parsed.nrc}-${parsed.carga}-${parsed.seccion}`;
+                                    
+                                    if (!groups.has(key)) {
+                                        groups.set(key, {
+                                            parsed: parsed,
+                                            dni: dni,
+                                            name: name,
+                                            blocks: []
+                                        });
+                                    }
+                                    groups.get(key).blocks.push({
+                                        day: dObj.day,
+                                        start: hInicio,
+                                        end: hFin
+                                    });
+                                }
+                            }
+                        });
+                    }
+
+                    const results = [];
+                    groups.forEach((groupData, key) => {
+                        const { parsed, dni, name, blocks } = groupData;
+                        
+                        const dayMap = {};
+                        blocks.forEach(b => {
+                            if (!dayMap[b.day]) dayMap[b.day] = [];
+                            dayMap[b.day].push(b);
+                        });
+
+                        const horariosDias = [];
+                        const horariosHoras = [];
+
+                        const dayOrder = { 'LUNES': 1, 'MARTES': 2, 'MIERCOLES': 3, 'JUEVES': 4, 'VIERNES': 5, 'SABADO': 6, 'DOMINGO': 7 };
+                        const sortedDays = Object.keys(dayMap).sort((a, b) => dayOrder[a] - dayOrder[b]);
+
+                        sortedDays.forEach(day => {
+                            const bList = dayMap[day];
+                            bList.sort((a, b) => a.start.localeCompare(b.start));
+                            
+                            let currentStart = bList[0].start;
+                            let currentEnd = bList[0].end;
+                            
+                            for (let i = 1; i < bList.length; i++) {
+                                if (bList[i].start === currentEnd) {
+                                    currentEnd = bList[i].end;
+                                } else {
+                                    horariosDias.push(`(${day})`);
+                                    const prefix = (parsed.modalidad === 'VIRTUAL') ? 'VIR ' : 'PRE ';
+                                    horariosHoras.push(`(${prefix}${currentStart}-${currentEnd})`);
+                                    currentStart = bList[i].start;
+                                    currentEnd = bList[i].end;
+                                }
+                            }
+                            horariosDias.push(`(${day})`);
+                            const prefix = (parsed.modalidad === 'VIRTUAL') ? 'VIR ' : 'PRE ';
+                            horariosHoras.push(`(${prefix}${currentStart}-${currentEnd})`);
+                        });
+
+                        const turno = parsed.seccion ? parsed.seccion.slice(-1) : "";
+                        const key1 = `${dni}${name.substring(0, 3).toUpperCase()}`;
+                        const key2 = `${parsed.carga}${parsed.seccion}${parsed.modulo}${parsed.nrc}`;
+
+                        const dStr = horariosDias.join('');
+                        const hStr = horariosHoras.join('');
+                        
+                        const fullCourseText = `Curso: ${parsed.curso}/Periodo: ${parsed.periodo}/Módulo: ${parsed.modulo}/Sede: ${parsed.sedeCorta}/Modalidad: ${parsed.modalidad}/Días: ${dStr}/Horas: ${hStr}/Sección: ${parsed.seccion}/NRC: ${parsed.nrc}`;
+
+                        const rowResult = {
+                            "Carga": parsed.carga,
+                            "DNI": dni,
+                            "Nombres y Apellidos": name,
+                            "Sede": parsed.sedeLarga,
+                            "Curso": parsed.curso,
+                            "Sección": parsed.seccion,
+                            "Módulo": parsed.modulo,
+                            "NRC": parsed.nrc,
+                            "Horas": blocks.length,
+                            "Key 1": key1,
+                            "Key 2": key2,
+                            "Periodo": parsed.periodo,
+                            "TURNO": turno,
+                            "SEDE": parsed.sedeCorta,
+                            "CICLO": parsed.ciclo,
+                            "MODALIDAD": parsed.modalidad,
+                            "HORARIO (DÍAS)": dStr,
+                            "HORARIO (HORAS)": hStr,
+                            "ÁREA": "" // Adding AREA column as placeholder
+                        };
+
+                        const allDays = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
+                        allDays.forEach(d => {
+                            if (dayMap[d]) {
+                                rowResult[d] = fullCourseText;
+                            } else {
+                                rowResult[d] = "";
+                            }
+                        });
+
+                        results.push(rowResult);
+                    });
+
+                    resolve(results);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
     }
 
     window.addEventListener('resize', renderCourses);
