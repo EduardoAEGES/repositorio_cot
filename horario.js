@@ -29,8 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isMasterMode = false;
     let activeGroup = Object.keys(groups)[0] || "PTC";
-    // Default to EDUARDO selected for "Modo Master"
-    let activeUsers = new Set(['EDUARDO']);
+    // Default to CARLOS selected for "Modo Master"
+    let activeUsers = new Set(['CARLOS']);
+    let lastSearchedUser = null;
     
     console.log('Groups initialized:', groups);
     console.log('Active group:', activeGroup);
@@ -312,14 +313,55 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupAutocomplete() {
         const searchInput = document.getElementById('userSearchInput');
         const searchResults = document.getElementById('searchResults');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const searchScheduleBtn = document.getElementById('searchScheduleBtn');
+        
         if (!searchInput || !searchResults) return;
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                if (lastSearchedUser) {
+                    activeUsers.delete(lastSearchedUser);
+                    lastSearchedUser = null;
+                }
+                searchInput.value = '';
+                clearSearchBtn.style.display = 'none';
+                renderCourses();
+            });
+        }
+
+        if (searchScheduleBtn) {
+            searchScheduleBtn.addEventListener('click', () => {
+                const val = searchInput.value.trim().toUpperCase();
+                if (lastSearchedUser && lastSearchedUser !== val) {
+                    activeUsers.delete(lastSearchedUser);
+                }
+                if (val) {
+                    activeUsers.add(val);
+                    lastSearchedUser = val;
+                } else if (lastSearchedUser) {
+                    activeUsers.delete(lastSearchedUser);
+                    lastSearchedUser = null;
+                }
+                renderCourses();
+            });
+        }
 
         searchInput.addEventListener('input', (e) => {
             const val = e.target.value.trim().toUpperCase();
             searchResults.innerHTML = '';
             
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = val ? 'block' : 'none';
+            }
+            
             if (!val) {
                 searchResults.classList.add('hidden');
+                if (lastSearchedUser) {
+                    activeUsers.delete(lastSearchedUser);
+                    lastSearchedUser = null;
+                    renderCourses();
+                }
                 return;
             }
 
@@ -340,11 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.addEventListener('click', () => {
                         searchInput.value = m;
                         searchResults.classList.add('hidden');
-                        
-                        // Set active user and render
-                        document.querySelectorAll('.user-btn').forEach(btn => btn.classList.remove('active'));
-                        activeUsers = new Set([m]);
-                        renderCourses();
+                        if (clearSearchBtn) clearSearchBtn.style.display = 'block';
                     });
                     searchResults.appendChild(li);
                 });
@@ -494,12 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const mod1Check = document.getElementById('mod1Check');
     const mod2Check = document.getElementById('mod2Check');
-    const abril1Check = document.getElementById('abril1Check');
-    const abril2Check = document.getElementById('abril2Check');
+    const junio1Check = document.getElementById('junio1Check');
+    const junio2Check = document.getElementById('junio2Check');
     if (mod1Check) mod1Check.addEventListener('change', renderCourses);
     if (mod2Check) mod2Check.addEventListener('change', renderCourses);
-    if (abril1Check) abril1Check.addEventListener('change', renderCourses);
-    if (abril2Check) abril2Check.addEventListener('change', renderCourses);
+    if (junio1Check) junio1Check.addEventListener('change', renderCourses);
+    if (junio2Check) junio2Check.addEventListener('change', renderCourses);
 
     // Group Logic
     function renderGroupSelector() {
@@ -621,8 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     activeUsers.add(normalizedUser);
                 }
                 
-                const searchInput = document.getElementById('userSearchInput');
-                if (searchInput) searchInput.value = '';
+
 
                 renderLegacyButtons();
                 renderCourses();
@@ -1004,10 +1041,20 @@ document.addEventListener('DOMContentLoaded', () => {
             row.style.top = `${currentIndex * PIXELS_PER_PERIOD}px`;
             row.style.height = `${PIXELS_PER_PERIOD}px`;
             
-            row.innerHTML = `
-                <div class="hour-label">${timeStr}</div>
-                ${'<div class="grid-cell"></div>'.repeat(7)}
-            `;
+            if (i === 15) {
+                row.innerHTML = `
+                    <div class="hour-label" style="background-color: #0f172a; color: white; display: flex; flex-direction: column; justify-content: center; line-height: 1.1;">
+                        <span>${timeStr}</span>
+                        <span style="font-size: 0.65rem; color: #fbbf24; font-weight: bold;">TURNO NOCHE</span>
+                    </div>
+                    ${'<div class="grid-cell" style="border-top: 2px solid #0f172a;"></div>'.repeat(7)}
+                `;
+            } else {
+                row.innerHTML = `
+                    <div class="hour-label">${timeStr}</div>
+                    ${'<div class="grid-cell"></div>'.repeat(7)}
+                `;
+            }
             gridBody.appendChild(row);
             currentIndex++;
         }
@@ -1023,26 +1070,26 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const mod1Check = document.getElementById('mod1Check');
         const mod2Check = document.getElementById('mod2Check');
-        const abril1Check = document.getElementById('abril1Check');
-        const abril2Check = document.getElementById('abril2Check');
+        const junio1Check = document.getElementById('junio1Check');
+        const junio2Check = document.getElementById('junio2Check');
 
         const showMarzo1 = mod1Check ? mod1Check.checked : true;
         const showMarzo2 = mod2Check ? mod2Check.checked : true;
-        const showAbril1 = abril1Check ? abril1Check.checked : true;
-        const showAbril2 = abril2Check ? abril2Check.checked : true;
+        const showJunio1 = junio1Check ? junio1Check.checked : true;
+        const showJunio2 = junio2Check ? junio2Check.checked : true;
 
         const isCourseVisible = (c) => {
             const p = (c.periodo || '').toUpperCase();
             const m = (c.modulo || '').toString();
 
             if (p === '' && m === '') {
-                return showMarzo1 || showMarzo2 || showAbril1 || showAbril2;
+                return showMarzo1 || showMarzo2 || showJunio1 || showJunio2;
             }
 
             if (showMarzo1 && ((p === 'ENE' || p === 'ENERO') && m === '2' || p === 'MARZO' && m === '1')) return true;
             if (showMarzo2 && p === 'MARZO' && m === '2') return true;
-            if (showAbril1 && p === 'ABRIL' && m === '1') return true;
-            if (showAbril2 && p === 'ABRIL' && m === '2') return true;
+            if (showJunio1 && p === 'JUNIO' && m === '1') return true;
+            if (showJunio2 && p === 'JUNIO' && m === '2') return true;
 
             return false;
         };
@@ -1100,6 +1147,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Dynamic Grid logic ---
         const activePeriods = new Set();
+        activePeriods.add(15); // Ensure TURNO NOCHE divider (18:15) always appears
+        
         activeCoursesList.forEach(course => {
             const start = timeToMinutes(course.startTime) - (START_HOUR * 60);
             const end = timeToMinutes(course.endTime) - (START_HOUR * 60);
@@ -1449,11 +1498,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CSV to Excel Converter Logic ---
     const btnConvertExcel = document.getElementById('btnConvertExcel');
-    const rawCsvToExcelInput = document.getElementById('rawCsvToExcelInput');
 
-    if (btnConvertExcel && rawCsvToExcelInput) {
-        btnConvertExcel.addEventListener('click', () => rawCsvToExcelInput.click());
-        rawCsvToExcelInput.addEventListener('change', handleRawCsvToExcel);
+    if (btnConvertExcel) {
+        btnConvertExcel.addEventListener('click', async () => {
+            const originalText = btnConvertExcel.innerHTML;
+            btnConvertExcel.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando Excel...';
+            btnConvertExcel.disabled = true;
+
+            try {
+                // Download the CSV from the source Google Sheet
+                const res = await fetch('https://docs.google.com/spreadsheets/d/1kjTbXxll7tWa76whBj04P-7cBV7EkOwEhM4OK3CukIs/export?format=csv');
+                if (!res.ok) throw new Error("Error downloading CSV");
+                
+                const blob = await res.blob();
+                const data = await processRawCSVToExcelData(blob);
+                
+                if (data.length === 0) {
+                    alert('No se encontraron datos procesables en el archivo origen.');
+                } else {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "CARGA_HORARIA");
+                    XLSX.writeFile(wb, "CARGA_HORARIA.xlsx");
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error al generar el archivo Excel.');
+            } finally {
+                btnConvertExcel.innerHTML = originalText;
+                btnConvertExcel.disabled = false;
+            }
+        });
     }
 
     function parseCourseStringToRow(text, defaultSede) {
@@ -1543,34 +1618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return d;
     }
 
-    async function handleRawCsvToExcel(e) {
-        const file = e.target.files[0];
-        if (!file) return;
 
-        const btn = document.getElementById('btnConvertExcel');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-        btn.disabled = true;
-
-        try {
-            const data = await processRawCSVToExcelData(file);
-            if (data.length === 0) {
-                alert('No se encontraron datos procesables en el CSV.');
-            } else {
-                const ws = XLSX.utils.json_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "CARGA_HORARIA");
-                XLSX.writeFile(wb, "CARGA_HORARIA.xlsx");
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Error al procesar el archivo CSV.');
-        } finally {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            e.target.value = ''; // reset
-        }
-    }
 
     function processRawCSVToExcelData(file) {
         return new Promise((resolve, reject) => {
@@ -1579,9 +1627,15 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    // Use windows-1252 to properly decode ANSI CSVs downloaded from corporate systems
-                    const decoder = new TextDecoder("windows-1252");
-                    const decodedString = decoder.decode(data);
+                    // Dynamically detect encoding (UTF-8 with fatal check, fallback to Windows-1252)
+                    let decodedString;
+                    try {
+                        const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+                        decodedString = utf8Decoder.decode(data);
+                    } catch (err) {
+                        const win1252Decoder = new TextDecoder("windows-1252");
+                        decodedString = win1252Decoder.decode(data);
+                    }
                     
                     const workbook = XLSX.read(decodedString, { type: 'string' });
                     const sheetName = workbook.SheetNames[0];
@@ -1607,11 +1661,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const horaInicioIdx = colHeaders.findIndex(h => h.includes('HORA INICIO'));
                     const horaFinIdx = colHeaders.findIndex(h => h.includes('HORA FIN'));
 
-                    const dayNames = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
                     const dayIndices = [];
-                    dayNames.forEach((d, i) => {
-                        const idx = colHeaders.findIndex(h => h.includes(d) || h.includes(d.replace('E', 'É')) || h.includes(d.replace('A', 'Á')));
-                        if (idx !== -1) dayIndices.push({ day: d, idx });
+                    const dayMatchers = [
+                        { day: 'LUNES', match: h => h.includes('LUNES') || h.includes('LUN') },
+                        { day: 'MARTES', match: h => h.includes('MARTES') || (h.includes('MAR') && !h.includes('MARZO')) },
+                        { day: 'MIERCOLES', match: h => h.includes('MIER') || h.includes('MIÉ') || h.includes('MIÃ') },
+                        { day: 'JUEVES', match: h => h.includes('JUEVES') || h.includes('JUE') },
+                        { day: 'VIERNES', match: h => h.includes('VIERNES') || h.includes('VIE') },
+                        { day: 'SABADO', match: h => h.includes('SAB') || h.includes('SÁB') || h.includes('SÃ') },
+                        { day: 'DOMINGO', match: h => h.includes('DOMINGO') || h.includes('DOM') }
+                    ];
+
+                    dayMatchers.forEach(m => {
+                        const idx = colHeaders.findIndex(h => m.match(h));
+                        if (idx !== -1) dayIndices.push({ day: m.day, idx });
                     });
 
                     const colSedeMap = new Map();
@@ -1775,5 +1838,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    window.processRawCSVToExcelData = processRawCSVToExcelData; // Expose for testing
     window.addEventListener('resize', renderCourses);
 });
