@@ -39,18 +39,173 @@ body {
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 }
 
-header {
+.app-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 2px solid var(--bg-app);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    margin-bottom: 25px;
 }
 
-.logo-area h1 {
-    font-size: 1.5rem;
-    color: var(--primary);
+.logo-area-framed {
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    padding: 25px 30px;
+    border-radius: 12px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+}
+
+.logo-area-framed h1 {
+    color: white;
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.controls-frame {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.controls-left {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.control-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.user-search-area {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    flex: 1;
+    min-width: 250px;
+}
+
+.search-bar-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.search-input-wrapper {
+    flex: 1;
+    min-width: 200px;
+    max-width: 350px;
+    position: relative;
+}
+
+.search-input-wrapper input {
+    width: 100%;
+    padding: 10px 30px 10px 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.clear-search-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ef4444;
+    cursor: pointer;
+}
+
+.search-btn {
+    background-color: #3b82f6;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.action-bar-framed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    width: auto;
+}
+
+.module-filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #334155;
+    background: #f8fafc;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.action-buttons button {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 10px 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.export-btn {
+    border: 1px solid #10b981;
+    color: #10b981;
+    background: transparent;
+}
+
+.return-btn {
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    background: transparent;
 }
 
 .group-controls {
@@ -640,34 +795,58 @@ header {
         border-radius: 0;
     }
     
-    header {
-        flex-direction: column;
-        align-items: stretch;
+    .app-header {
         gap: 12px;
         margin-bottom: 15px;
-        padding-bottom: 15px;
     }
     
-    .logo-area h1 {
-        font-size: 1.1rem;
-        text-align: center;
+    .logo-area-framed {
+        padding: 15px;
     }
     
-    .user-selector {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
+    .logo-area-framed h1 {
+        font-size: 1.2rem;
     }
     
-    .user-btn {
-        padding: 6px 4px;
-        font-size: 0.75rem;
-        text-align: center;
+    .controls-frame {
+        flex-direction: column;
+        padding: 12px;
+        gap: 15px;
+    }
+    
+    .controls-left {
+        gap: 15px;
+        flex-direction: column;
         width: 100%;
     }
     
-    .action-bar {
+    .search-input-wrapper {
+        max-width: 100%;
         width: 100%;
+    }
+    
+    .search-btn {
+        width: 100%;
+    }
+    
+    .action-bar-framed {
+        width: 100%;
+        align-items: stretch;
+    }
+    
+    .module-filters {
+        justify-content: center;
+    }
+    
+    .action-buttons {
+        width: 100%;
+    }
+    
+    .action-buttons button {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     .primary-btn {
