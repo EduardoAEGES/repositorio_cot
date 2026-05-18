@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         masterBtn.onclick = () => {
             if (isMasterMode) {
                 isMasterMode = false;
-                document.querySelector('h1').innerText = 'EQUIPO COT - Gestión de Horarios';
+                document.querySelector('h1').innerText = 'HORARIOS - EQUIPO COT PLN';
                 document.querySelector('.app-container').style.borderColor = 'transparent';
                 if (groupSelector) groupSelector.style.display = 'flex';
                 switchGroup('PTC');
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (returnToPtcBtn) {
         returnToPtcBtn.onclick = () => {
             isMasterMode = false;
-            document.querySelector('h1').innerText = 'EQUIPO COT - Gestión de Horarios';
+            document.querySelector('h1').innerText = 'HORARIOS - EQUIPO COT PLN';
             document.querySelector('.app-container').style.borderColor = 'transparent';
             if (groupSelector) groupSelector.style.display = 'flex';
             switchGroup('PTC');
@@ -1256,15 +1256,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (course.section) nrcSecText += `Sec: ${course.section}`;
         
         let roomText = course.room ? ` - Salón: ${course.room}` : "";
+        
+        const cantHoras = Math.round(durationMin / MINUTES_PER_PERIOD);
+        const horasText = `${cantHoras} ${cantHoras === 1 ? 'hora' : 'horas'}`;
 
-        card.innerHTML = `
-            <div class="course-name" title="${course.name}">${course.name}</div>
-            <span class="user-tag" style="color: ${userColorVar}">${course.user}</span>
-            ${nrcSecText ? `<div class="course-info nrc-info" style="font-weight:600;">${nrcSecText}</div>` : ''}
-            <div class="course-info time-info">${course.startTime} - ${course.endTime}</div>
-            <div class="course-info sede-info"><span class="info-label">Sede:</span> ${course.sede}${roomText}</div>
-            <div class="course-info mod-info"><span class="info-label">Mod:</span> ${course.modality}</div>
-        `;
+        if (isShort || isTiny) {
+            // Priority: NRC -> Time -> Name -> Mod -> Sede -> User
+            card.innerHTML = `
+                ${nrcSecText ? `<div class="course-info nrc-info" style="font-weight:700; font-size: 0.65rem; color: #1e40af;">${nrcSecText}</div>` : ''}
+                <div class="course-info time-info" style="font-weight:600;">${course.startTime} - ${course.endTime} (${horasText})</div>
+                <div class="course-name" title="${course.name}">${course.name}</div>
+                <div class="course-info sede-info"><span class="info-label">Sede:</span> ${course.sede}${roomText}</div>
+                <div class="course-info mod-info"><span class="info-label">Mod:</span> ${course.modality}</div>
+                <span class="user-tag" style="color: ${userColorVar}">${course.user}</span>
+            `;
+        } else {
+            card.innerHTML = `
+                <div class="course-name" title="${course.name}">${course.name}</div>
+                <span class="user-tag" style="color: ${userColorVar}">${course.user}</span>
+                ${nrcSecText ? `<div class="course-info nrc-info" style="font-weight:600;">${nrcSecText}</div>` : ''}
+                <div class="course-info time-info">${course.startTime} - ${course.endTime} (${horasText})</div>
+                <div class="course-info sede-info"><span class="info-label">Sede:</span> ${course.sede}${roomText}</div>
+                <div class="course-info mod-info"><span class="info-label">Mod:</span> ${course.modality}</div>
+            `;
+        }
 
         // Apply background and border color if teacher is not one of the hardcoded BTC ones
         // The hardcoded ones have data-user CSS rules, others will use this fallback

@@ -12,67 +12,91 @@
 </head>
 <body>
     <div class="app-container">
-        <header>
-            <div class="logo-area">
-                <h1>EQUIPO COT - Gestión de Horarios</h1>
+        <header style="flex-direction: column; align-items: stretch; gap: 20px; border-bottom: none; margin-bottom: 25px; padding-bottom: 0;">
+            
+            <!-- Título largo y bonito -->
+            <div class="logo-area" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 25px 30px; border-radius: 12px; text-align: center; color: white; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);">
+                <h1 style="color: white; margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">HORARIOS - EQUIPO COT PLN</h1>
             </div>
             
-            <div class="group-controls">
-                <nav class="group-selector" id="groupSelector">
-                    <!-- Groups will be injected by JS -->
-                </nav>
-                <button id="addGroupBtn" class="icon-btn" title="Agregar Grupo">
-                    <i class="fas fa-folder-plus"></i>
-                </button>
-            </div>
-            
-            <div class="user-search-area" id="teacherSearchArea" style="display: flex; flex-direction: column; margin-bottom: 20px; gap: 10px;">
-                <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 5px;">
-                    <i class="far fa-user"></i> DOCENTE
-                </label>
-                <div class="search-input-wrapper" style="width: 350px; position: relative;">
-                    <i class="fas fa-search search-icon" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
-                    <input type="text" id="userSearchInput" placeholder="Buscar por apellidos y nombres..." autocomplete="off" style="width: 100%; padding: 8px 30px 8px 35px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <i class="fas fa-times clear-search-icon" id="clearSearchBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #ef4444; cursor: pointer; display: none;" title="Limpiar búsqueda"></i>
-                    <ul id="searchResults" class="search-results hidden"></ul>
-                </div>
-                <div>
-                    <button id="searchScheduleBtn" class="primary-btn" style="background-color: #3b82f6; border: none; padding: 8px 16px; border-radius: 6px; color: white; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-search"></i> BUSCAR HORARIO
-                    </button>
-                </div>
-            </div>
-            
-            <nav class="user-selector" id="userSelector" style="display: none; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px;">
-                <!-- Legacy container, hidden but kept for JS stability -->
-            </nav>
+            <!-- Controles enmarcados -->
+            <div class="controls-frame" style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+                
+                <!-- Izquierda: Grupos y Búsqueda -->
+                <div style="display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap;">
+                    
+                    <!-- Selector de Grupo -->
+                    <div>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                            <i class="fas fa-users"></i> EQUIPO
+                        </label>
+                        <div class="group-controls">
+                            <nav class="group-selector" id="groupSelector">
+                                <!-- Groups will be injected by JS -->
+                            </nav>
+                            <button id="addGroupBtn" class="icon-btn" title="Agregar Grupo">
+                                <i class="fas fa-folder-plus"></i>
+                            </button>
+                        </div>
+                    </div>
 
-            <div class="action-bar">
-                <div class="module-filters" style="display: flex; gap: 10px; align-items: center; margin-right: 15px; font-weight: 500; font-size: 0.9rem; color: #1e293b;">
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" id="mod1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;"> MARZO 1
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" id="mod2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;" checked> MARZO 2
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" id="junio1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;" checked> JUNIO 1
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                        <input type="checkbox" id="junio2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;"> JUNIO 2
-                    </label>
+                    <!-- Búsqueda de Docente -->
+                    <div class="user-search-area" id="teacherSearchArea" style="display: flex; flex-direction: column; margin: 0;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                            <i class="far fa-user"></i> DOCENTE
+                        </label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <div class="search-input-wrapper" style="width: 350px; position: relative;">
+                                <i class="fas fa-search search-icon" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                                <input type="text" id="userSearchInput" placeholder="Buscar por apellidos y nombres..." autocomplete="off" style="width: 100%; padding: 10px 30px 10px 40px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; transition: all 0.2s;">
+                                <i class="fas fa-times clear-search-icon" id="clearSearchBtn" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #ef4444; cursor: pointer; display: none;" title="Limpiar búsqueda"></i>
+                                <ul id="searchResults" class="search-results hidden"></ul>
+                            </div>
+                            <button id="searchScheduleBtn" class="primary-btn" style="background-color: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; cursor: pointer; font-weight: 600; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3); transition: all 0.2s;">
+                                <i class="fas fa-search"></i> BUSCAR HORARIO
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <button id="addCourseBtn" class="primary-btn">
-                    <i class="fas fa-plus"></i> Agregar Curso
-                </button>
-                <button id="btnConvertExcel" class="primary-btn-outline" style="border-color: #10b981; color: #10b981;">
-                    <i class="fas fa-file-excel"></i> Exportar a Excel
-                </button>
-                <button id="returnToPtcBtn" class="primary-btn-outline" style="display: none; border-color: #ef4444; color: #ef4444;">
-                    <i class="fas fa-undo"></i> Volver a PTC
-                </button>
-                <!-- Removed file inputs -->
+
+                <!-- Derecha: Acciones y Filtros -->
+                <div class="action-bar" style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px; width: auto;">
+                    
+                    <!-- Filtros de Módulo -->
+                    <div class="module-filters" style="display: flex; gap: 12px; align-items: center; font-weight: 600; font-size: 0.85rem; color: #334155; background: #f8fafc; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; transition: color 0.2s;">
+                            <input type="checkbox" id="mod1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;"> MARZO 1
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; transition: color 0.2s;">
+                            <input type="checkbox" id="mod2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;" checked> MARZO 2
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; transition: color 0.2s;">
+                            <input type="checkbox" id="junio1Check" value="1" style="accent-color: #3b82f6; width: 16px; height: 16px;" checked> JUNIO 1
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; transition: color 0.2s;">
+                            <input type="checkbox" id="junio2Check" value="2" style="accent-color: #3b82f6; width: 16px; height: 16px;"> JUNIO 2
+                        </label>
+                    </div>
+                    
+                    <!-- Botones de Acción -->
+                    <div style="display: flex; gap: 10px;">
+                        <button id="addCourseBtn" class="primary-btn" style="border-radius: 8px; font-weight: 600;">
+                            <i class="fas fa-plus"></i> Agregar Curso
+                        </button>
+                        <button id="btnConvertExcel" class="primary-btn-outline" style="border: 1px solid #10b981; color: #10b981; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; background: transparent;">
+                            <i class="fas fa-file-excel"></i> Exportar
+                        </button>
+                        <button id="returnToPtcBtn" class="primary-btn-outline" style="display: none; border: 1px solid #ef4444; color: #ef4444; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; background: transparent;">
+                            <i class="fas fa-undo"></i> Volver a PTC
+                        </button>
+                    </div>
+                </div>
+                
             </div>
+            
+            <!-- Legacy container, hidden but kept for JS stability -->
+            <nav class="user-selector" id="userSelector" style="display: none; flex-wrap: wrap; gap: 8px; align-items: center;">
+            </nav>
         </header>
 
         <main class="schedule-grid-container">

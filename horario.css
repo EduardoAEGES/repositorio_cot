@@ -397,7 +397,7 @@ header {
 
 /* Ensure sticky header is visible and has a background */
 .grid-header > div {
-    background-color: #2563eb; /* Primary Blue */
+    background-color: #172554; /* Dark Blue */
     color: white;
     padding: 12px;
     text-align: center;
@@ -469,6 +469,8 @@ header {
     z-index: 100;
     transform: scale(1.02);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    height: auto !important; /* Allow card to expand vertically to show all info on hover */
+    min-height: max-content;
 }
 
 .course-card .user-tag {
@@ -498,11 +500,12 @@ header {
 }
 
 /* Responsive visibility for short cards (<= 90 min) */
+/* We no longer hide these because NRC, Sede, Mod and Time are important */
 .card-short .time-info,
 .card-short .sede-info, 
 .card-short .mod-info,
 .card-short .nrc-info { 
-    display: none !important; 
+    /* display: none !important; */
 }
 
 .card-short .course-name {
@@ -576,7 +579,7 @@ header {
 
 .grid-header .time-col {
     z-index: 100;
-    background: #2563eb; /* Matches header blue */
+    background: #172554; /* Matches header dark blue */
 }
 
 /* Modal Responsiveness */
