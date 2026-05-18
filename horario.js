@@ -399,6 +399,262 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Teacher Contract & Schedule Stats Logic ---
+    let contractData = {};
+
+    function cleanText(str) {
+        if (!str) return '';
+        return str.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+        return result;
+    }
+
+    async function loadContractData() {
+        try {
+            console.log("Iniciando carga de datos de contratos...");
+            const [resConta, resPln] = await Promise.all([
+                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=710892901'),
+                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=2112711805')
+            ]);
+
+            if (!resConta.ok || !resPln.ok) throw new Error("Error al descargar los CSV de contratos");
+
+            const textConta = await resConta.text();
+            const textPln = await resPln.text();
+
+            const rowsConta = textConta.split(/\r?\n/).filter(r => r.trim() !== '');
+            const rowsPln = textPln.split(/\r?\n/).filter(r => r.trim() !== '');
+
+            contractData = {};
+
+            // 1. Procesar CONTA
+            for (let i = 1; i < rowsConta.length; i++) {
+                const cols = parseCSVLine(rowsConta[i]);
+                if (cols.length < 8) continue;
+                const dni = cols[1] ? cols[1].trim() : '';
+                const name = cols[2] ? cols[2].trim() : '';
+                const contractType = cols[5] ? cols[5].trim() : '';
+                const contractHours = cols[7] ? cols[7].trim() : '';
+
+                if (name) {
+                    const cleanN = cleanText(name);
+                    const teacherObj = {
+                        dni,
+                        name,
+                        contractType,
+                        contractHours: parseInt(contractHours) || 0,
+                        source: "DOCENTES CONTA 2026"
+                    };
+                    contractData[cleanN] = teacherObj;
+                    if (dni) {
+                        contractData[dni] = teacherObj;
+                    }
+                }
+            }
+
+            // 2. Procesar PLN
+            for (let i = 2; i < rowsPln.length; i++) {
+                const cols = parseCSVLine(rowsPln[i]);
+                if (cols.length < 10) continue;
+                const dni = cols[1] ? cols[1].trim() : '';
+                const name = cols[2] ? cols[2].trim() : '';
+                const contractType = cols[7] ? cols[7].trim() : '';
+                const contractHours = cols[9] ? cols[9].trim() : '';
+
+                if (name) {
+                    const cleanN = cleanText(name);
+                    const teacherObj = {
+                        dni,
+                        name,
+                        contractType,
+                        contractHours: parseInt(contractHours) || 0,
+                        source: "DOCENTES PLN 2026"
+                    };
+                    contractData[cleanN] = teacherObj;
+                    if (dni) {
+                        contractData[dni] = teacherObj;
+                    }
+                }
+            }
+
+            console.log("Datos de contratos cargados exitosamente. Total registros:", Object.keys(contractData).length / 2);
+            
+            // Render stats once loaded (in case teachers are already selected)
+            if (typeof activeCoursesListGlobal !== 'undefined') {
+                renderTeacherStats(activeCoursesListGlobal);
+            }
+        } catch (err) {
+            console.error("Error al cargar contratos:", err);
+        }
+    }
+
+    // Keep a global reference to active courses list so we can update stats outside renderCourses if needed
+    let activeCoursesListGlobal = [];
+
+    function renderTeacherStats(activeCoursesList) {
+        activeCoursesListGlobal = activeCoursesList || [];
+        const statsContainer = document.getElementById('teacherStatsContainer');
+        if (!statsContainer) return;
+
+        statsContainer.innerHTML = '';
+
+        if (!activeUsers || activeUsers.size === 0) {
+            return; // No statistics if no teachers are selected
+        }
+
+        activeUsers.forEach(activeUser => {
+            const cleanActiveUser = cleanText(activeUser);
+
+            // 1. Resolve teacher contract info
+            const userDniMap = {
+                'EDUARDO': '46069339',
+                'JOSÉ': '41403863',
+                'JOSE': '41403863',
+                'JORGE': '70092982',
+                'CARLOS': '8133862',
+                'LUIS': '40073403',
+                'MIRKO': '42670470'
+            };
+            let customDnis = JSON.parse(localStorage.getItem('cot_custom_dnis')) || {};
+            const reqDni = userDniMap[cleanActiveUser] || customDnis[cleanActiveUser];
+
+            let contractInfo = null;
+            if (reqDni) {
+                const cleanReqDni = reqDni.trim().replace(/^0+/, '');
+                contractInfo = contractData[cleanReqDni] || contractData[cleanReqDni.padStart(8, '0')];
+            }
+            if (!contractInfo) {
+                contractInfo = contractData[cleanActiveUser];
+            }
+            if (!contractInfo) {
+                // Fuzzy lookup in contractData keys
+                const matchedKey = Object.keys(contractData).find(k => k.includes(cleanActiveUser) || cleanActiveUser.includes(k));
+                if (matchedKey) {
+                    contractInfo = contractData[matchedKey];
+                }
+            }
+
+            let name, dni, contractType, contractHours, source;
+            if (contractInfo) {
+                name = contractInfo.name;
+                dni = contractInfo.dni;
+                contractType = contractInfo.contractType || '—';
+                contractHours = contractInfo.contractHours;
+                source = contractInfo.source;
+            } else {
+                name = activeUser;
+                dni = reqDni || '—';
+                contractType = 'De otra área';
+                contractHours = 0;
+                source = 'Externo';
+            }
+
+            // 2. Calculate actual programmed hours from grid
+            const userCourses = activeCoursesList.filter(c => {
+                const cleanCourseUser = cleanText(c.user);
+                
+                // Match by DNI if available
+                if (reqDni && c.dni) {
+                    const cDniClean = c.dni.trim().replace(/^0+/, '');
+                    const reqDniClean = reqDni.trim().replace(/^0+/, '');
+                    if (cDniClean === reqDniClean) return true;
+                }
+                
+                // Match by name
+                return cleanCourseUser.includes(cleanActiveUser) || cleanActiveUser.includes(cleanCourseUser);
+            });
+
+            let totalProgrammedMinutes = 0;
+            userCourses.forEach(c => {
+                const start = timeToMinutes(c.startTime);
+                const end = timeToMinutes(c.endTime);
+                if (start && end && end > start) {
+                    const duration = end - start;
+                    const daysCount = (c.days && c.days.length > 0) ? c.days.length : 1;
+                    totalProgrammedMinutes += duration * daysCount;
+                }
+            });
+
+            const totalProgrammedHours = totalProgrammedMinutes / 45; // academic hours (45 min)
+            const roundedProgrammed = Math.round(totalProgrammedHours * 10) / 10;
+
+            // 3. Render Card
+            const card = document.createElement('div');
+            card.className = 'teacher-stat-card';
+            
+            // Set dynamic border-left matching teacher color tag
+            const cleanUserTag = activeUser.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const userColor = getUserColor(cleanUserTag);
+            card.style.borderLeftColor = userColor;
+
+            const percentage = contractHours > 0 ? (roundedProgrammed / contractHours) * 100 : 0;
+            const pctText = contractHours > 0 ? `${Math.round(percentage)}%` : '—';
+            
+            // Badge style
+            let badgeClass = 'badge-other';
+            const normType = contractType.toUpperCase();
+            if (normType.includes('PTC')) badgeClass = 'badge-ptc';
+            else if (normType.includes('PPH')) badgeClass = 'badge-pph';
+            else if (normType.includes('TCR')) badgeClass = 'badge-tcr';
+
+            // Fill color style
+            let fillClass = 'fill-zero';
+            if (contractHours > 0) {
+                if (roundedProgrammed === 0) fillClass = 'fill-zero';
+                else if (percentage < 90) fillClass = 'fill-underload';
+                else if (percentage <= 105) fillClass = 'fill-optimal';
+                else if (percentage <= 125) fillClass = 'fill-overload';
+                else fillClass = 'fill-excessive';
+            }
+
+            card.innerHTML = `
+                <div class="teacher-stat-header">
+                    <div class="teacher-stat-name" title="${name}">${name}</div>
+                    <span class="teacher-stat-badge ${badgeClass}">${contractType}</span>
+                </div>
+                <div class="teacher-stat-body">
+                    <div class="teacher-stat-row">
+                        <span class="teacher-stat-label"><i class="far fa-clock"></i> Horas Programadas:</span>
+                        <span class="teacher-stat-value" style="color: ${userColor}; font-size: 0.95rem;">${roundedProgrammed} h</span>
+                    </div>
+                    <div class="teacher-stat-row">
+                        <span class="teacher-stat-label"><i class="fas fa-file-signature"></i> Horas Contrato:</span>
+                        <span class="teacher-stat-value">${contractHours > 0 ? `${contractHours} h` : '—'}</span>
+                    </div>
+                    <div class="teacher-stat-row">
+                        <span class="teacher-stat-label"><i class="fas fa-tasks"></i> Cumplimiento:</span>
+                        <span class="teacher-stat-value">${pctText}</span>
+                    </div>
+                    ${contractHours > 0 ? `
+                    <div class="teacher-progress-container">
+                        <div class="teacher-progress-bar-bg">
+                            <div class="teacher-progress-bar-fill ${fillClass}" style="width: ${Math.min(percentage, 100)}%;"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            statsContainer.appendChild(card);
+        });
+    }
+
     async function saveToSupabase(course, owner, tableName = 'cot_horarios') {
         const targetTable = isMasterMode ? 'cot_horarios_privados' : (tableName || 'cot_horarios');
         const payload = {
@@ -529,6 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderUserSelector();
     loadFromSupabase();
     loadFromGoogleSheet();
+    loadContractData();
 
     const mod1Check = document.getElementById('mod1Check');
     const mod2Check = document.getElementById('mod2Check');
@@ -1181,6 +1438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayCourses = coursesByDay[day];
             renderDayCourses(dayCourses, day);
         }
+        renderTeacherStats(activeCoursesList);
     }
 
     function renderDayCourses(dayCourses, day) {

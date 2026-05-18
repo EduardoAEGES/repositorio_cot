@@ -307,10 +307,10 @@ body {
 
 /* Searchable Teacher Selector */
 .user-search-area {
-    margin: 15px 0;
-    display: none; /* Controlled by JS */
+    margin: 0;
+    display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .search-input-wrapper {
@@ -992,4 +992,112 @@ input, select {
 .success-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 4px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; }
 
 .hidden { display: none !important; }
+
+/* Teacher Contract & Schedule Stats */
+.teacher-stats-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #e2e8f0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 15px;
+    width: 100%;
+}
+
+.teacher-stat-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 5px solid #2563eb;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.teacher-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.teacher-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.teacher-stat-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+
+.teacher-stat-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Badge Contract Colors */
+.badge-ptc { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+.badge-pph { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.badge-tcr { background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.badge-other { background-color: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+.teacher-stat-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.teacher-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.teacher-stat-label {
+    font-weight: 500;
+}
+
+.teacher-stat-value {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.teacher-progress-container {
+    margin-top: 5px;
+}
+
+.teacher-progress-bar-bg {
+    background-color: #f1f5f9;
+    height: 8px;
+    border-radius: 4px;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.teacher-progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease-out;
+}
+
+/* Progress Fill Colors */
+.fill-underload { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+.fill-optimal { background: linear-gradient(90deg, #10b981, #059669); }
+.fill-overload { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.fill-excessive { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.fill-zero { background: #cbd5e1; }
 
