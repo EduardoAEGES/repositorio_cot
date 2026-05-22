@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Asesorías Empresariales - Equipo COT</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Estilos -->
+    <link rel="stylesheet" href="status.css">
+</head>
+<body class="light-theme">
+    <div class="app-wrapper">
+        <!-- HEADER -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <a href="index.html" class="back-link" title="Volver al Repositorio">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <div class="logo-container">
+                    <span class="brand-badge">CERTUS</span>
+                    <div class="brand-text">
+                        <h1>EQUIPO COT</h1>
+                        <p>Dashboard de Asesorías</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <div class="sync-status" id="syncStatus">
+                    <i class="fas fa-circle-check"></i>
+                    <span>Datos Locales</span>
+                </div>
+                
+                <button id="syncBtn" class="action-btn sync-btn" title="Sincronizar con Google Sheets">
+                    <i class="fas fa-rotate"></i>
+                    <span>Sincronizar</span>
+                </button>
+                
+                <button id="themeToggleBtn" class="theme-toggle-btn" title="Cambiar Tema">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="dashboard-content">
+            <!-- TOP METRICS SECTION -->
+            <section class="metrics-grid">
+                <!-- METRIC 1 -->
+                <div class="kpi-card" data-filter="all">
+                    <div class="kpi-icon blue">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3 id="metricTotalClasses">0</h3>
+                        <span>Total de Clases</span>
+                    </div>
+                    <div class="kpi-decor"></div>
+                </div>
+                
+                <!-- METRIC 2 -->
+                <div class="kpi-card" data-filter="coordinado">
+                    <div class="kpi-icon green">
+                        <i class="fas fa-circle-check"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3 id="metricCoordinated">0</h3>
+                        <span>MYPEs Coordinadas</span>
+                    </div>
+                    <div class="kpi-decor"></div>
+                </div>
+
+                <!-- METRIC 2.5 (En Proceso) -->
+                <div class="kpi-card" data-filter="en_proceso">
+                    <div class="kpi-icon cyan">
+                        <i class="fas fa-spinner"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3 id="metricInProcess">0</h3>
+                        <span>En Proceso</span>
+                    </div>
+                    <div class="kpi-decor"></div>
+                </div>
+
+                <!-- METRIC 3 -->
+                <div class="kpi-card" data-filter="pendiente">
+                    <div class="kpi-icon orange">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3 id="metricPending">0</h3>
+                        <span>Pendientes</span>
+                    </div>
+                    <div class="kpi-decor"></div>
+                </div>
+
+                <!-- METRIC 4 -->
+                <div class="kpi-card">
+                    <div class="kpi-icon purple">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="kpi-info">
+                        <h3 id="metricTotalStudents">0</h3>
+                        <span>Total Estudiantes</span>
+                    </div>
+                    <div class="kpi-decor"></div>
+                </div>
+            </section>
+
+            <!-- ANALYTICS PANEL -->
+            <section class="analytics-row">
+                <!-- Completion Card -->
+                <div class="analytics-card progress-card">
+                    <h3>Progreso General</h3>
+                    <div class="progress-container">
+                        <div class="radial-progress">
+                            <svg class="radial-svg" viewBox="0 0 100 100">
+                                <circle class="bg" cx="50" cy="50" r="40"></circle>
+                                <circle class="progress-bar" id="completionCircle" cx="50" cy="50" r="40"></circle>
+                            </svg>
+                            <div class="radial-text">
+                                <span id="completionPercent">0%</span>
+                                <small>Coordinado</small>
+                            </div>
+                        </div>
+                        <div class="progress-details">
+                            <div class="detail-item">
+                                <span class="dot green"></span>
+                                <span class="label">Coordinados:</span>
+                                <strong id="progCoordinated">0</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span class="dot blue"></span>
+                                <span class="label">En Proceso:</span>
+                                <strong id="progInProcess">0</strong>
+                            </div>
+                            <div class="detail-item">
+                                <span class="dot orange"></span>
+                                <span class="label">Pendientes:</span>
+                                <strong id="progPending">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Distribution Card -->
+                <div class="analytics-card chart-card">
+                    <h3>Distribución por Sede</h3>
+                    <div class="bars-container" id="sedeBarsContainer">
+                        <!-- Sede Bars will be injected dynamically -->
+                    </div>
+                </div>
+
+                <!-- Turnos Card -->
+                <div class="analytics-card chart-card flex-grow">
+                    <h3>Turno y Modalidad</h3>
+                    <div class="turnos-container">
+                        <div class="turno-stat">
+                            <div class="stat-header">
+                                <span>Mañana</span>
+                                <strong id="turnoMananaPercent">0%</strong>
+                            </div>
+                            <div class="bar-bg">
+                                <div class="bar-fill blue" id="turnoMananaBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="turno-stat">
+                            <div class="stat-header">
+                                <span>Noche</span>
+                                <strong id="turnoNochePercent">0%</strong>
+                            </div>
+                            <div class="bar-bg">
+                                <div class="bar-fill purple" id="turnoNocheBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="modalidad-summary">
+                            <div class="mod-item">
+                                <i class="fas fa-laptop-code"></i>
+                                <span id="modVirtualCount">0 Virtual</span>
+                            </div>
+                            <div class="mod-item">
+                                <i class="fas fa-school"></i>
+                                <span id="modPresencialCount">0 Presencial</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CONTROL BAR -->
+            <section class="control-bar">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por MYPE, RUC, Docente, Nº Clase, Curso...">
+                    <button class="clear-search-btn" id="clearSearchBtn"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <div class="filter-actions">
+                    <div class="select-wrapper">
+                        <select id="filterSede">
+                            <option value="all">Sede: Todas</option>
+                            <!-- Dynamic options -->
+                        </select>
+                        <i class="fas fa-chevron-down select-chevron"></i>
+                    </div>
+
+                    <div class="select-wrapper">
+                        <select id="filterTurno">
+                            <option value="all">Turno: Todos</option>
+                            <option value="Mañana">Mañana</option>
+                            <option value="Noche">Noche</option>
+                        </select>
+                        <i class="fas fa-chevron-down select-chevron"></i>
+                    </div>
+
+                    <div class="select-wrapper">
+                        <select id="filterEstado">
+                            <option value="all">Estado: Todos</option>
+                            <option value="coordinado">Coordinados</option>
+                            <option value="en_proceso">En Proceso</option>
+                            <option value="pendiente">Pendientes</option>
+                        </select>
+                        <i class="fas fa-chevron-down select-chevron"></i>
+                    </div>
+
+                    <button class="icon-btn-action reset-btn" id="resetFiltersBtn" title="Restablecer Filtros y Búsqueda">
+                        <i class="fas fa-filter-circle-xmark"></i>
+                    </button>
+                    
+                    <button class="primary-action-btn add-btn" id="addNewBtn">
+                        <i class="fas fa-plus"></i>
+                        <span>Nueva Asesoría</span>
+                    </button>
+                    
+                    <button class="secondary-action-btn export-btn" id="exportBtn" title="Exportar a Excel (CSV)">
+                        <i class="fas fa-file-excel"></i>
+                        <span>Exportar</span>
+                    </button>
+                    
+                    <button class="secondary-action-btn-outline danger" id="resetDataBtn" title="Restaurar base de datos original">
+                        <i class="fas fa-trash-can-arrow-up"></i>
+                    </button>
+                </div>
+            </section>
+
+            <!-- TABLE CONTAINER -->
+            <section class="table-container">
+                <table class="dashboard-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th class="col-clase">Nº Clase</th>
+                            <th class="col-mype">MYPE / RUC / Celular</th>
+                            <th class="col-curso">Curso</th>
+                            <th class="col-docente">Docente / Correo</th>
+                            <th class="col-sede">Sede</th>
+                            <th class="col-horario">Horario de Asesoría</th>
+                            <th class="col-estado">Estado</th>
+                            <th class="col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Table rows will be injected dynamically -->
+                    </tbody>
+                </table>
+                <div class="no-results" id="noResults">
+                    <i class="fas fa-search-minus"></i>
+                    <p>No se encontraron asesorías que coincidan con los filtros seleccionados.</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="dashboard-footer">
+            <p>© 2026 Equipo COT - Repositorio de Asesorías Empresariales. CERTUS.</p>
+            <p class="footer-sync-time" id="footerSyncTime">Última actualización: --:--</p>
+        </footer>
+
+        <!-- DRAWER (DETAIL PANEL) -->
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+        <aside class="detail-drawer" id="detailDrawer">
+            <div class="drawer-header">
+                <h2>Detalle de Asesoría</h2>
+                <button class="drawer-close-btn" id="drawerCloseBtn">&times;</button>
+            </div>
+            
+            <div class="drawer-body" id="drawerBody">
+                <!-- Dynamic detail content loaded by JS -->
+            </div>
+        </aside>
+
+        <!-- EDIT/ADD MODAL -->
+        <div class="modal-overlay" id="modalOverlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Nueva Asesoría</h2>
+                    <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+                </div>
+                <form id="advisoryForm" class="modal-form">
+                    <input type="hidden" id="formIndex" value="">
+                    
+                    <div class="form-grid">
+                        <!-- Nº Clase -->
+                        <div class="form-group">
+                            <label for="formClassNo">Nº Clase *</label>
+                            <input type="text" id="formClassNo" required placeholder="Ej: 958">
+                        </div>
+                        
+                        <!-- Curso -->
+                        <div class="form-group">
+                            <label for="formCourse">Curso *</label>
+                            <input type="text" id="formCourse" required placeholder="Ej: EXPERIENCIA FORMATIVA (COT)-IV">
+                        </div>
+
+                        <!-- Estudiantes -->
+                        <div class="form-group">
+                            <label for="formStudents">Nº Estudiantes *</label>
+                            <input type="number" id="formStudents" required min="1" placeholder="Ej: 19">
+                        </div>
+
+                        <!-- Sede -->
+                        <div class="form-group">
+                            <label for="formSede">Sede *</label>
+                            <select id="formSede" required>
+                                <option value="VIRTUAL">VIRTUAL</option>
+                                <option value="ATE">ATE</option>
+                                <option value="NORTE">NORTE</option>
+                                <option value="AQP">AQP</option>
+                                <option value="SURCO">SURCO</option>
+                                <option value="SJL">SJL</option>
+                            </select>
+                        </div>
+
+                        <!-- Turno -->
+                        <div class="form-group">
+                            <label for="formTurno">Turno *</label>
+                            <select id="formTurno" required>
+                                <option value="Mañana">Mañana</option>
+                                <option value="Noche">Noche</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Requisitos de Asesoría en Modal (Completará el grid) -->
+                    <div style="margin-top: 5px;">
+                        <label style="margin-bottom: 8px; display: block; font-weight: 600; font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Requisitos de Coordinación</label>
+                        <div class="modal-checklist" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="formWsp">
+                                <span>WhatsApp Enviado</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="formCorreoCheck">
+                                <span>Correo Enviado</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="formDocenteCheck">
+                                <span>Docente Comunicado</span>
+                            </label>
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="formHorarioConfirmado">
+                                <span>Horario Asesoría Confirmado</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Docente & Correo -->
+                    <div class="form-row">
+                        <div class="form-group flex-grow">
+                            <label for="formDocente">Docente Asesor *</label>
+                            <input type="text" id="formDocente" required placeholder="Nombre del docente asesor">
+                        </div>
+                        <div class="form-group flex-grow">
+                            <label for="formCorreo">Correo del Docente *</label>
+                            <input type="email" id="formCorreo" required placeholder="correo@certus.edu.pe">
+                        </div>
+                    </div>
+
+                    <!-- MYPE, RUC, Celular -->
+                    <div class="form-row">
+                        <div class="form-group flex-grow">
+                            <label for="formMYPE">MYPE / Empresa *</label>
+                            <input type="text" id="formMYPE" required placeholder="Nombre de la empresa o representante">
+                        </div>
+                        <div class="form-group">
+                            <label for="formRUC">RUC</label>
+                            <input type="text" id="formRUC" placeholder="Ej: 10414379376">
+                        </div>
+                        <div class="form-group">
+                            <label for="formCelular">Celular</label>
+                            <input type="text" id="formCelular" placeholder="Ej: 999376000">
+                        </div>
+                    </div>
+
+                    <!-- Horario -->
+                    <div class="form-group">
+                        <label for="formHorario">Horario de la Asesoría *</label>
+                        <input type="text" id="formHorario" required placeholder="Ej: Viernes 20:30 - 22:00">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="form-btn-secondary" id="formCancelBtn">Cancelar</button>
+                        <button type="submit" class="form-btn-primary">Guardar Asesoría</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="status.js"></script>
+</body>
+</html>

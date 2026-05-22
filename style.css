@@ -162,6 +162,30 @@ main {
     color: var(--secondary-accent);
 }
 
+.card.highlight-status {
+    border: 1px solid rgba(227, 6, 19, 0.15);
+}
+
+.card.highlight-status:hover {
+    box-shadow: 0 15px 45px 0 rgba(227, 6, 19, 0.1);
+    border-color: rgba(227, 6, 19, 0.35);
+}
+
+.status-card-icon {
+    font-size: 5.5rem;
+    color: var(--accent-color);
+    padding: 10px 0;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.card.highlight-status:hover .status-card-icon {
+    transform: scale(1.1) rotate(8deg);
+}
+
+.card.highlight-status .card-title {
+    color: var(--accent-color);
+}
+
 @media (max-width: 768px) {
     .hero h1 {
         font-size: 1.8rem;
