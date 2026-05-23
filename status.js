@@ -18,13 +18,11 @@ const DEFAULT_DATASET = [
         "Horario": "Miércoles 21:15 - 22:45",
         "RUC": "10463051271",
         "CELULAR": "968491373",
-        "MYPE": "Corporacion Lort Mister S.A.C",
-        "Estado": "x",
-        // Estados detallados de coordinación (inicializados a partir del reporte original)
+        "MYPE": "Mejia Torres Carlomagno",
         "wsp": true,
         "correo": true,
-        "docente_comunicado": false,
-        "horario_confirmado": false,
+        "docente_comunicado": true,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -38,13 +36,12 @@ const DEFAULT_DATASET = [
         "Horario": "Miércoles 19:00 - 20:30",
         "RUC": "10406346051",
         "CELULAR": "994203816",
-        "MYPE": "Corporacion Textil Nieva Eirl",
-        "Estado": "x",
+        "MYPE": "Hernan Nilo Nieva Caparachin",
         "wsp": true,
-        "correo": false,
-        "docente_comunicado": false,
-        "horario_confirmado": true,
-        "observaciones": "Horario confirmado para las 19:45 - 20:30."
+        "correo": true,
+        "docente_comunicado": true,
+        "horario_elegido": "",
+        "observaciones": ""
     },
     {
         "N_Clase": "958",
@@ -58,12 +55,11 @@ const DEFAULT_DATASET = [
         "RUC": "10414379376",
         "CELULAR": "967932718",
         "MYPE": "Tatiana Rubi Cardenas Atayauri",
-        "Estado": "x",
         "wsp": true,
         "correo": true,
-        "docente_comunicado": false,
-        "horario_confirmado": true,
-        "observaciones": "Horario asignado de 21:15 a 22:00."
+        "docente_comunicado": true,
+        "horario_elegido": "19:45 - 20:30",
+        "observaciones": "Horario asignado de 19:45 a 20:30."
     },
     {
         "N_Clase": "959",
@@ -76,12 +72,11 @@ const DEFAULT_DATASET = [
         "Horario": "Martes 07:00 - 08:30",
         "RUC": "10441412083",
         "CELULAR": "983483735",
-        "MYPE": "Empresa Confecciones Y Publicidad S.A.C.",
-        "Estado": "",
+        "MYPE": "Liñan Marquez Abraham",
         "wsp": true,
         "correo": true,
         "docente_comunicado": true,
-        "horario_confirmado": true,
+        "horario_elegido": "07:45-08:30",
         "observaciones": "Horario confirmado: 07:45 - 08:30."
     },
     {
@@ -96,11 +91,10 @@ const DEFAULT_DATASET = [
         "RUC": "10180876036",
         "CELULAR": "964078383",
         "MYPE": "Valdez Quispe De Samaniego Haydee Esther",
-        "Estado": "",
         "wsp": true,
         "correo": true,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -114,12 +108,11 @@ const DEFAULT_DATASET = [
         "Horario": "Jueves 08:30 - 10:00",
         "RUC": "10403768524",
         "CELULAR": "999376000",
-        "MYPE": "Inversora Grupo Romero Sac",
-        "Estado": "",
+        "MYPE": "Henry Justo Romero Bautista",
         "wsp": true,
         "correo": true,
         "docente_comunicado": false,
-        "horario_confirmado": true,
+        "horario_elegido": "09:15-10:00",
         "observaciones": "Coordinado para el horario de 09:15 - 10:00."
     },
     {
@@ -134,11 +127,10 @@ const DEFAULT_DATASET = [
         "RUC": "10105912434",
         "CELULAR": "972712570",
         "MYPE": "Carrillo Llaguento Moises",
-        "Estado": "x",
         "wsp": true,
-        "correo": false,
-        "docente_comunicado": false,
-        "horario_confirmado": false,
+        "correo": true,
+        "docente_comunicado": true,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -153,11 +145,10 @@ const DEFAULT_DATASET = [
         "RUC": "10463051271",
         "CELULAR": "947032101",
         "MYPE": "Tuanama Layza Merlin",
-        "Estado": "x",
         "wsp": true,
         "correo": true,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -172,11 +163,10 @@ const DEFAULT_DATASET = [
         "RUC": "10406346051",
         "CELULAR": "928803530",
         "MYPE": "Rivas Chavez Yulay Angelo",
-        "Estado": "",
         "wsp": true,
         "correo": true,
         "docente_comunicado": true,
-        "horario_confirmado": true,
+        "horario_elegido": "20:30-21:15",
         "observaciones": "Horario pactado: 20:30 - 21:15."
     },
     {
@@ -191,11 +181,10 @@ const DEFAULT_DATASET = [
         "RUC": "10414379376",
         "CELULAR": "995987659",
         "MYPE": "Leonardo Barrios Eva",
-        "Estado": "",
         "wsp": true,
         "correo": true,
-        "docente_comunicado": false,
-        "horario_confirmado": true,
+        "docente_comunicado": true,
+        "horario_elegido": "10:00-10:44",
         "observaciones": "Asesoría agendada para las 10:00 - 10:44."
     },
     {
@@ -210,11 +199,10 @@ const DEFAULT_DATASET = [
         "RUC": "10441412083",
         "CELULAR": "964894231",
         "MYPE": "Gago Quispe Medali Liz",
-        "Estado": "x",
         "wsp": true,
         "correo": true,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -229,11 +217,28 @@ const DEFAULT_DATASET = [
         "RUC": "10180876036",
         "CELULAR": "952297681",
         "MYPE": "Nuñez Bardales Nancy Jhouana",
-        "Estado": "x",
+        "wsp": true,
+        "correo": true,
+        "docente_comunicado": true,
+        "horario_elegido": "",
+        "observaciones": ""
+    },
+    {
+        "N_Clase": "1124",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "5",
+        "DOCENTE": "HUISA LAGOS JESSICA GIANINA",
+        "CORREO": "jhuisal@certus.edu.pe",
+        "Sede": "VES",
+        "Turno": "Mañana",
+        "Horario": "Martes 08:30 - 10:00",
+        "RUC": "10403768524",
+        "CELULAR": "981514450",
+        "MYPE": "Albujar Salazar Hugo Stalin",
         "wsp": true,
         "correo": true,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -248,11 +253,10 @@ const DEFAULT_DATASET = [
         "RUC": "10105912434",
         "CELULAR": "963982246",
         "MYPE": "Mamani Alvarado Brizaida Veronica",
-        "Estado": "x",
         "wsp": true,
         "correo": true,
-        "docente_comunicado": false,
-        "horario_confirmado": true,
+        "docente_comunicado": true,
+        "horario_elegido": "21:15 - 22:00",
         "observaciones": "Horario establecido de 21:15 a 22:00."
     },
     {
@@ -267,11 +271,10 @@ const DEFAULT_DATASET = [
         "RUC": "",
         "CELULAR": "",
         "MYPE": "Pendiente MYPE",
-        "Estado": "",
         "wsp": false,
         "correo": false,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     },
     {
@@ -286,17 +289,157 @@ const DEFAULT_DATASET = [
         "RUC": "",
         "CELULAR": "",
         "MYPE": "Pendiente MYPE",
-        "Estado": "",
         "wsp": false,
         "correo": false,
         "docente_comunicado": false,
-        "horario_confirmado": false,
+        "horario_elegido": "",
         "observaciones": ""
     }
 ];
 
-// Google Sheet URL de exportación de CSV
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1T7-kt0lYxkfUmZor41UWyjdrx73zqIj5MzSenElQcCI/export?format=csv';
+// Diccionario estático de correspondencia para enriquecer datos del Google Sheet
+const CLASS_INFO_MAP = {
+    "Mejia Torres Carlomagno": {
+        "N_Clase": "77",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "45",
+        "Sede": "VIRTUAL",
+        "Turno": "Noche",
+        "RUC": "10463051271"
+    },
+    "Hernan Nilo Nieva Caparachin": {
+        "N_Clase": "957",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "14",
+        "Sede": "ATE",
+        "Turno": "Noche",
+        "RUC": "10406346051"
+    },
+    "Tatiana Rubi Cardenas Atayauri": {
+        "N_Clase": "958",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "19",
+        "Sede": "NORTE",
+        "Turno": "Noche",
+        "RUC": "10414379376"
+    },
+    "Liñan Marquez Abraham": {
+        "N_Clase": "959",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "27",
+        "Sede": "AQP",
+        "Turno": "Mañana",
+        "RUC": "10441412083"
+    },
+    "Uñan Marquez Abraham": {
+        "N_Clase": "959",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "27",
+        "Sede": "AQP",
+        "Turno": "Mañana",
+        "RUC": "10441412083"
+    },
+    "Valdez Quispe De Samaniego Haydee Esther": {
+        "N_Clase": "960",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "29",
+        "Sede": "SURCO",
+        "Turno": "Noche",
+        "RUC": "10180876036"
+    },
+    "Henry Justo Romero Bautista": {
+        "N_Clase": "961",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "19",
+        "Sede": "NORTE",
+        "Turno": "Mañana",
+        "RUC": "10403768524"
+    },
+    "Carrillo Llaguento Moises": {
+        "N_Clase": "962",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+        "Estudiantes": "24",
+        "Sede": "SJL",
+        "Turno": "Noche",
+        "RUC": "10105912434"
+    },
+    "Tuanama Layza Merlin": {
+        "N_Clase": "1119",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "15",
+        "Sede": "NORTE",
+        "Turno": "Noche",
+        "RUC": "10463051271"
+    },
+    "Rivas Chavez Yulay Angelo": {
+        "N_Clase": "1120",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "26",
+        "Sede": "SURCO",
+        "Turno": "Noche",
+        "RUC": "10406346051"
+    },
+    "Leonardo Barrios Eva": {
+        "N_Clase": "1121",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "13",
+        "Sede": "AQP",
+        "Turno": "Mañana",
+        "RUC": "10414379376"
+    },
+    "Gago Quispe Medali Liz": {
+        "N_Clase": "1122",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "14",
+        "Sede": "ATE",
+        "Turno": "Mañana",
+        "RUC": "10441412083"
+    },
+    "Gago Quispe Medali Uz": {
+        "N_Clase": "1122",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "14",
+        "Sede": "ATE",
+        "Turno": "Mañana",
+        "RUC": "10441412083"
+    },
+    "Nuñez Bardales Nancy Jhouana": {
+        "N_Clase": "1123",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "16",
+        "Sede": "NORTE",
+        "Turno": "Mañana",
+        "RUC": "10180876036"
+    },
+    "Albujar Salazar Hugo Stalin": {
+        "N_Clase": "1124",
+        "Curso": "EXPERIENCIA FORMATIVA (CON)-VI",
+        "Estudiantes": "5",
+        "Sede": "VES",
+        "Turno": "Mañana",
+        "RUC": "10403768524"
+    },
+    "Mamani Alvarado Brizaida Veronica": {
+        "N_Clase": "1435",
+        "Curso": "EXPERIENCIA FORMATIVA (COT)-VI",
+        "Estudiantes": "44",
+        "Sede": "VIRTUAL",
+        "Turno": "Noche",
+        "RUC": "10105912434"
+    }
+};
+
+function normalizeName(str) {
+    if (!str) return '';
+    return str.normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "")
+              .trim();
+}
+
+// Google Sheet URL de exportación de CSV para pestaña "Comunicación 2"
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1T7-kt0lYxkfUmZor41UWyjdrx73zqIj5MzSenElQcCI/export?format=csv&gid=1432325951';
 
 // ==========================================================================
 // ESTADO GLOBAL DE LA APLICACIÓN
@@ -378,6 +521,7 @@ const DOM = {
     formRUC: document.getElementById('formRUC'),
     formCelular: document.getElementById('formCelular'),
     formHorario: document.getElementById('formHorario'),
+    formHorarioElegido: document.getElementById('formHorarioElegido'),
     formCancelBtn: document.getElementById('formCancelBtn')
 };
 
@@ -511,14 +655,26 @@ function bindEvents() {
 // CÁLCULO DE ESTADO Y LOGICA DE NEGOCIO
 // ==========================================================================
 function calculateStatus(item) {
-    const hasAllComm = !!item.wsp && !!item.correo && !!item.docente_comunicado;
-    // Horario elegido means it is confirmed or Horario text is not empty or '-'
-    const hasSchedule = !!item.horario_confirmado || (item.Horario && item.Horario !== '-' && item.Horario.trim() !== '');
-    if (hasAllComm && hasSchedule) {
+    const wsp = !!item.wsp;
+    const correo = !!item.correo;
+    const docente_comunicado = !!item.docente_comunicado;
+    
+    // Si las tres opciones son Sí
+    const hasThreeYes = wsp && correo && docente_comunicado;
+    
+    // Horario elegido no vacío y no es "-"
+    const hasScheduleSelected = !!(item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-');
+    
+    if (hasThreeYes && hasScheduleSelected) {
         return 'coordinado';
-    } else if (hasAllComm && !hasSchedule) {
+    } else if (hasScheduleSelected) {
+        // Si tiene horario elegido pero no tiene los tres Sí, está en proceso
+        return 'en_proceso';
+    } else if (hasThreeYes) {
+        // Si tiene los tres Sí pero no tiene horario elegido, está en proceso
         return 'en_proceso';
     } else {
+        // En cualquier otro caso, está pendiente
         return 'pendiente';
     }
 }
@@ -630,7 +786,9 @@ function renderTable(data) {
                 <span class="badge-sede ${sedeClass}">${item.Sede}</span>
             </td>
             <td>
-                <span class="cell-subtitle" style="font-weight:600; color:var(--text-primary)"><i class="far fa-calendar-alt" style="margin-right: 5px; color: var(--color-accent)"></i> ${item.Horario || '-'}</span>
+                <span class="cell-subtitle" style="font-weight:600; color:var(--text-primary)">
+                    ${item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-' ? `<i class="far fa-calendar-alt" style="margin-right: 5px; color: var(--color-accent)"></i> ${item.horario_elegido}` : '-'}
+                </span>
             </td>
             <td>
                 <span class="status-pill ${statusClass}" onclick="event.stopPropagation(); toggleRowStatus(${originalIndex})">
@@ -810,12 +968,16 @@ function toggleRowStatus(index) {
         item.correo = false;
         item.docente_comunicado = false;
         item.horario_confirmado = false;
+        item.horario_elegido = '';
     } else {
         // Marcar todo
         item.wsp = true;
         item.correo = true;
         item.docente_comunicado = true;
         item.horario_confirmado = true;
+        if (!item.horario_elegido || item.horario_elegido === '-') {
+            item.horario_elegido = item.Horario || 'Confirmado';
+        }
     }
     
     item.Estado = calculateStatus(item);
@@ -861,104 +1023,183 @@ function syncFromGoogleSheets() {
         });
 }
 
-// Analizador simple de CSV que soporta comillas dobles y comas internas
+// Analizador de CSV que soporta comillas dobles, saltos de línea internos y caracteres especiales
 function parseCSV(text) {
-    const lines = text.split(/\r?\n/);
-    if (lines.length === 0 || !lines[0]) return [];
-    
-    // Parsear cabeceras y limpiar espacios
-    const headers = parseCSVLine(lines[0]);
-    
     const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const cells = parseCSVLine(lines[i]);
+    let currentRow = [];
+    let currentCell = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+        
+        if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+                // Comilla doble escapada
+                currentCell += '"';
+                i++; // Omitir la siguiente comilla
+            } else {
+                // Alternar estado de comillas
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            currentRow.push(currentCell);
+            currentCell = '';
+        } else if ((char === '\r' || char === '\n') && !inQuotes) {
+            if (char === '\r' && nextChar === '\n') {
+                i++; // Omitir \n en \r\n
+            }
+            currentRow.push(currentCell);
+            rows.push(currentRow);
+            currentRow = [];
+            currentCell = '';
+        } else {
+            currentCell += char;
+        }
+    }
+    
+    if (currentCell || currentRow.length > 0) {
+        currentRow.push(currentCell);
+        rows.push(currentRow);
+    }
+    
+    if (rows.length === 0) return [];
+    
+    // Buscar dinámicamente la fila de cabeceras
+    let headerIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+        const rowStr = rows[i].join(' ');
+        if (rowStr.includes("EMPRESARIO") && rowStr.includes("ASESOR")) {
+            headerIdx = i;
+            break;
+        }
+    }
+    
+    if (headerIdx === -1) {
+        headerIdx = 0;
+    }
+    
+    const headers = rows[headerIdx];
+    const parsedRows = [];
+    
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+        const cells = rows[i];
         if (cells.length < headers.length) continue;
+        
+        // Omitir filas vacías
+        if (cells.every(cell => !cell.trim())) continue;
         
         const rowObj = {};
         headers.forEach((header, idx) => {
-            // Eliminar espacios adicionales o comillas
             let cleanHeader = header.trim();
-            // Reemplazar la cabecera vacía del final (columna x) por "Estado"
             if (cleanHeader === '') {
-                cleanHeader = 'Estado';
+                cleanHeader = `Empty_${idx}`;
             }
             rowObj[cleanHeader] = cells[idx] ? cells[idx].trim() : '';
         });
-        rows.push(rowObj);
+        parsedRows.push(rowObj);
     }
-    return rows;
+    return parsedRows;
 }
 
-function parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            result.push(current);
-            current = '';
-        } else {
-            current += char;
+function getRowValue(row, possibleHeaders) {
+    const keys = Object.keys(row);
+    for (const possible of possibleHeaders) {
+        const normalizedPossible = normalizeName(possible);
+        for (const key of keys) {
+            if (normalizeName(key) === normalizedPossible) {
+                return row[key] !== undefined && row[key] !== null ? String(row[key]).trim() : '';
+            }
         }
     }
-    result.push(current);
-    return result;
+    return '';
+}
+
+function parseBool(val) {
+    if (!val) return false;
+    const normalized = normalizeName(val);
+    return normalized === 'si' || normalized === 's';
 }
 
 function mergeSyncedData(syncedRows) {
     const merged = [];
     
+    // Crear mapa normalizado para la correspondencia de clases
+    const normalizedClassMap = {};
+    for (const key in CLASS_INFO_MAP) {
+        normalizedClassMap[normalizeName(key)] = CLASS_INFO_MAP[key];
+    }
+    
     syncedRows.forEach(row => {
-        // Buscar si ya existe por Nº Clase
-        const classNo = row.N_Clase;
-        if (!classNo) return; // Omitir si no tiene clase
+        const mypeName = getRowValue(row, ["EMPRESARIO", "MYPE", "RAZON SOCIAL"]);
+        if (!mypeName) return; // Omitir si no hay nombre de empresario
         
-        const existing = advisories.find(a => a.N_Clase === classNo);
+        const normMype = normalizeName(mypeName);
         
-        // Mapear los campos del CSV a nuestro esquema interno
-        const cleanRow = {
-            "N_Clase": classNo,
-            "Curso": row.Curso || 'Experiencia Formativa',
-            "Estudiantes": row.Estudiantes || '0',
-            "DOCENTE": row.DOCENTE || 'Sin Asignar',
-            "CORREO": row.CORREO || '',
-            "Sede": row.Sede || 'VIRTUAL',
-            "Turno": row.Turno || 'Noche',
-            "Horario": row.Horario || '-',
-            "RUC": row.RUC || '',
-            "CELULAR": row.CELULAR || '',
-            "MYPE": row.MYPE || '',
-            "Estado": row.Estado || ''
-        };
+        // Comprobar si ya existe localmente
+        const existing = advisories.find(a => normalizeName(a.MYPE) === normMype);
         
-        let item;
+        let info = {};
         if (existing) {
-            // Mantener notas, toggles manuales del timeline, etc.
-            item = {
-                ...cleanRow,
-                wsp: existing.wsp !== undefined ? existing.wsp : (cleanRow.Estado === 'x'),
-                correo: existing.correo !== undefined ? existing.correo : (cleanRow.Estado === 'x'),
-                docente_comunicado: existing.docente_comunicado || false,
-                horario_confirmado: existing.horario_confirmado || (cleanRow.Horario !== '-'),
-                observaciones: existing.observaciones || ''
+            info = {
+                "N_Clase": existing.N_Clase,
+                "Curso": existing.Curso,
+                "Estudiantes": existing.Estudiantes,
+                "Sede": existing.Sede,
+                "Turno": existing.Turno,
+                "RUC": existing.RUC
             };
         } else {
-            // Registro nuevo
-            item = {
-                ...cleanRow,
-                wsp: cleanRow.Estado === 'x',
-                correo: cleanRow.Estado === 'x',
-                docente_comunicado: false,
-                horario_confirmado: cleanRow.Horario !== '-',
-                observaciones: ''
+            info = normalizedClassMap[normMype] || {
+                "N_Clase": "TEMP_" + Math.floor(Math.random() * 1000),
+                "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
+                "Estudiantes": "15",
+                "Sede": "VIRTUAL",
+                "Turno": "Noche",
+                "RUC": ""
             };
         }
-        item.Estado = calculateStatus(item);
-        merged.push(item);
+        
+        // Mapear checks de "Sí" / "No" / "S"
+        const wspVal = parseBool(getRowValue(row, ["¿mensaje whatsapp?", "mensaje whatsapp?", "whatsapp", "Se envio mensaje whatsapp?"]));
+        const correoVal = parseBool(getRowValue(row, ["¿Mensaje correo?", "Mensaje correo?", "correo", "Se envio mensaje correo?"]));
+        const docenteVal = parseBool(getRowValue(row, ["¿Docente se comunicó con empresario?", "Docente se comunicó con empresario?", "docente se comunico con empresario?", "Docente se comunic con empresario?"]));
+        
+        const horarioElegido = getRowValue(row, ["Horario elegido"]);
+        
+        const cleanRow = {
+            "N_Clase": info.N_Clase,
+            "Curso": info.Curso,
+            "Estudiantes": info.Estudiantes,
+            "Sede": info.Sede,
+            "Turno": info.Turno,
+            "RUC": info.RUC,
+            "MYPE": mypeName,
+            "DOCENTE": getRowValue(row, ["ASESOR", "DOCENTE", "RESPONSABLE"]) || 'Sin Asignar',
+            "CORREO": getRowValue(row, ["CORREO DOCENTE", "CORREO"]),
+            "CELULAR": getRowValue(row, ["TELEFONO EMPRESARIO", "CELULAR"]),
+            "Horario": getRowValue(row, ["Horario", "DISPONIBILIDAD"]) || '-',
+            "horario_elegido": horarioElegido,
+            "wsp": wspVal,
+            "correo": correoVal,
+            "docente_comunicado": docenteVal,
+            "horario_confirmado": !!(horarioElegido && horarioElegido !== '-'),
+            "observaciones": existing ? (existing.observaciones || '') : ''
+        };
+        
+        cleanRow.Estado = calculateStatus(cleanRow);
+        merged.push(cleanRow);
+    });
+    
+    // Mantener registros locales que no estén en el Google Sheet (ej: Pendiente MYPE)
+    advisories.forEach(localItem => {
+        const existsInSynced = syncedRows.some(row => normalizeName(getRowValue(row, ["EMPRESARIO", "MYPE", "RAZON SOCIAL"])) === normalizeName(localItem.MYPE));
+        if (!existsInSynced) {
+            const itemCopy = { ...localItem };
+            itemCopy.Estado = calculateStatus(itemCopy);
+            merged.push(itemCopy);
+        }
     });
     
     advisories = merged;
@@ -1038,8 +1279,12 @@ function updateDrawerContent(index) {
                     <span>${item.Sede} (${item.Turno})</span>
                 </div>
                 <div class="info-box">
-                    <small>HORARIO</small>
+                    <small>HORARIO PROPUESTO</small>
                     <span style="font-size:0.75rem">${item.Horario || '-'}</span>
+                </div>
+                <div class="info-box">
+                    <small>HORARIO ELEGIDO / CONFIRMADO</small>
+                    <span style="font-size:0.75rem; font-weight:600; color:var(--color-success)">${item.horario_elegido || '-'}</span>
                 </div>
                 <div class="info-box">
                     <small>CELULAR MYPE</small>
@@ -1112,6 +1357,17 @@ function toggleTimelineStep(index, field) {
     const item = advisories[index];
     item[field] = !item[field];
     
+    // Auto-sincronizar texto de horario cuando se confirma la reunión
+    if (field === 'horario_confirmado') {
+        if (item.horario_confirmado) {
+            if (!item.horario_elegido || item.horario_elegido === '-') {
+                item.horario_elegido = item.Horario || 'Confirmado';
+            }
+        } else {
+            item.horario_elegido = '';
+        }
+    }
+    
     // Auto-actualizar Estado general
     item.Estado = calculateStatus(item);
     
@@ -1150,6 +1406,7 @@ function openModal(index = null) {
         DOM.formRUC.value = item.RUC;
         DOM.formCelular.value = item.CELULAR;
         DOM.formHorario.value = item.Horario;
+        DOM.formHorarioElegido.value = item.horario_elegido || '';
         
         // Cargar checkboxes
         DOM.formWsp.checked = !!item.wsp;
@@ -1161,6 +1418,7 @@ function openModal(index = null) {
         DOM.modalTitle.innerText = 'Nueva Asesoría';
         DOM.formIndex.value = '';
         DOM.formClassNo.disabled = false;
+        DOM.formHorarioElegido.value = '';
         
         // Resetear checkboxes
         DOM.formWsp.checked = false;
@@ -1181,6 +1439,7 @@ function handleFormSubmit(e) {
     
     const indexStr = DOM.formIndex.value;
     const classNo = DOM.formClassNo.value.trim();
+    const horarioElegidoVal = DOM.formHorarioElegido.value.trim();
     
     // Construir objeto de datos
     const formData = {
@@ -1192,6 +1451,7 @@ function handleFormSubmit(e) {
         "Sede": DOM.formSede.value,
         "Turno": DOM.formTurno.value,
         "Horario": DOM.formHorario.value.trim(),
+        "horario_elegido": horarioElegidoVal,
         "RUC": DOM.formRUC.value.trim(),
         "CELULAR": DOM.formCelular.value.trim(),
         "MYPE": DOM.formMYPE.value.trim()
@@ -1200,7 +1460,7 @@ function handleFormSubmit(e) {
     const wspVal = DOM.formWsp.checked;
     const correoVal = DOM.formCorreoCheck.checked;
     const docenteVal = DOM.formDocenteCheck.checked;
-    const horarioConfirmadoVal = DOM.formHorarioConfirmado.checked;
+    const horarioConfirmadoVal = DOM.formHorarioConfirmado.checked || !!(horarioElegidoVal && horarioElegidoVal !== '-');
     
     if (indexStr !== '') {
         // EDITAR REGISTRO

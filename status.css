@@ -179,15 +179,11 @@ body {
     gap: 12px;
 }
 
-.brand-badge {
-    background: linear-gradient(135deg, var(--certus-blue), #004bbb);
-    color: white;
-    font-weight: 800;
-    font-size: 0.95rem;
-    letter-spacing: 1.5px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    box-shadow: 0 4px 10px rgba(0, 45, 114, 0.3);
+.certus-logo {
+    height: 42px;
+    width: auto;
+    object-fit: contain;
+    display: block;
 }
 
 .brand-text h1 {

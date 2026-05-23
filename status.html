@@ -20,7 +20,7 @@
                     <i class="fas fa-arrow-left"></i>
                 </a>
                 <div class="logo-container">
-                    <span class="brand-badge">CERTUS</span>
+                    <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
                     <div class="brand-text">
                         <h1>EQUIPO COT</h1>
                         <p>Dashboard de Asesorías</p>
@@ -331,6 +331,7 @@
                                 <option value="AQP">AQP</option>
                                 <option value="SURCO">SURCO</option>
                                 <option value="SJL">SJL</option>
+                                <option value="VES">VES</option>
                             </select>
                         </div>
 
@@ -396,9 +397,15 @@
                     </div>
 
                     <!-- Horario -->
-                    <div class="form-group">
-                        <label for="formHorario">Horario de la Asesoría *</label>
-                        <input type="text" id="formHorario" required placeholder="Ej: Viernes 20:30 - 22:00">
+                    <div class="form-row">
+                        <div class="form-group flex-grow">
+                            <label for="formHorario">Horario Propuesto / Disponibilidad *</label>
+                            <input type="text" id="formHorario" required placeholder="Ej: Viernes 20:30 - 22:00">
+                        </div>
+                        <div class="form-group flex-grow">
+                            <label for="formHorarioElegido">Horario Elegido / Confirmado</label>
+                            <input type="text" id="formHorarioElegido" placeholder="Ej: Viernes 21:15 - 22:00">
+                        </div>
                     </div>
 
                     <div class="form-actions">
