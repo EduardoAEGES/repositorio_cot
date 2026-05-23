@@ -258,42 +258,6 @@ const DEFAULT_DATASET = [
         "docente_comunicado": true,
         "horario_elegido": "21:15 - 22:00",
         "observaciones": "Horario establecido de 21:15 a 22:00."
-    },
-    {
-        "N_Clase": "1516",
-        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
-        "Estudiantes": "5",
-        "DOCENTE": "POLAR VALDIVIA ERNESTO ANTONIO",
-        "CORREO": "EPOLARV@CERTUS.EDU.PE",
-        "Sede": "VIRTUAL",
-        "Turno": "Mañana",
-        "Horario": "Jueves 09:15 - 10:45",
-        "RUC": "",
-        "CELULAR": "",
-        "MYPE": "Pendiente MYPE",
-        "wsp": false,
-        "correo": false,
-        "docente_comunicado": false,
-        "horario_elegido": "",
-        "observaciones": ""
-    },
-    {
-        "N_Clase": "1517",
-        "Curso": "EXPERIENCIA FORMATIVA (COT)-IV",
-        "Estudiantes": "8",
-        "DOCENTE": "CARRERA RODRIGUEZ DERECK ANTONIO",
-        "CORREO": "DCARRERAR@CERTUS.EDU.PE",
-        "Sede": "VIRTUAL",
-        "Turno": "Noche",
-        "Horario": "Jueves 21:15 - 22:45",
-        "RUC": "",
-        "CELULAR": "",
-        "MYPE": "Pendiente MYPE",
-        "wsp": false,
-        "correo": false,
-        "docente_comunicado": false,
-        "horario_elegido": "",
-        "observaciones": ""
     }
 ];
 
@@ -457,72 +421,83 @@ let selectedIndex = null; // Para rastrear qué fila está abierta en el Drawer
 // SELECTORES DOM
 // ==========================================================================
 const DOM = {
-    tableBody: document.getElementById('tableBody'),
-    noResults: document.getElementById('noResults'),
-    searchInput: document.getElementById('searchInput'),
-    clearSearchBtn: document.getElementById('clearSearchBtn'),
-    filterSede: document.getElementById('filterSede'),
-    filterTurno: document.getElementById('filterTurno'),
-    filterEstado: document.getElementById('filterEstado'),
-    resetFiltersBtn: document.getElementById('resetFiltersBtn'),
-    addNewBtn: document.getElementById('addNewBtn'),
-    exportBtn: document.getElementById('exportBtn'),
-    resetDataBtn: document.getElementById('resetDataBtn'),
-    syncBtn: document.getElementById('syncBtn'),
-    syncStatus: document.getElementById('syncStatus'),
-    themeToggleBtn: document.getElementById('themeToggleBtn'),
-    footerSyncTime: document.getElementById('footerSyncTime'),
+    get tableBody() { return document.getElementById('tableBody'); },
+    get noResults() { return document.getElementById('noResults'); },
+    get searchInput() { return document.getElementById('searchInput'); },
+    get clearSearchBtn() { return document.getElementById('clearSearchBtn'); },
+    get filterSede() { return document.getElementById('filterSede'); },
+    get filterTurno() { return document.getElementById('filterTurno'); },
+    get filterEstado() { return document.getElementById('filterEstado'); },
+    get resetFiltersBtn() { return document.getElementById('resetFiltersBtn'); },
+    get addNewBtn() { return document.getElementById('addNewBtn'); },
+    get exportBtn() { return document.getElementById('exportBtn'); },
+    get resetDataBtn() { return document.getElementById('resetDataBtn'); },
+    get syncBtn() { return document.getElementById('syncBtn'); },
+    get syncStatus() { return document.getElementById('syncStatus'); },
+    get themeToggleBtn() { return document.getElementById('themeToggleBtn'); },
+    get footerSyncTime() { return document.getElementById('footerSyncTime'); },
     
     // KPIs
-    metricTotalClasses: document.getElementById('metricTotalClasses'),
-    metricCoordinated: document.getElementById('metricCoordinated'),
-    metricInProcess: document.getElementById('metricInProcess'),
-    metricPending: document.getElementById('metricPending'),
-    metricTotalStudents: document.getElementById('metricTotalStudents'),
+    get metricTotalClasses() { return document.getElementById('metricTotalClasses'); },
+    get metricCoordinated() { return document.getElementById('metricCoordinated'); },
+    get metricInProcess() { return document.getElementById('metricInProcess'); },
+    get metricPending() { return document.getElementById('metricPending'); },
+    get metricTotalStudents() { return document.getElementById('metricTotalStudents'); },
     
     // Analítica
-    completionCircle: document.getElementById('completionCircle'),
-    completionPercent: document.getElementById('completionPercent'),
-    progCoordinated: document.getElementById('progCoordinated'),
-    progInProcess: document.getElementById('progInProcess'),
-    progPending: document.getElementById('progPending'),
-    sedeBarsContainer: document.getElementById('sedeBarsContainer'),
-    turnoMananaPercent: document.getElementById('turnoMananaPercent'),
-    turnoMananaBar: document.getElementById('turnoMananaBar'),
-    turnoNochePercent: document.getElementById('turnoNochePercent'),
-    turnoNocheBar: document.getElementById('turnoNocheBar'),
-    modVirtualCount: document.getElementById('modVirtualCount'),
-    modPresencialCount: document.getElementById('modPresencialCount'),
+    get completionCircle() { return document.getElementById('completionCircle'); },
+    get completionPercent() { return document.getElementById('completionPercent'); },
+    get progCoordinated() { return document.getElementById('progCoordinated'); },
+    get progInProcess() { return document.getElementById('progInProcess'); },
+    get progPending() { return document.getElementById('progPending'); },
+    get sedeBarsContainer() { return document.getElementById('sedeBarsContainer'); },
+    get turnoMananaPercent() { return document.getElementById('turnoMananaPercent'); },
+    get turnoMananaBar() { return document.getElementById('turnoMananaBar'); },
+    get turnoNochePercent() { return document.getElementById('turnoNochePercent'); },
+    get turnoNocheBar() { return document.getElementById('turnoNocheBar'); },
+    get modVirtualCount() { return document.getElementById('modVirtualCount'); },
+    get modPresencialCount() { return document.getElementById('modPresencialCount'); },
     
     // Drawer
-    drawerOverlay: document.getElementById('drawerOverlay'),
-    detailDrawer: document.getElementById('detailDrawer'),
-    drawerBody: document.getElementById('drawerBody'),
-    drawerCloseBtn: document.getElementById('drawerCloseBtn'),
+    get drawerOverlay() { return document.getElementById('drawerOverlay'); },
+    get detailDrawer() { return document.getElementById('detailDrawer'); },
+    get drawerBody() { return document.getElementById('drawerBody'); },
+    get drawerCloseBtn() { return document.getElementById('drawerCloseBtn'); },
     
     // Modal
-    modalOverlay: document.getElementById('modalOverlay'),
-    modalTitle: document.getElementById('modalTitle'),
-    modalCloseBtn: document.getElementById('modalCloseBtn'),
-    advisoryForm: document.getElementById('advisoryForm'),
-    formIndex: document.getElementById('formIndex'),
-    formClassNo: document.getElementById('formClassNo'),
-    formCourse: document.getElementById('formCourse'),
-    formStudents: document.getElementById('formStudents'),
-    formSede: document.getElementById('formSede'),
-    formTurno: document.getElementById('formTurno'),
-    formWsp: document.getElementById('formWsp'),
-    formCorreoCheck: document.getElementById('formCorreoCheck'),
-    formDocenteCheck: document.getElementById('formDocenteCheck'),
-    formHorarioConfirmado: document.getElementById('formHorarioConfirmado'),
-    formDocente: document.getElementById('formDocente'),
-    formCorreo: document.getElementById('formCorreo'),
-    formMYPE: document.getElementById('formMYPE'),
-    formRUC: document.getElementById('formRUC'),
-    formCelular: document.getElementById('formCelular'),
-    formHorario: document.getElementById('formHorario'),
-    formHorarioElegido: document.getElementById('formHorarioElegido'),
-    formCancelBtn: document.getElementById('formCancelBtn')
+    get modalOverlay() { return document.getElementById('modalOverlay'); },
+    get modalTitle() { return document.getElementById('modalTitle'); },
+    get modalCloseBtn() { return document.getElementById('modalCloseBtn'); },
+    get advisoryForm() { return document.getElementById('advisoryForm'); },
+    get formIndex() { return document.getElementById('formIndex'); },
+    get formClassNo() { return document.getElementById('formClassNo'); },
+    get formCourse() { return document.getElementById('formCourse'); },
+    get formStudents() { return document.getElementById('formStudents'); },
+    get formSede() { return document.getElementById('formSede'); },
+    get formTurno() { return document.getElementById('formTurno'); },
+    get formWsp() { return document.getElementById('formWsp'); },
+    get formCorreoCheck() { return document.getElementById('formCorreoCheck'); },
+    get formDocenteCheck() { return document.getElementById('formDocenteCheck'); },
+    get formHorarioConfirmado() { return document.getElementById('formHorarioConfirmado'); },
+    get formDocente() { return document.getElementById('formDocente'); },
+    get formCorreo() { return document.getElementById('formCorreo'); },
+    get formMYPE() { return document.getElementById('formMYPE'); },
+    get formRUC() { return document.getElementById('formRUC'); },
+    get formCelular() { return document.getElementById('formCelular'); },
+    get formHorario() { return document.getElementById('formHorario'); },
+    get formHorarioElegido() { return document.getElementById('formHorarioElegido'); },
+    get formCancelBtn() { return document.getElementById('formCancelBtn'); },
+    
+    // Summary Modal Selectors
+    get dashboardResumenBtn() { return document.getElementById('dashboardResumenBtn'); },
+    get summaryModalOverlay() { return document.getElementById('summaryModalOverlay'); },
+    get summaryModalCloseBtn() { return document.getElementById('summaryModalCloseBtn'); },
+    get summaryTableBody1() { return document.getElementById('summaryTableBody1'); },
+    get summaryTableBody2() { return document.getElementById('summaryTableBody2'); },
+    get sumKpiWsp() { return document.getElementById('sumKpiWsp'); },
+    get sumKpiCorreo() { return document.getElementById('sumKpiCorreo'); },
+    get sumKpiDocente() { return document.getElementById('sumKpiDocente'); },
+    get sumKpiHorario() { return document.getElementById('sumKpiHorario'); }
 };
 
 // ==========================================================================
@@ -576,7 +551,9 @@ function initData() {
     }
     
     const lastSync = localStorage.getItem('cot-last-sync-time') || getFormattedTime();
-    DOM.footerSyncTime.innerText = `Última actualización: ${lastSync}`;
+    if (DOM.footerSyncTime) {
+        DOM.footerSyncTime.innerText = `Última actualización: ${lastSync}`;
+    }
 }
 
 // ==========================================================================
@@ -584,46 +561,60 @@ function initData() {
 // ==========================================================================
 function bindEvents() {
     // Cambio de Tema
-    DOM.themeToggleBtn.addEventListener('click', toggleTheme);
+    if (DOM.themeToggleBtn) {
+        DOM.themeToggleBtn.addEventListener('click', toggleTheme);
+    }
     
     // Búsqueda en tiempo real
-    DOM.searchInput.addEventListener('input', (e) => {
-        activeFilters.search = e.target.value;
-        toggleClearSearchButton();
-        render();
-    });
+    if (DOM.searchInput) {
+        DOM.searchInput.addEventListener('input', (e) => {
+            activeFilters.search = e.target.value;
+            toggleClearSearchButton();
+            render();
+        });
+    }
     
-    DOM.clearSearchBtn.addEventListener('click', () => {
-        DOM.searchInput.value = '';
-        activeFilters.search = '';
-        toggleClearSearchButton();
-        render();
-    });
+    if (DOM.clearSearchBtn) {
+        DOM.clearSearchBtn.addEventListener('click', () => {
+            if (DOM.searchInput) DOM.searchInput.value = '';
+            activeFilters.search = '';
+            toggleClearSearchButton();
+            render();
+        });
+    }
     
     // Selects de Filtros
-    DOM.filterSede.addEventListener('change', (e) => {
-        activeFilters.sede = e.target.value;
-        render();
-    });
+    if (DOM.filterSede) {
+        DOM.filterSede.addEventListener('change', (e) => {
+            activeFilters.sede = e.target.value;
+            render();
+        });
+    }
     
-    DOM.filterTurno.addEventListener('change', (e) => {
-        activeFilters.turno = e.target.value;
-        render();
-    });
+    if (DOM.filterTurno) {
+        DOM.filterTurno.addEventListener('change', (e) => {
+            activeFilters.turno = e.target.value;
+            render();
+        });
+    }
     
-    DOM.filterEstado.addEventListener('change', (e) => {
-        activeFilters.estado = e.target.value;
-        render();
-    });
+    if (DOM.filterEstado) {
+        DOM.filterEstado.addEventListener('change', (e) => {
+            activeFilters.estado = e.target.value;
+            render();
+        });
+    }
     
     // Botón de restablecer filtros
-    DOM.resetFiltersBtn.addEventListener('click', resetFilters);
+    if (DOM.resetFiltersBtn) {
+        DOM.resetFiltersBtn.addEventListener('click', resetFilters);
+    }
     
     // KPI Cards clic para filtrar
     document.querySelectorAll('.kpi-card').forEach(card => {
         card.addEventListener('click', () => {
             const filterType = card.getAttribute('data-filter');
-            if (filterType) {
+            if (filterType && DOM.filterEstado) {
                 DOM.filterEstado.value = filterType;
                 activeFilters.estado = filterType;
                 render();
@@ -632,23 +623,44 @@ function bindEvents() {
     });
     
     // Sincronización Google Sheets
-    DOM.syncBtn.addEventListener('click', syncFromGoogleSheets);
+    if (DOM.syncBtn) {
+        DOM.syncBtn.addEventListener('click', syncFromGoogleSheets);
+    }
     
     // Restablecer base de datos por defecto
-    DOM.resetDataBtn.addEventListener('click', confirmResetOriginalData);
+    if (DOM.resetDataBtn) {
+        DOM.resetDataBtn.addEventListener('click', confirmResetOriginalData);
+    }
     
     // Exportación a Excel/CSV
-    DOM.exportBtn.addEventListener('click', exportToCSV);
+    if (DOM.exportBtn) {
+        DOM.exportBtn.addEventListener('click', exportToCSV);
+    }
     
     // CRUD: Modal de añadir
-    DOM.addNewBtn.addEventListener('click', () => openModal());
-    DOM.modalCloseBtn.addEventListener('click', closeModal);
-    DOM.formCancelBtn.addEventListener('click', closeModal);
-    DOM.advisoryForm.addEventListener('submit', handleFormSubmit);
+    if (DOM.addNewBtn) DOM.addNewBtn.addEventListener('click', () => openModal());
+    if (DOM.modalCloseBtn) DOM.modalCloseBtn.addEventListener('click', closeModal);
+    if (DOM.formCancelBtn) DOM.formCancelBtn.addEventListener('click', closeModal);
+    if (DOM.advisoryForm) DOM.advisoryForm.addEventListener('submit', handleFormSubmit);
     
     // CRUD: Drawer de Detalles
-    DOM.drawerCloseBtn.addEventListener('click', closeDrawer);
-    DOM.drawerOverlay.addEventListener('click', closeDrawer);
+    if (DOM.drawerCloseBtn) DOM.drawerCloseBtn.addEventListener('click', closeDrawer);
+    if (DOM.drawerOverlay) DOM.drawerOverlay.addEventListener('click', closeDrawer);
+    
+    // Summary Dashboard Events
+    if (DOM.dashboardResumenBtn) {
+        DOM.dashboardResumenBtn.addEventListener('click', openSummaryModal);
+    }
+    if (DOM.summaryModalCloseBtn) {
+        DOM.summaryModalCloseBtn.addEventListener('click', closeSummaryModal);
+    }
+    if (DOM.summaryModalOverlay) {
+        DOM.summaryModalOverlay.addEventListener('click', (e) => {
+            if (e.target === DOM.summaryModalOverlay) {
+                closeSummaryModal();
+            }
+        });
+    }
 }
 
 // ==========================================================================
@@ -694,6 +706,9 @@ function render() {
     
     // 4. Actualizar gráficos analíticos (basados en todo el universo de datos)
     updateCharts(advisories);
+    
+    // 5. Actualizar el panel de resumen si está renderizado
+    updateSummaryDashboard(advisories);
 }
 
 function filterDataset() {
@@ -1194,6 +1209,10 @@ function mergeSyncedData(syncedRows) {
     
     // Mantener registros locales que no estén en el Google Sheet (ej: Pendiente MYPE)
     advisories.forEach(localItem => {
+        // Evitar duplicar clases que ya fueron procesadas y añadidas desde el Google Sheet
+        const alreadyMergedClass = merged.some(m => m.N_Clase === localItem.N_Clase);
+        if (alreadyMergedClass) return;
+        
         const existsInSynced = syncedRows.some(row => normalizeName(getRowValue(row, ["EMPRESARIO", "MYPE", "RAZON SOCIAL"])) === normalizeName(localItem.MYPE));
         if (!existsInSynced) {
             const itemCopy = { ...localItem };
@@ -1600,4 +1619,76 @@ function getFormattedTime() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// ==========================================================================
+// SECCIÓN DE DASHBOARD RESUMEN
+// ==========================================================================
+function openSummaryModal() {
+    updateSummaryDashboard(advisories);
+    if (DOM.summaryModalOverlay) {
+        DOM.summaryModalOverlay.classList.add('active');
+    }
+}
+
+function closeSummaryModal() {
+    if (DOM.summaryModalOverlay) {
+        DOM.summaryModalOverlay.classList.remove('active');
+    }
+}
+
+function updateSummaryDashboard(data) {
+    const totalWsp = data.filter(item => item.wsp).length;
+    const totalCorreo = data.filter(item => item.correo).length;
+    const totalDocente = data.filter(item => item.docente_comunicado).length;
+    const totalHorario = data.filter(item => item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-').length;
+    
+    if (DOM.sumKpiWsp) DOM.sumKpiWsp.innerText = totalWsp;
+    if (DOM.sumKpiCorreo) DOM.sumKpiCorreo.innerText = totalCorreo;
+    if (DOM.sumKpiDocente) DOM.sumKpiDocente.innerText = totalDocente;
+    if (DOM.sumKpiHorario) DOM.sumKpiHorario.innerText = totalHorario;
+    
+    if (DOM.summaryTableBody1 && DOM.summaryTableBody2) {
+        DOM.summaryTableBody1.innerHTML = '';
+        DOM.summaryTableBody2.innerHTML = '';
+        
+        const half = Math.ceil(data.length / 2);
+        
+        data.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // Build WSP pill
+            const wspClass = item.wsp ? 'yes' : 'no';
+            const wspText = item.wsp ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
+            
+            // Build Correo pill
+            const correoClass = item.correo ? 'yes' : 'no';
+            const correoText = item.correo ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
+            
+            // Build Docente pill
+            const docenteClass = item.docente_comunicado ? 'yes' : 'no';
+            const docenteText = item.docente_comunicado ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
+            
+            // Build Horario badge
+            const hasSchedule = item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-';
+            const horarioContent = hasSchedule 
+                ? `<span class="summary-schedule-badge"><i class="far fa-clock"></i> ${item.horario_elegido}</span>`
+                : '<span class="summary-schedule-empty">-</span>';
+                
+            tr.innerHTML = `
+                <td><strong style="color:var(--text-primary)">${item.MYPE || 'Pendiente MYPE'}</strong></td>
+                <td>${item.DOCENTE}</td>
+                <td style="text-align: center;"><span class="summary-pill ${wspClass}">${wspText}</span></td>
+                <td style="text-align: center;"><span class="summary-pill ${correoClass}">${correoText}</span></td>
+                <td style="text-align: center;"><span class="summary-pill ${docenteClass}">${docenteText}</span></td>
+                <td>${horarioContent}</td>
+            `;
+            
+            if (index < half) {
+                DOM.summaryTableBody1.appendChild(tr);
+            } else {
+                DOM.summaryTableBody2.appendChild(tr);
+            }
+        });
+    }
 }

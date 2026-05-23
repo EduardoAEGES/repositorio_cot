@@ -9,7 +9,7 @@
     <!-- FontAwesome para Iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Estilos -->
-    <link rel="stylesheet" href="status.css">
+    <link rel="stylesheet" href="status.css?v=1.0.3">
 </head>
 <body class="light-theme">
     <div class="app-wrapper">
@@ -114,7 +114,12 @@
             <section class="analytics-row">
                 <!-- Completion Card -->
                 <div class="analytics-card progress-card">
-                    <h3>Progreso General</h3>
+                    <div class="card-header-with-action">
+                        <h3>Progreso General</h3>
+                        <button id="dashboardResumenBtn" class="summary-action-btn">
+                            <i class="fas fa-chart-simple"></i> DASHBOARD RESUMEN
+                        </button>
+                    </div>
                     <div class="progress-container">
                         <div class="radial-progress">
                             <svg class="radial-svg" viewBox="0 0 100 100">
@@ -415,9 +420,106 @@
                 </form>
             </div>
         </div>
+        <!-- DASHBOARD RESUMEN FLOATING MODAL -->
+        <div class="summary-modal-overlay" id="summaryModalOverlay">
+            <div class="summary-modal-card">
+                <div class="summary-modal-header premium-gradient">
+                    <div class="summary-header-info">
+                        <h2><i class="fas fa-chart-pie"></i> Reporte Status de Asesorías</h2>
+                        <p>Seguimiento de comunicación y coordinación con empresarios</p>
+                    </div>
+                    <button class="summary-modal-close-btn" id="summaryModalCloseBtn">&times;</button>
+                </div>
+                <div class="summary-modal-body">
+                    <!-- KPI Summary Grid -->
+                    <div class="summary-kpi-grid">
+                        <div class="summary-kpi-card wsp">
+                            <div class="summary-kpi-icon">
+                                <i class="fab fa-whatsapp"></i>
+                            </div>
+                            <div class="summary-kpi-content">
+                                <h4 id="sumKpiWsp">0</h4>
+                                <span>WhatsApp Enviados</span>
+                            </div>
+                        </div>
+                        <div class="summary-kpi-card correo">
+                            <div class="summary-kpi-icon">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="summary-kpi-content">
+                                <h4 id="sumKpiCorreo">0</h4>
+                                <span>Correos Enviados</span>
+                            </div>
+                        </div>
+                        <div class="summary-kpi-card docente">
+                            <div class="summary-kpi-icon">
+                                <i class="fas fa-user-tie"></i>
+                            </div>
+                            <div class="summary-kpi-content">
+                                <h4 id="sumKpiDocente">0</h4>
+                                <span>Docentes Comunicados</span>
+                            </div>
+                        </div>
+                        <div class="summary-kpi-card horario">
+                            <div class="summary-kpi-icon">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <div class="summary-kpi-content">
+                                <h4 id="sumKpiHorario">0</h4>
+                                <span>Horarios Confirmados</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Summary Tables (2-column layout) -->
+                    <div class="summary-tables-wrapper">
+                        <div class="summary-table-container">
+                            <table class="summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Empresario</th>
+                                        <th>Asesor</th>
+                                        <th style="text-align: center;">¿Envío WhatsApp?</th>
+                                        <th style="text-align: center;">¿Envío Correo?</th>
+                                        <th style="text-align: center;">¿Se comunicó con MYPE?</th>
+                                        <th>Horario</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summaryTableBody1">
+                                    <!-- Dynamic rows filled by JS (Left Column) -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="summary-table-container">
+                            <table class="summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Empresario</th>
+                                        <th>Asesor</th>
+                                        <th style="text-align: center;">¿Envío WhatsApp?</th>
+                                        <th style="text-align: center;">¿Envío Correo?</th>
+                                        <th style="text-align: center;">¿Se comunicó con MYPE?</th>
+                                        <th>Horario</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="summaryTableBody2">
+                                    <!-- Dynamic rows filled by JS (Right Column) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="summary-footer">
+                        <span>Reporte actualizado de coordinación de asesorías empresariales</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Scripts -->
-    <script src="status.js"></script>
+    <script src="status.js?v=1.0.3"></script>
 </body>
 </html>
