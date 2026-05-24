@@ -26,44 +26,47 @@
         </section>
 
         <div class="grid-container">
-            <a href="#" class="card">
-                <img src="assets/contabilidad.png" alt="Coordinación Contabilidad">
-                <span class="card-title">Coordinación Contabilidad</span>
+            <a href="javascript:void(0)" onclick="openProtectedUrl('https://sites.google.com/view/equipo-cot-pln/principal', 'Repositorio CONTA/PLN')" class="card">
+                <img src="assets/repositorio.png" alt="Repositorio CONTA/PLN">
+                <span class="card-title">Repositorio CONTA/PLN</span>
             </a>
-            <a href="#" class="card">
-                <img src="assets/curricular.png" alt="Coordinación Curricular">
-                <span class="card-title">Coordinación Curricular</span>
+            <a href="javascript:void(0)" onclick="openProtectedUrl('https://eduardoaeges.github.io/eventos/', 'Gestor de eventos')" class="card">
+                <img src="assets/eventos.png" alt="Gestor de eventos">
+                <span class="card-title">Gestor de eventos</span>
             </a>
-            <a href="#" class="card">
-                <img src="assets/academica.png" alt="Coordinación Académica">
-                <span class="card-title">Coordinación Académica</span>
+            <a href="buscador.html" class="card">
+                <img src="assets/buscador.png" alt="Buscador y Carga Docente">
+                <span class="card-title">Buscador y Carga Docente</span>
             </a>
-            <a href="#" class="card">
-                <img src="assets/marketing.png" alt="Coordinación Marketing">
-                <span class="card-title">Coordinación Marketing</span>
-            </a>
-            <a href="#" class="card">
-                <img src="assets/programacion.png" alt="Coordinación Programación">
-                <span class="card-title">Coordinación Programación</span>
-            </a>
-            <a href="#" class="card">
-                <img src="assets/emprendimiento.png" alt="Coordinación Emprendimiento">
-                <span class="card-title">Coordinación Emprendimiento</span>
-            </a>
-            <a href="#" class="card">
-                <img src="assets/seleccion.png" alt="Coordinación Selección - PTP">
-                <span class="card-title">Coordinación Selección - PTP</span>
-            </a>
-            <a href="status.html" class="card highlight-status">
-                <div class="status-card-icon"><i class="fas fa-chart-pie"></i></div>
+            <a href="status.html" class="card">
+                <img src="assets/status_asesorias.png" alt="Status de Asesorías">
                 <span class="card-title">Status de Asesorías</span>
             </a>
-            <a href="#" class="card highlight">
-                <img src="assets/bienvenida.png" alt="Bienvenida Docente">
-                <span class="card-title">Bienvenida Docente</span>
+            <a href="horario.html" class="card">
+                <img src="assets/horarios.png" alt="Horario">
+                <span class="card-title">Horario</span>
             </a>
         </div>
     </main>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <i class="fas fa-lock"></i>
+                <div class="modal-title" id="modalTitle">Acceso Restringido</div>
+                <div class="modal-subtitle">Ingrese la clave de seguridad para continuar</div>
+            </div>
+            <div class="modal-body">
+                <input type="password" id="modalInput" class="modal-input" placeholder="••••" autocomplete="off">
+                <div id="modalError" class="modal-error">Clave incorrecta. Intente de nuevo.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancelar</button>
+                <button type="button" class="modal-btn modal-btn-confirm" onclick="submitPassword()">Acceder</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Smooth reveal animation for cards
@@ -78,6 +81,47 @@
                     card.style.transform = 'translateY(0)';
                 }, 100 * index);
             });
+        });
+
+        let targetUrl = '';
+
+        function openProtectedUrl(url, name) {
+            targetUrl = url;
+            document.getElementById('modalTitle').innerText = name;
+            document.getElementById('passwordModal').classList.add('active');
+            document.getElementById('modalInput').value = '';
+            document.getElementById('modalError').style.display = 'none';
+            setTimeout(() => document.getElementById('modalInput').focus(), 150);
+        }
+
+        function closeModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+            targetUrl = '';
+        }
+
+        function submitPassword() {
+            const input = document.getElementById('modalInput').value;
+            const errorEl = document.getElementById('modalError');
+            const container = document.querySelector('.modal-container');
+            
+            if (input.trim() === 'CONTA') {
+                window.open(targetUrl, '_blank');
+                closeModal();
+            } else {
+                errorEl.style.display = 'block';
+                container.classList.add('shake');
+                setTimeout(() => {
+                    container.classList.remove('shake');
+                }, 300);
+            }
+        }
+
+        // Close on escape key or submit on Enter key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Enter' && document.getElementById('passwordModal').classList.contains('active')) {
+                submitPassword();
+            }
         });
     </script>
 </body>

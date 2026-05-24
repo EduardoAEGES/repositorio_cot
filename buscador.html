@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador y Carga Docente - Equipo COT PLN</title>
+    <link rel="stylesheet" href="buscador.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="light-theme">
+    <header class="app-header">
+        <div class="header-left">
+            <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Principal</a>
+            <div class="logo-container">
+                <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
+                <div class="site-title">EQUIPO COT-PLN</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="sync-status-container">
+                <span id="syncTime" class="sync-time">Cargando datos...</span>
+                <button id="syncBtn" class="sync-btn" title="Sincronizar con Google Sheets">
+                    <i class="fas fa-sync-alt"></i> Sincronizar
+                </button>
+            </div>
+            <button id="themeToggleBtn" class="theme-toggle-btn" title="Cambiar Tema">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="hero-section">
+            <h1>Buscador y Carga Horaria 2026</h1>
+            <p>Acceso rápido a bases de datos de estudiantes de Contabilidad, Pensamiento Lógico y Reportes de Horas Docentes.</p>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs-container">
+            <button class="tab-btn active" data-tab="tab-contabilidad">
+                <i class="fas fa-calculator"></i> Estudiantes Contabilidad
+            </button>
+            <button class="tab-btn" data-tab="tab-pensamiento">
+                <i class="fas fa-brain"></i> Pensamiento Lógico
+            </button>
+            <button class="tab-btn" data-tab="tab-docentes">
+                <i class="fas fa-chalkboard-teacher"></i> Buscar Docentes
+            </button>
+            <button class="tab-btn highlight-tab" data-tab="tab-reporte">
+                <i class="fas fa-chart-bar"></i> Reporte Carga Docente
+            </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-content-wrapper">
+            
+            <!-- Tab: BBDD Contabilidad -->
+            <div class="tab-pane active" id="tab-contabilidad">
+                <div class="filters-card">
+                    <div class="filters-grid">
+                        <div class="search-box">
+                            <label><i class="fas fa-search"></i> Buscar Estudiante / Docente / Clase</label>
+                            <input type="text" id="search-conta" placeholder="Nombre, DNI, NRC, Clase, Docente...">
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-map-marker-alt"></i> Campus / Sede</label>
+                            <select id="filter-sede-conta">
+                                <option value="all">Todos los Campus</option>
+                            </select>
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-cubes"></i> Módulo</label>
+                            <select id="filter-modulo-conta">
+                                <option value="all">Todos los Módulos</option>
+                                <option value="1">Módulo 1</option>
+                                <option value="2">Módulo 2</option>
+                            </select>
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-graduation-cap"></i> Ciclo</label>
+                            <select id="filter-ciclo-conta">
+                                <option value="all">Todos los Ciclos</option>
+                                <option value="1">Ciclo 1</option>
+                                <option value="2">Ciclo 2</option>
+                                <option value="3">Ciclo 3</option>
+                                <option value="4">Ciclo 4</option>
+                                <option value="5">Ciclo 5</option>
+                                <option value="6">Ciclo 6</option>
+                            </select>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary export-btn" id="export-conta-btn">
+                                <i class="fas fa-file-excel"></i> Exportar
+                            </button>
+                            <button class="btn btn-outline reset-btn" id="reset-conta-btn">
+                                <i class="fas fa-redo"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table" id="table-conta">
+                        <thead>
+                            <tr>
+                                <th>DNI</th>
+                                <th>Nombre Estudiante</th>
+                                <th>Ciclo</th>
+                                <th>Sección / Clase</th>
+                                <th>Curso / Catálogo</th>
+                                <th>Sede</th>
+                                <th>Docente / Correo</th>
+                                <th>Día / Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-conta">
+                            <tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando información...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-container" id="pagination-conta"></div>
+            </div>
+
+            <!-- Tab: BBDD Pensamiento Lógico -->
+            <div class="tab-pane" id="tab-pensamiento">
+                <div class="filters-card">
+                    <div class="filters-grid">
+                        <div class="search-box">
+                            <label><i class="fas fa-search"></i> Buscar Estudiante / Docente / Clase</label>
+                            <input type="text" id="search-pln" placeholder="Nombre, DNI, NRC, Clase, Docente...">
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-map-marker-alt"></i> Campus / Sede</label>
+                            <select id="filter-sede-pln">
+                                <option value="all">Todos los Campus</option>
+                            </select>
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-cubes"></i> Módulo</label>
+                            <select id="filter-modulo-pln">
+                                <option value="all">Todos los Módulos</option>
+                                <option value="1">Módulo 1</option>
+                                <option value="2">Módulo 2</option>
+                            </select>
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-graduation-cap"></i> Ciclo</label>
+                            <select id="filter-ciclo-pln">
+                                <option value="all">Todos los Ciclos</option>
+                                <option value="1">Ciclo 1</option>
+                                <option value="2">Ciclo 2</option>
+                                <option value="3">Ciclo 3</option>
+                                <option value="4">Ciclo 4</option>
+                                <option value="5">Ciclo 5</option>
+                                <option value="6">Ciclo 6</option>
+                            </select>
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn btn-primary export-btn" id="export-pln-btn">
+                                <i class="fas fa-file-excel"></i> Exportar
+                            </button>
+                            <button class="btn btn-outline reset-btn" id="reset-pln-btn">
+                                <i class="fas fa-redo"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table" id="table-pln">
+                        <thead>
+                            <tr>
+                                <th>DNI</th>
+                                <th>Nombre Estudiante</th>
+                                <th>Ciclo</th>
+                                <th>Sección / Clase</th>
+                                <th>Carrera / ID</th>
+                                <th>Sede</th>
+                                <th>Docente / Correo</th>
+                                <th>Día / Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-pln">
+                            <tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando información...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-container" id="pagination-pln"></div>
+            </div>
+
+            <!-- Tab: BBDD Docentes -->
+            <div class="tab-pane" id="tab-docentes">
+                <div class="filters-card">
+                    <div class="filters-grid">
+                        <div class="search-box">
+                            <label><i class="fas fa-search"></i> Buscar Docente</label>
+                            <input type="text" id="search-doc" placeholder="Apellidos y nombres, DNI, Correo...">
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-briefcase"></i> Área</label>
+                            <select id="filter-area-doc">
+                                <option value="all">Todas las Áreas</option>
+                            </select>
+                        </div>
+                        <div class="filter-box" style="grid-column: span 2;">
+                            <label><i class="fas fa-calendar-alt"></i> Periodos / Módulos</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="chk-doc-ene1" checked> Enero 1</label>
+                                <label><input type="checkbox" id="chk-doc-ene2" checked> Enero 2</label>
+                                <label><input type="checkbox" id="chk-doc-marzo1" checked> Marzo 1</label>
+                                <label><input type="checkbox" id="chk-doc-marzo2" checked> Marzo 2</label>
+                                <label><input type="checkbox" id="chk-doc-abril1" checked> Abril 1</label>
+                                <label><input type="checkbox" id="chk-doc-abril2" checked> Abril 2</label>
+                                <label><input type="checkbox" id="chk-doc-junio1" checked> Junio 1</label>
+                                <label><input type="checkbox" id="chk-doc-junio2" checked> Junio 2</label>
+                            </div>
+                        </div>
+                        <div class="filter-box" style="grid-column: span 2;">
+                            <label><i class="fas fa-file-signature"></i> Tipo Contrato</label>
+                            <div class="checkbox-group" id="chk-group-doc-contrato">
+                                <label><input type="checkbox" id="chk-doc-ptp" checked> PTP</label>
+                                <label><input type="checkbox" id="chk-doc-ptc" checked> PTC</label>
+                                <label><input type="checkbox" id="chk-doc-ptd" checked> PTD</label>
+                                <label><input type="checkbox" id="chk-doc-pph" checked> PPH</label>
+                                <label><input type="checkbox" id="chk-doc-tcxh" checked> TCxH</label>
+                                <label><input type="checkbox" id="chk-doc-ptcin" checked> PTC IN</label>
+                            </div>
+                        </div>
+                        <div class="filter-actions" style="margin-left: auto;">
+                            <button class="btn btn-primary export-btn" id="export-doc-btn">
+                                <i class="fas fa-file-excel"></i> Exportar
+                            </button>
+                            <button class="btn btn-outline reset-btn" id="reset-doc-btn">
+                                <i class="fas fa-redo"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table" id="table-doc">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>DNI</th>
+                                <th>Apellidos y Nombres</th>
+                                <th>Área</th>
+                                <th>Teléfono</th>
+                                <th>Correo</th>
+                                <th>Tipo Contrato</th>
+                                <th>Horas Contrato</th>
+                                <th>Sede Principal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-doc">
+                            <tr><td colspan="9" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando información...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-container" id="pagination-doc"></div>
+            </div>
+
+            <!-- Tab: Reporte Carga Horaria -->
+            <div class="tab-pane" id="tab-reporte">
+
+                <!-- Report Filters -->
+                <div class="filters-card">
+                    <div class="filters-grid">
+                        <div class="search-box">
+                            <label><i class="fas fa-search"></i> Buscar Docente</label>
+                            <input type="text" id="search-report" placeholder="Buscar por DNI o nombres...">
+                        </div>
+                        <div class="filter-box">
+                            <label><i class="fas fa-briefcase"></i> Área</label>
+                            <select id="filter-area-rep">
+                                <option value="all">Todas las Áreas</option>
+                                <option value="Contabilidad">Contabilidad</option>
+                                <option value="Pensamiento Logico">Pensamiento Lógico</option>
+                            </select>
+                        </div>
+                        <div class="filter-box" style="grid-column: span 2;">
+                            <label><i class="fas fa-calendar-alt"></i> Cumplimiento / Periodos</label>
+                            <div class="combo-group">
+                                <button class="combo-btn" id="combo-rep-A" data-combo="A">
+                                    <i class="fas fa-calendar-day"></i> ENE 2 + MAR 1
+                                </button>
+                                <button class="combo-btn active" id="combo-rep-B" data-combo="B">
+                                    <i class="fas fa-calendar-check"></i> MAR 2 + ABR 1 + JUN 1
+                                </button>
+                                <button class="combo-btn" id="combo-rep-C" data-combo="C">
+                                    <i class="fas fa-calendar-day"></i> ABR 2 + JUN 2
+                                </button>
+                            </div>
+                        </div>
+                        <div class="filter-box" style="grid-column: span 2;">
+                            <label><i class="fas fa-file-signature"></i> Tipo Contrato</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" id="chk-rep-ptp"> PTP</label>
+                                <label><input type="checkbox" id="chk-rep-ptc" checked> PTC</label>
+                                <label><input type="checkbox" id="chk-rep-ptd"> PTD</label>
+                                <label><input type="checkbox" id="chk-rep-tcxh"> TCxH</label>
+                                <label><input type="checkbox" id="chk-rep-ptcin"> PTC IN</label>
+                                <label><input type="checkbox" id="chk-rep-pph"> PPH</label>
+                            </div>
+                        </div>
+                        <div class="filter-actions" style="margin-left: auto;">
+                            <button class="btn btn-primary export-btn" id="export-report-btn">
+                                <i class="fas fa-file-excel"></i> Exportar Reporte
+                            </button>
+                            <button class="btn btn-outline reset-btn" id="reset-report-btn">
+                                <i class="fas fa-redo"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table" id="table-report">
+                        <thead>
+                            <tr>
+                                <th>Docente</th>
+                                <th>DNI</th>
+                                <th>Tipo Contrato</th>
+                                <th>Horas Asignadas (Contrato)</th>
+                                <th>Horas Programadas</th>
+                                <th>Horas Libres</th>
+                                <th style="width: 250px;">Cumplimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-report">
+                            <tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando reporte...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination-container" id="pagination-report"></div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <p>&copy; 2026 Equipo COT-PLN. Todos los derechos reservados. Desarrollado con ❤️ para Certus.</p>
+    </footer>
+
+    <script src="buscador.js"></script>
+</body>
+</html>
