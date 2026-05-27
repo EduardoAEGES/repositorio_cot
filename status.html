@@ -256,7 +256,7 @@
             <section class="table-container">
                 <table class="dashboard-table" id="dataTable">
                     <thead>
-                        <tr>
+                        <tr id="tableHeaderRow">
                             <th class="col-clase">Nº Clase</th>
                             <th class="col-mype">MYPE / RUC / Celular</th>
                             <th class="col-curso">Curso</th>
@@ -353,23 +353,8 @@
                     <!-- Requisitos de Asesoría en Modal (Completará el grid) -->
                     <div style="margin-top: 5px;">
                         <label style="margin-bottom: 8px; display: block; font-weight: 600; font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Requisitos de Coordinación</label>
-                        <div class="modal-checklist" style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="formWsp">
-                                <span>WhatsApp Enviado</span>
-                            </label>
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="formCorreoCheck">
-                                <span>Correo Enviado</span>
-                            </label>
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="formDocenteCheck">
-                                <span>Docente Comunicado</span>
-                            </label>
-                            <label class="checkbox-container">
-                                <input type="checkbox" id="formHorarioConfirmado">
-                                <span>Horario Asesoría Confirmado</span>
-                            </label>
+                        <div class="modal-checklist" id="modalChecklist" style="display: flex; gap: 12px; flex-wrap: wrap; max-height: 160px; overflow-y: auto; padding: 4px; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <!-- Checkboxes dinámicos cargados por JS -->
                         </div>
                     </div>
 
@@ -472,16 +457,13 @@
                     </div>
 
                     <!-- Summary Tables (2-column layout) -->
-                    <div class="summary-tables-wrapper">
+                    <div class="summary-tables-wrapper" style="overflow-x: auto;">
                         <div class="summary-table-container">
                             <table class="summary-table">
-                                <thead>
+                                <thead id="summaryThead1">
                                     <tr>
                                         <th>Empresario</th>
                                         <th>Asesor</th>
-                                        <th style="text-align: center;">¿Envío WhatsApp?</th>
-                                        <th style="text-align: center;">¿Envío Correo?</th>
-                                        <th style="text-align: center;">¿Se comunicó con MYPE?</th>
                                         <th>Horario</th>
                                     </tr>
                                 </thead>
@@ -492,13 +474,10 @@
                         </div>
                         <div class="summary-table-container">
                             <table class="summary-table">
-                                <thead>
+                                <thead id="summaryThead2">
                                     <tr>
                                         <th>Empresario</th>
                                         <th>Asesor</th>
-                                        <th style="text-align: center;">¿Envío WhatsApp?</th>
-                                        <th style="text-align: center;">¿Envío Correo?</th>
-                                        <th style="text-align: center;">¿Se comunicó con MYPE?</th>
                                         <th>Horario</th>
                                     </tr>
                                 </thead>

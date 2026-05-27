@@ -405,10 +405,49 @@ function normalizeName(str) {
 // Google Sheet URL de exportación de CSV para pestaña "Comunicación 2"
 const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1T7-kt0lYxkfUmZor41UWyjdrx73zqIj5MzSenElQcCI/export?format=csv&gid=1432325951';
 
+// Índices de columnas de check semanales en el CSV (omitiendo col 20 Observaciones)
+const CHECK_COL_INDEXES = [12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44];
+
+const DEFAULT_CHECKS_CONFIG = [
+    { index: 12, week: 'S1', name: '¿Mensaje whatsapp?', enabled: true },
+    { index: 13, week: 'S1', name: '¿Mensaje correo?', enabled: true },
+    { index: 14, week: 'S1', name: '¿Docente se comunicó con empresario?', enabled: true },
+    { index: 15, week: 'S1', name: 'Horario elegido', enabled: true },
+    { index: 16, week: 'S2', name: 'Reunión Programada', enabled: true },
+    { index: 17, week: 'S2', name: '¿Se reunió con la Mype?', enabled: true },
+    { index: 18, week: 'S2', name: '¿Conformó los equipos y líderes?', enabled: true },
+    { index: 19, week: 'S2', name: 'Cantidad de Equipos', enabled: true },
+    { index: 21, week: 'S3', name: 'S3 - Check 1', enabled: false },
+    { index: 22, week: 'S3', name: 'S3 - Check 2', enabled: false },
+    { index: 23, week: 'S3', name: 'S3 - Check 3', enabled: false },
+    { index: 24, week: 'S3', name: 'S3 - Check 4', enabled: false },
+    { index: 25, week: 'S4', name: 'S4 - Check 1', enabled: false },
+    { index: 26, week: 'S4', name: 'S4 - Check 2', enabled: false },
+    { index: 27, week: 'S4', name: 'S4 - Check 3', enabled: false },
+    { index: 28, week: 'S4', name: 'S4 - Check 4', enabled: false },
+    { index: 29, week: 'S5', name: 'S5 - Check 1', enabled: false },
+    { index: 30, week: 'S5', name: 'S5 - Check 2', enabled: false },
+    { index: 31, week: 'S5', name: 'S5 - Check 3', enabled: false },
+    { index: 32, week: 'S5', name: 'S5 - Check 4', enabled: false },
+    { index: 33, week: 'S6', name: 'S6 - Check 1', enabled: false },
+    { index: 34, week: 'S6', name: 'S6 - Check 2', enabled: false },
+    { index: 35, week: 'S6', name: 'S6 - Check 3', enabled: false },
+    { index: 36, week: 'S6', name: 'S6 - Check 4', enabled: false },
+    { index: 37, week: 'S7', name: 'S7 - Check 1', enabled: false },
+    { index: 38, week: 'S7', name: 'S7 - Check 2', enabled: false },
+    { index: 39, week: 'S7', name: 'S7 - Check 3', enabled: false },
+    { index: 40, week: 'S7', name: 'S7 - Check 4', enabled: false },
+    { index: 41, week: 'S8', name: 'S8 - Check 1', enabled: false },
+    { index: 42, week: 'S8', name: 'S8 - Check 2', enabled: false },
+    { index: 43, week: 'S8', name: 'S8 - Check 3', enabled: false },
+    { index: 44, week: 'S8', name: 'S8 - Check 4', enabled: false }
+];
+
 // ==========================================================================
 // ESTADO GLOBAL DE LA APLICACIÓN
 // ==========================================================================
 let advisories = [];
+let checksConfig = [];
 let activeFilters = {
     search: '',
     sede: 'all',
@@ -475,10 +514,6 @@ const DOM = {
     get formStudents() { return document.getElementById('formStudents'); },
     get formSede() { return document.getElementById('formSede'); },
     get formTurno() { return document.getElementById('formTurno'); },
-    get formWsp() { return document.getElementById('formWsp'); },
-    get formCorreoCheck() { return document.getElementById('formCorreoCheck'); },
-    get formDocenteCheck() { return document.getElementById('formDocenteCheck'); },
-    get formHorarioConfirmado() { return document.getElementById('formHorarioConfirmado'); },
     get formDocente() { return document.getElementById('formDocente'); },
     get formCorreo() { return document.getElementById('formCorreo'); },
     get formMYPE() { return document.getElementById('formMYPE'); },
@@ -520,6 +555,42 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
 });
 
+// Helper para inicializar checks en una asesoría
+function initializeChecksForAdvisory(item) {
+    if (!item.checks || !Array.isArray(item.checks) || item.checks.length !== 32) {
+        const checks = new Array(32).fill(false);
+        // Retrocompatibilidad con propiedades antiguas
+        checks[0] = !!item.wsp;
+        checks[1] = !!item.correo;
+        checks[2] = !!item.docente_comunicado;
+        checks[3] = !!(item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-');
+        checks[4] = !!item.horario_confirmado;
+        item.checks = checks;
+    }
+}
+
+// Obtener info de cumplimiento de una asesoría
+function getComplianceInfo(item) {
+    initializeChecksForAdvisory(item);
+    const enabledIndices = [];
+    checksConfig.forEach((cfg, idx) => {
+        if (cfg.enabled) {
+            enabledIndices.push(idx);
+        }
+    });
+    if (enabledIndices.length === 0) {
+        return { percent: 100, completed: 0, total: 0 };
+    }
+    let okCount = 0;
+    enabledIndices.forEach(idx => {
+        if (item.checks[idx]) {
+            okCount++;
+        }
+    });
+    const percent = Math.round((okCount / enabledIndices.length) * 100);
+    return { percent, completed: okCount, total: enabledIndices.length };
+}
+
 function initTheme() {
     const savedTheme = localStorage.getItem('cot-dashboard-theme') || 'light';
     if (savedTheme === 'dark') {
@@ -534,16 +605,27 @@ function initTheme() {
 }
 
 function initData() {
+    // Cargar config de checks
+    const savedChecksConfig = localStorage.getItem('cot-checks-config');
+    if (savedChecksConfig) {
+        checksConfig = JSON.parse(savedChecksConfig);
+    } else {
+        checksConfig = [...DEFAULT_CHECKS_CONFIG];
+        localStorage.setItem('cot-checks-config', JSON.stringify(checksConfig));
+    }
+
     const savedData = localStorage.getItem('cot-advisories-data');
     if (savedData) {
         advisories = JSON.parse(savedData);
         advisories.forEach(item => {
+            initializeChecksForAdvisory(item);
             item.Estado = calculateStatus(item);
         });
         updateSyncStatus('check', 'Datos locales cargados');
     } else {
         advisories = [...DEFAULT_DATASET];
         advisories.forEach(item => {
+            initializeChecksForAdvisory(item);
             item.Estado = calculateStatus(item);
         });
         saveDataToLocalStorage();
@@ -667,26 +749,32 @@ function bindEvents() {
 // CÁLCULO DE ESTADO Y LOGICA DE NEGOCIO
 // ==========================================================================
 function calculateStatus(item) {
-    const wsp = !!item.wsp;
-    const correo = !!item.correo;
-    const docente_comunicado = !!item.docente_comunicado;
+    initializeChecksForAdvisory(item);
     
-    // Si las tres opciones son Sí
-    const hasThreeYes = wsp && correo && docente_comunicado;
+    // Obtener los índices de los checks habilitados
+    const enabledIndices = [];
+    checksConfig.forEach((cfg, idx) => {
+        if (cfg.enabled) {
+            enabledIndices.push(idx);
+        }
+    });
     
-    // Horario elegido no vacío y no es "-"
-    const hasScheduleSelected = !!(item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-');
+    if (enabledIndices.length === 0) {
+        return 'coordinado'; // Si no hay checks habilitados, está todo coordinado
+    }
     
-    if (hasThreeYes && hasScheduleSelected) {
+    let missingCount = 0;
+    enabledIndices.forEach(idx => {
+        if (!item.checks[idx]) {
+            missingCount++;
+        }
+    });
+    
+    if (missingCount === 0) {
         return 'coordinado';
-    } else if (hasScheduleSelected) {
-        // Si tiene horario elegido pero no tiene los tres Sí, está en proceso
-        return 'en_proceso';
-    } else if (hasThreeYes) {
-        // Si tiene los tres Sí pero no tiene horario elegido, está en proceso
+    } else if (missingCount === 1) {
         return 'en_proceso';
     } else {
-        // En cualquier otro caso, está pendiente
         return 'pendiente';
     }
 }
@@ -739,7 +827,202 @@ function filterDataset() {
     });
 }
 
+function getEnabledWeeks() {
+    const enabledWeeks = [];
+    checksConfig.forEach(cfg => {
+        if (cfg.enabled && !enabledWeeks.includes(cfg.week)) {
+            enabledWeeks.push(cfg.week);
+        }
+    });
+    enabledWeeks.sort((a, b) => {
+        const numA = parseInt(a.replace('S', ''));
+        const numB = parseInt(b.replace('S', ''));
+        return numA - numB;
+    });
+    return enabledWeeks;
+}
+
+function renderTableHeaders() {
+    const theadRow = document.getElementById('tableHeaderRow');
+    if (!theadRow) return;
+    
+    const enabledWeeks = getEnabledWeeks();
+    
+    let headersHtml = `
+        <th class="col-clase">Nº Clase</th>
+        <th class="col-mype">MYPE / RUC / Celular</th>
+        <th class="col-curso">Curso</th>
+        <th class="col-docente">Docente / Correo</th>
+        <th class="col-sede">Sede</th>
+        <th class="col-horario">Horario de Asesoría</th>
+    `;
+    
+    enabledWeeks.forEach(wk => {
+        const weekNum = wk.replace('S', '');
+        headersHtml += `<th class="col-semana">SEMANA ${weekNum}</th>`;
+    });
+    
+    headersHtml += `
+        <th class="col-estado">Estado</th>
+        <th class="col-acciones">Acciones</th>
+    `;
+    
+    theadRow.innerHTML = headersHtml;
+}
+
+let activePopover = null;
+
+function toggleWeeklyPopover(button, advisoryIndex, week) {
+    // Si ya está abierto en este mismo botón, lo cerramos y salimos
+    if (activePopover && activePopover.dataset.buttonId === button.id) {
+        closeActivePopover();
+        return;
+    }
+    
+    closeActivePopover();
+    
+    // Asignar ID único temporal al botón si no lo tiene
+    if (!button.id) {
+        button.id = 'btn_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    const popover = document.createElement('div');
+    popover.className = 'weekly-popover';
+    popover.dataset.buttonId = button.id;
+    
+    const weekChecks = checksConfig
+        .map((cfg, idx) => ({ cfg, idx }))
+        .filter(x => x.cfg.week === week && x.cfg.enabled);
+        
+    const item = advisories[advisoryIndex];
+    initializeChecksForAdvisory(item);
+    
+    const weekNum = week.replace('S', '');
+    
+    let checklistHtml = '';
+    weekChecks.forEach(({ cfg, idx }) => {
+        const isChecked = !!item.checks[idx];
+        checklistHtml += `
+            <label class="weekly-popover-item" onclick="event.stopPropagation();">
+                <input type="checkbox" data-index="${idx}" ${isChecked ? 'checked' : ''} 
+                       onchange="handlePopoverCheckChange(${advisoryIndex}, ${idx}, this.checked, '${week}', '${button.id}')">
+                <span>${cfg.name}</span>
+            </label>
+        `;
+    });
+    
+    if (weekChecks.length === 0) {
+        checklistHtml = '<div style="font-size:0.7rem; color:var(--text-secondary); font-style:italic;">No hay actividades habilitadas.</div>';
+    }
+    
+    popover.innerHTML = `
+        <div class="weekly-popover-header">
+            <span class="weekly-popover-title">Semana ${weekNum} (${week})</span>
+            <button class="weekly-popover-close" onclick="event.stopPropagation(); closeActivePopover()">&times;</button>
+        </div>
+        <div class="weekly-popover-list">
+            ${checklistHtml}
+        </div>
+    `;
+    
+    document.body.appendChild(popover);
+    activePopover = popover;
+    
+    // Posicionamiento preciso
+    const rect = button.getBoundingClientRect();
+    const scrollX = window.scrollX || window.pageXOffset;
+    const scrollY = window.scrollY || window.pageYOffset;
+    
+    let left = rect.left + scrollX + (rect.width / 2) - (popover.offsetWidth / 2);
+    let top = rect.bottom + scrollY + 8;
+    
+    if (left < 10) left = 10;
+    if (left + popover.offsetWidth > window.innerWidth - 10) {
+        left = window.innerWidth - popover.offsetWidth - 10;
+    }
+    
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+    
+    // Evento para cerrar al hacer clic afuera
+    setTimeout(() => {
+        document.addEventListener('click', closeActivePopoverOutside);
+    }, 50);
+}
+
+function closeActivePopover() {
+    if (activePopover) {
+        activePopover.remove();
+        activePopover = null;
+        document.removeEventListener('click', closeActivePopoverOutside);
+    }
+}
+
+function closeActivePopoverOutside(e) {
+    if (activePopover && !activePopover.contains(e.target)) {
+        // Asegurarse de no cerrar si se hace clic en el mismo botón que lo activa
+        const btnId = activePopover.dataset.buttonId;
+        const clickedBtn = e.target.closest('.weekly-progress-btn');
+        if (clickedBtn && clickedBtn.id === btnId) {
+            return;
+        }
+        closeActivePopover();
+    }
+}
+
+function handlePopoverCheckChange(advisoryIndex, checkIdx, isChecked, week, buttonId) {
+    const item = advisories[advisoryIndex];
+    item.checks[checkIdx] = isChecked;
+    
+    // Sincronizar campos legados
+    item.wsp = !!item.checks[0];
+    item.correo = !!item.checks[1];
+    item.docente_comunicado = !!item.checks[2];
+    item.horario_confirmado = !!item.checks[3];
+    
+    if (checkIdx === 3) {
+        if (item.checks[3]) {
+            if (!item.horario_elegido || item.horario_elegido === '-') {
+                item.horario_elegido = item.Horario || 'Confirmado';
+            }
+        } else {
+            item.horario_elegido = '';
+        }
+    }
+    
+    item.Estado = calculateStatus(item);
+    saveDataToLocalStorage();
+    
+    // Renderizado reactivo
+    render();
+    
+    if (selectedIndex === advisoryIndex) {
+        updateDrawerContent(advisoryIndex);
+    }
+    
+    // Reabrir popover en el nuevo botón redibujado de la tabla para dar continuidad de clics
+    setTimeout(() => {
+        const buttons = document.querySelectorAll('.weekly-progress-btn');
+        let newTargetBtn = null;
+        buttons.forEach(btn => {
+            const onClickAttr = btn.getAttribute('onclick');
+            if (onClickAttr && onClickAttr.includes(`toggleWeeklyPopover(this, ${advisoryIndex}, '${week}')`)) {
+                newTargetBtn = btn;
+            }
+        });
+        
+        if (newTargetBtn) {
+            // Asignar el mismo ID para mantener la relación de cierre
+            newTargetBtn.id = buttonId;
+            toggleWeeklyPopover(newTargetBtn, advisoryIndex, week);
+        }
+    }, 0);
+}
+
 function renderTable(data) {
+    // 1. Reconstruir cabeceras dinámicas según semanas habilitadas
+    renderTableHeaders();
+
     DOM.tableBody.innerHTML = '';
     
     if (data.length === 0) {
@@ -749,6 +1032,8 @@ function renderTable(data) {
     
     DOM.noResults.style.display = 'none';
     
+    const enabledWeeks = getEnabledWeeks();
+    
     data.forEach((item, index) => {
         // Encontrar el índice original en el array global
         const originalIndex = advisories.findIndex(a => a.N_Clase === item.N_Clase);
@@ -756,7 +1041,7 @@ function renderTable(data) {
         const tr = document.createElement('tr');
         tr.addEventListener('click', (e) => {
             // Si el clic fue en un botón de acción, no abrir drawer
-            if (e.target.closest('.table-actions') || e.target.closest('.status-pill')) return;
+            if (e.target.closest('.table-actions') || e.target.closest('.status-pill') || e.target.closest('.weekly-progress-btn')) return;
             openDrawer(originalIndex);
         });
         
@@ -778,6 +1063,39 @@ function renderTable(data) {
         // Detalle de sede tag
         const sedeClass = item.Sede.toLowerCase().replace(' ', '-');
         
+        // Generar celdas para cada semana habilitada
+        let weeklyCellsHtml = '';
+        enabledWeeks.forEach(wk => {
+            const weekChecks = checksConfig
+                .map((cfg, idx) => ({ cfg, idx }))
+                .filter(x => x.cfg.week === wk && x.cfg.enabled);
+                
+            let percent = 0;
+            if (weekChecks.length > 0) {
+                let okCount = 0;
+                weekChecks.forEach(({ idx }) => {
+                    if (item.checks[idx]) okCount++;
+                });
+                percent = Math.round((okCount / weekChecks.length) * 100);
+            } else {
+                percent = 100;
+            }
+            
+            let btnClass = 'empty';
+            if (percent === 100) btnClass = 'success';
+            else if (percent >= 50) btnClass = 'warning';
+            else if (percent > 0) btnClass = 'danger';
+            
+            weeklyCellsHtml += `
+                <td style="text-align: center; vertical-align: middle;">
+                    <button class="weekly-progress-btn ${btnClass}" 
+                            onclick="event.stopPropagation(); toggleWeeklyPopover(this, ${originalIndex}, '${wk}')">
+                        ${percent}%
+                    </button>
+                </td>
+            `;
+        });
+
         tr.innerHTML = `
             <td>
                 <span class="cell-tag">${item.N_Clase}</span>
@@ -805,6 +1123,7 @@ function renderTable(data) {
                     ${item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-' ? `<i class="far fa-calendar-alt" style="margin-right: 5px; color: var(--color-accent)"></i> ${item.horario_elegido}` : '-'}
                 </span>
             </td>
+            ${weeklyCellsHtml}
             <td>
                 <span class="status-pill ${statusClass}" onclick="event.stopPropagation(); toggleRowStatus(${originalIndex})">
                     ${statusIcon} ${statusText}
@@ -975,17 +1294,34 @@ function toggleTheme() {
 // Cambiar estado directo en fila (limpiar o marcar todo)
 function toggleRowStatus(index) {
     const item = advisories[index];
+    initializeChecksForAdvisory(item);
     const status = item.Estado;
     
+    // Obtener los índices habilitados
+    const enabledIndices = [];
+    checksConfig.forEach((cfg, idx) => {
+        if (cfg.enabled) {
+            enabledIndices.push(idx);
+        }
+    });
+    
     if (status === 'coordinado') {
-        // Desmarcar todo
+        // Desmarcar todos los habilitados
+        enabledIndices.forEach(idx => {
+            item.checks[idx] = false;
+        });
+        // Backwards compatibility fields
         item.wsp = false;
         item.correo = false;
         item.docente_comunicado = false;
         item.horario_confirmado = false;
         item.horario_elegido = '';
     } else {
-        // Marcar todo
+        // Marcar todos los habilitados
+        enabledIndices.forEach(idx => {
+            item.checks[idx] = true;
+        });
+        // Backwards compatibility fields
         item.wsp = true;
         item.correo = true;
         item.docente_comunicado = true;
@@ -1017,11 +1353,17 @@ function syncFromGoogleSheets() {
             return response.text();
         })
         .then(csvText => {
-            const parsedRows = parseCSV(csvText);
-            if (parsedRows.length === 0) throw new Error('El archivo CSV está vacío.');
+            const result = parseCSV(csvText);
+            if (!result || result.data.length === 0) throw new Error('El archivo CSV está vacío.');
+            
+            // Actualizar checksConfig si vino en el resultado
+            if (result.config && result.config.length > 0) {
+                checksConfig = result.config;
+                localStorage.setItem('cot-checks-config', JSON.stringify(checksConfig));
+            }
             
             // Combinar con los datos locales existentes para mantener las observaciones, wsp, correo, etc.
-            mergeSyncedData(parsedRows);
+            mergeSyncedData(result.data);
             
             const nowTime = getFormattedTime();
             localStorage.setItem('cot-last-sync-time', nowTime);
@@ -1079,7 +1421,7 @@ function parseCSV(text) {
         rows.push(currentRow);
     }
     
-    if (rows.length === 0) return [];
+    if (rows.length === 0) return { config: [], data: [] };
     
     // Buscar dinámicamente la fila de cabeceras
     let headerIdx = -1;
@@ -1093,6 +1435,30 @@ function parseCSV(text) {
     
     if (headerIdx === -1) {
         headerIdx = 0;
+    }
+    
+    // Parsear configuración de checks desde Fila 0, Fila 1 y Fila 2
+    const parsedConfig = [];
+    if (headerIdx >= 2) {
+        const row0 = rows[0];
+        const row1 = rows[1];
+        const row2 = rows[headerIdx]; // Fila de cabeceras
+        
+        CHECK_COL_INDEXES.forEach((colIdx, i) => {
+            const enabledVal = row0 && row0[colIdx] ? row0[colIdx].trim().toUpperCase() : 'FALSE';
+            const enabled = enabledVal === 'TRUE';
+            
+            const week = row1 && row1[colIdx] ? row1[colIdx].trim() : ('S' + Math.ceil((i + 1) / 4));
+            
+            let name = row2 && row2[colIdx] ? row2[colIdx].trim() : '';
+            if (!name) {
+                name = `${week} - Check ${(i % 4) + 1}`;
+            }
+            parsedConfig.push({ index: colIdx, week, name, enabled });
+        });
+    } else {
+        // Fallback si no hay filas previas
+        parsedConfig.push(...DEFAULT_CHECKS_CONFIG);
     }
     
     const headers = rows[headerIdx];
@@ -1113,9 +1479,12 @@ function parseCSV(text) {
             }
             rowObj[cleanHeader] = cells[idx] ? cells[idx].trim() : '';
         });
+        
+        rowObj.rawCells = cells;
         parsedRows.push(rowObj);
     }
-    return parsedRows;
+    
+    return { config: parsedConfig, data: parsedRows };
 }
 
 function getRowValue(row, possibleHeaders) {
@@ -1176,12 +1545,15 @@ function mergeSyncedData(syncedRows) {
             };
         }
         
-        // Mapear checks de "Sí" / "No" / "S"
-        const wspVal = parseBool(getRowValue(row, ["¿mensaje whatsapp?", "mensaje whatsapp?", "whatsapp", "Se envio mensaje whatsapp?"]));
-        const correoVal = parseBool(getRowValue(row, ["¿Mensaje correo?", "Mensaje correo?", "correo", "Se envio mensaje correo?"]));
-        const docenteVal = parseBool(getRowValue(row, ["¿Docente se comunicó con empresario?", "Docente se comunicó con empresario?", "docente se comunico con empresario?", "Docente se comunic con empresario?"]));
+        // Mapear checks dinámicos utilizando row.rawCells
+        const checks = new Array(32).fill(false);
+        CHECK_COL_INDEXES.forEach((colIdx, i) => {
+            const val = (row.rawCells && row.rawCells[colIdx]) ? row.rawCells[colIdx].trim() : '';
+            const isOk = val !== '' && val !== '-' && val.toLowerCase() !== 'no' && val.toLowerCase() !== 'false';
+            checks[i] = isOk;
+        });
         
-        const horarioElegido = getRowValue(row, ["Horario elegido"]);
+        const horarioElegido = (row.rawCells && row.rawCells[15]) ? row.rawCells[15].trim() : '';
         
         const cleanRow = {
             "N_Clase": info.N_Clase,
@@ -1196,10 +1568,12 @@ function mergeSyncedData(syncedRows) {
             "CELULAR": getRowValue(row, ["TELEFONO EMPRESARIO", "CELULAR"]),
             "Horario": getRowValue(row, ["Horario", "DISPONIBILIDAD"]) || '-',
             "horario_elegido": horarioElegido,
-            "wsp": wspVal,
-            "correo": correoVal,
-            "docente_comunicado": docenteVal,
-            "horario_confirmado": !!(horarioElegido && horarioElegido !== '-'),
+            "checks": checks,
+            // Retrocompatibilidad
+            "wsp": checks[0],
+            "correo": checks[1],
+            "docente_comunicado": checks[2],
+            "horario_confirmado": checks[3],
             "observaciones": existing ? (existing.observaciones || '') : ''
         };
         
@@ -1216,6 +1590,7 @@ function mergeSyncedData(syncedRows) {
         const existsInSynced = syncedRows.some(row => normalizeName(getRowValue(row, ["EMPRESARIO", "MYPE", "RAZON SOCIAL"])) === normalizeName(localItem.MYPE));
         if (!existsInSynced) {
             const itemCopy = { ...localItem };
+            initializeChecksForAdvisory(itemCopy);
             itemCopy.Estado = calculateStatus(itemCopy);
             merged.push(itemCopy);
         }
@@ -1254,6 +1629,7 @@ function closeDrawer() {
 
 function updateDrawerContent(index) {
     const item = advisories[index];
+    initializeChecksForAdvisory(item);
     
     // Badges
     const status = item.Estado || 'pendiente';
@@ -1268,6 +1644,38 @@ function updateDrawerContent(index) {
     }
     const progressPercent = calculateTimelineProgress(item);
     
+    // Agrupar checks habilitados por semana
+    let checklistHtml = '';
+    const weeks = [...new Set(checksConfig.map(c => c.week))];
+    
+    weeks.forEach(wk => {
+        const enabledChecksInWeek = checksConfig
+            .map((cfg, idx) => ({ cfg, idx }))
+            .filter(x => x.cfg.week === wk && x.cfg.enabled);
+            
+        if (enabledChecksInWeek.length > 0) {
+            // Cabecera de la semana
+            checklistHtml += `<div class="timeline-week-title"><i class="fas fa-calendar-week"></i> Semana ${wk.replace('S', '')} (${wk})</div>`;
+            
+            enabledChecksInWeek.forEach(({ cfg, idx }) => {
+                const isDone = !!item.checks[idx];
+                checklistHtml += `
+                    <div class="timeline-step ${isDone ? 'done' : ''}" onclick="toggleTimelineStep(${index}, ${idx})">
+                        <span class="step-indicator"></span>
+                        <div class="step-content">
+                            <strong>${cfg.name}</strong>
+                            <small>Estado: ${isDone ? 'Completado' : 'Faltante'}</small>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    });
+    
+    if (!checklistHtml) {
+        checklistHtml = '<div style="color:var(--text-muted); font-size:0.8rem; font-style:italic;">No hay cumplimientos habilitados en la configuración.</div>';
+    }
+
     DOM.drawerBody.innerHTML = `
         <!-- Cabecera de Datos -->
         <div class="drawer-section">
@@ -1319,38 +1727,11 @@ function updateDrawerContent(index) {
         <!-- Timeline Checklist -->
         <div class="drawer-section">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h4>Línea de Proceso</h4>
+                <h4>Línea de Proceso (Checks Habilitados)</h4>
                 <strong style="color:var(--color-success); font-size:0.8rem;">${progressPercent}%</strong>
             </div>
             <div class="timeline-checklist">
-                <div class="timeline-step ${item.wsp ? 'done' : ''}" onclick="toggleTimelineStep(${index}, 'wsp')">
-                    <span class="step-indicator"></span>
-                    <div class="step-content">
-                        <strong>WhatsApp Enviado</strong>
-                        <small>Contacto inicial con el empresario</small>
-                    </div>
-                </div>
-                <div class="timeline-step ${item.correo ? 'done' : ''}" onclick="toggleTimelineStep(${index}, 'correo')">
-                    <span class="step-indicator"></span>
-                    <div class="step-content">
-                        <strong>Correo de Asesoría</strong>
-                        <small>Envío de presentación formal y requisitos</small>
-                    </div>
-                </div>
-                <div class="timeline-step ${item.docente_comunicado ? 'done' : ''}" onclick="toggleTimelineStep(${index}, 'docente_comunicado')">
-                    <span class="step-indicator"></span>
-                    <div class="step-content">
-                        <strong>Docente Comunicado</strong>
-                        <small>Notificación y alineación con el docente asesor</small>
-                    </div>
-                </div>
-                <div class="timeline-step ${item.horario_confirmado ? 'done' : ''}" onclick="toggleTimelineStep(${index}, 'horario_confirmado')">
-                    <span class="step-indicator"></span>
-                    <div class="step-content">
-                        <strong>Horario de Asesoría Confirmado</strong>
-                        <small>Pactada la reunión semanal</small>
-                    </div>
-                </div>
+                ${checklistHtml}
             </div>
         </div>
         
@@ -1364,21 +1745,24 @@ function updateDrawerContent(index) {
 }
 
 function calculateTimelineProgress(item) {
-    let done = 0;
-    if (item.wsp) done++;
-    if (item.correo) done++;
-    if (item.docente_comunicado) done++;
-    if (item.horario_confirmado) done++;
-    return Math.round((done / 4) * 100);
+    const comp = getComplianceInfo(item);
+    return comp.percent;
 }
 
-function toggleTimelineStep(index, field) {
+function toggleTimelineStep(index, checkIdx) {
     const item = advisories[index];
-    item[field] = !item[field];
+    initializeChecksForAdvisory(item);
+    item.checks[checkIdx] = !item.checks[checkIdx];
     
-    // Auto-sincronizar texto de horario cuando se confirma la reunión
-    if (field === 'horario_confirmado') {
-        if (item.horario_confirmado) {
+    // Sincronizar campos legados para retrocompatibilidad
+    item.wsp = !!item.checks[0];
+    item.correo = !!item.checks[1];
+    item.docente_comunicado = !!item.checks[2];
+    item.horario_confirmado = !!item.checks[3];
+    
+    // Auto-sincronizar texto de horario cuando se confirma la reunión (checkIdx === 3)
+    if (checkIdx === 3) {
+        if (item.checks[3]) {
             if (!item.horario_elegido || item.horario_elegido === '-') {
                 item.horario_elegido = item.Horario || 'Confirmado';
             }
@@ -1408,6 +1792,32 @@ function saveDrawerNotes(index) {
 function openModal(index = null) {
     DOM.advisoryForm.reset();
     
+    // Renderizar checkboxes dinámicos de checks habilitados
+    const modalChecklistContainer = document.getElementById('modalChecklist');
+    if (modalChecklistContainer) {
+        modalChecklistContainer.innerHTML = '';
+        
+        const enabledChecks = checksConfig
+            .map((cfg, idx) => ({ cfg, idx }))
+            .filter(x => x.cfg.enabled);
+            
+        enabledChecks.forEach(({ cfg, idx }) => {
+            const isChecked = index !== null ? !!advisories[index].checks[idx] : false;
+            
+            const label = document.createElement('label');
+            label.className = 'modal-checklist-item';
+            label.innerHTML = `
+                <input type="checkbox" class="dynamic-form-check" data-index="${idx}" ${isChecked ? 'checked' : ''}>
+                <span title="${cfg.name}">${cfg.name}</span>
+            `;
+            modalChecklistContainer.appendChild(label);
+        });
+        
+        if (enabledChecks.length === 0) {
+            modalChecklistContainer.innerHTML = '<span style="color:var(--text-secondary); font-size:0.75rem;">No hay requisitos de coordinación habilitados.</span>';
+        }
+    }
+    
     if (index !== null) {
         // Modo Editar
         const item = advisories[index];
@@ -1426,24 +1836,12 @@ function openModal(index = null) {
         DOM.formCelular.value = item.CELULAR;
         DOM.formHorario.value = item.Horario;
         DOM.formHorarioElegido.value = item.horario_elegido || '';
-        
-        // Cargar checkboxes
-        DOM.formWsp.checked = !!item.wsp;
-        DOM.formCorreoCheck.checked = !!item.correo;
-        DOM.formDocenteCheck.checked = !!item.docente_comunicado;
-        DOM.formHorarioConfirmado.checked = !!item.horario_confirmado;
     } else {
         // Modo Añadir
         DOM.modalTitle.innerText = 'Nueva Asesoría';
         DOM.formIndex.value = '';
         DOM.formClassNo.disabled = false;
         DOM.formHorarioElegido.value = '';
-        
-        // Resetear checkboxes
-        DOM.formWsp.checked = false;
-        DOM.formCorreoCheck.checked = false;
-        DOM.formDocenteCheck.checked = false;
-        DOM.formHorarioConfirmado.checked = false;
     }
     
     DOM.modalOverlay.classList.add('active');
@@ -1476,10 +1874,15 @@ function handleFormSubmit(e) {
         "MYPE": DOM.formMYPE.value.trim()
     };
     
-    const wspVal = DOM.formWsp.checked;
-    const correoVal = DOM.formCorreoCheck.checked;
-    const docenteVal = DOM.formDocenteCheck.checked;
-    const horarioConfirmadoVal = DOM.formHorarioConfirmado.checked || !!(horarioElegidoVal && horarioElegidoVal !== '-');
+    // Crear/cargar arreglo de checks
+    const formChecks = indexStr !== '' ? [...advisories[parseInt(indexStr)].checks] : new Array(32).fill(false);
+    
+    // Leer checkboxes dinámicos
+    const checkboxes = document.querySelectorAll('.dynamic-form-check');
+    checkboxes.forEach(cb => {
+        const checkIdx = parseInt(cb.getAttribute('data-index'));
+        formChecks[checkIdx] = cb.checked;
+    });
     
     if (indexStr !== '') {
         // EDITAR REGISTRO
@@ -1489,17 +1892,18 @@ function handleFormSubmit(e) {
         const updatedItem = {
             ...existing,
             ...formData,
-            wsp: wspVal,
-            correo: correoVal,
-            docente_comunicado: docenteVal,
-            horario_confirmado: horarioConfirmadoVal,
+            checks: formChecks,
+            // Sincronizar campos legados
+            wsp: !!formChecks[0],
+            correo: !!formChecks[1],
+            docente_comunicado: !!formChecks[2],
+            horario_confirmado: !!formChecks[3],
             observaciones: existing.observaciones || ''
         };
         updatedItem.Estado = calculateStatus(updatedItem);
         advisories[index] = updatedItem;
     } else {
         // NUEVO REGISTRO
-        // Validar si existe Nº Clase
         if (advisories.some(a => a.N_Clase === classNo)) {
             alert('Ya existe una asesoría registrada con ese Nº Clase.');
             return;
@@ -1507,10 +1911,12 @@ function handleFormSubmit(e) {
         
         const newRecord = {
             ...formData,
-            wsp: wspVal,
-            correo: correoVal,
-            docente_comunicado: docenteVal,
-            horario_confirmado: horarioConfirmadoVal,
+            checks: formChecks,
+            // Sincronizar campos legados
+            wsp: !!formChecks[0],
+            correo: !!formChecks[1],
+            docente_comunicado: !!formChecks[2],
+            horario_confirmado: !!formChecks[3],
             observaciones: ""
         };
         newRecord.Estado = calculateStatus(newRecord);
@@ -1540,6 +1946,7 @@ function deleteAdvisory(index) {
 function confirmResetOriginalData() {
     if (confirm('¿Estás seguro de que deseas restablecer la base de datos a sus valores originales?\nEsto eliminará todas las ediciones locales hechas.')) {
         advisories = [...DEFAULT_DATASET];
+        advisories.forEach(item => initializeChecksForAdvisory(item));
         saveDataToLocalStorage();
         localStorage.removeItem('cot-last-sync-time');
         DOM.footerSyncTime.innerText = `Última actualización: ${getFormattedTime()}`;
@@ -1583,7 +1990,6 @@ function exportToCSV() {
         csvContent += row.join(',') + '\r\n';
     });
     
-    // Crear el link de descarga
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1600,7 +2006,6 @@ function exportToCSV() {
 function escapeCSVCell(value) {
     if (value === null || value === undefined) return '';
     let valStr = String(value);
-    // Si contiene comas o comillas dobles, escapar
     if (valStr.includes(',') || valStr.includes('"') || valStr.includes('\n')) {
         valStr = valStr.replace(/"/g, '""');
         return `"${valStr}"`;
@@ -1638,15 +2043,40 @@ function closeSummaryModal() {
 }
 
 function updateSummaryDashboard(data) {
-    const totalWsp = data.filter(item => item.wsp).length;
-    const totalCorreo = data.filter(item => item.correo).length;
-    const totalDocente = data.filter(item => item.docente_comunicado).length;
-    const totalHorario = data.filter(item => item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-').length;
+    const totalWsp = data.filter(item => item.checks[0]).length;
+    const totalCorreo = data.filter(item => item.checks[1]).length;
+    const totalDocente = data.filter(item => item.checks[2]).length;
+    const totalHorario = data.filter(item => item.checks[3]).length;
     
     if (DOM.sumKpiWsp) DOM.sumKpiWsp.innerText = totalWsp;
     if (DOM.sumKpiCorreo) DOM.sumKpiCorreo.innerText = totalCorreo;
     if (DOM.sumKpiDocente) DOM.sumKpiDocente.innerText = totalDocente;
     if (DOM.sumKpiHorario) DOM.sumKpiHorario.innerText = totalHorario;
+    
+    const enabledChecks = checksConfig
+        .map((cfg, idx) => ({ cfg, idx }))
+        .filter(x => x.cfg.enabled);
+        
+    const summaryThead1 = document.getElementById('summaryThead1');
+    const summaryThead2 = document.getElementById('summaryThead2');
+    
+    if (summaryThead1 && summaryThead2) {
+        let headerColsHtml = `
+            <tr>
+                <th>Empresario</th>
+                <th>Asesor</th>
+                <th>Horario</th>
+        `;
+        
+        enabledChecks.forEach(({ cfg }) => {
+            headerColsHtml += `<th style="text-align: center;">${cfg.name}</th>`;
+        });
+        
+        headerColsHtml += '</tr>';
+        
+        summaryThead1.innerHTML = headerColsHtml;
+        summaryThead2.innerHTML = headerColsHtml;
+    }
     
     if (DOM.summaryTableBody1 && DOM.summaryTableBody2) {
         DOM.summaryTableBody1.innerHTML = '';
@@ -1655,34 +2085,27 @@ function updateSummaryDashboard(data) {
         const half = Math.ceil(data.length / 2);
         
         data.forEach((item, index) => {
+            initializeChecksForAdvisory(item);
             const tr = document.createElement('tr');
             
-            // Build WSP pill
-            const wspClass = item.wsp ? 'yes' : 'no';
-            const wspText = item.wsp ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
-            
-            // Build Correo pill
-            const correoClass = item.correo ? 'yes' : 'no';
-            const correoText = item.correo ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
-            
-            // Build Docente pill
-            const docenteClass = item.docente_comunicado ? 'yes' : 'no';
-            const docenteText = item.docente_comunicado ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
-            
-            // Build Horario badge
-            const hasSchedule = item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-';
-            const horarioContent = hasSchedule 
-                ? `<span class="summary-schedule-badge"><i class="far fa-clock"></i> ${item.horario_elegido}</span>`
-                : '<span class="summary-schedule-empty">-</span>';
-                
-            tr.innerHTML = `
+            let rowHtml = `
                 <td><strong style="color:var(--text-primary)">${item.MYPE || 'Pendiente MYPE'}</strong></td>
                 <td>${item.DOCENTE}</td>
-                <td style="text-align: center;"><span class="summary-pill ${wspClass}">${wspText}</span></td>
-                <td style="text-align: center;"><span class="summary-pill ${correoClass}">${correoText}</span></td>
-                <td style="text-align: center;"><span class="summary-pill ${docenteClass}">${docenteText}</span></td>
-                <td>${horarioContent}</td>
+                <td>
+                    ${item.horario_elegido && item.horario_elegido.trim() && item.horario_elegido !== '-' 
+                        ? `<span class="summary-schedule-badge"><i class="far fa-clock"></i> ${item.horario_elegido}</span>`
+                        : '<span class="summary-schedule-empty">-</span>'}
+                </td>
             `;
+            
+            enabledChecks.forEach(({ idx }) => {
+                const isOk = !!item.checks[idx];
+                const pillClass = isOk ? 'yes' : 'no';
+                const pillText = isOk ? '<i class="fas fa-check"></i> Sí' : '<i class="fas fa-times"></i> No';
+                rowHtml += `<td style="text-align: center;"><span class="summary-pill ${pillClass}">${pillText}</span></td>`;
+            });
+            
+            tr.innerHTML = rowHtml;
             
             if (index < half) {
                 DOM.summaryTableBody1.appendChild(tr);
