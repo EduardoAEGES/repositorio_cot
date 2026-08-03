@@ -14,31 +14,27 @@
     <div class="app-container">
         <header class="app-header">
             
-            <!-- Título largo y bonito -->
+            <!-- Título compacto y botón para comprimir panel -->
             <div class="logo-area-framed">
-                <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
-                <h1>HORARIOS - EQUIPO COT PLN</h1>
+                <div class="logo-title-wrap">
+                    <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
+                    <h1>HORARIOS - EQUIPO COT PLN</h1>
+                </div>
+                <button id="toggleControlsBtn" class="toggle-panel-btn" title="Expandir / Contraer Controles">
+                    <i class="fas fa-compress-arrows-alt"></i> <span>Ocultar Controles</span>
+                </button>
             </div>
             
             <!-- Controles enmarcados -->
-            <div class="controls-frame">
+            <div id="collapsibleControls" class="controls-frame">
                 
-                <!-- Izquierda: Grupos y Búsqueda -->
+                <!-- Izquierda: Búsqueda de Docente -->
                 <div class="controls-left">
                     
-                    <!-- Selector de Grupo -->
-                    <div class="group-section">
-                        <label class="control-label">
-                            <i class="fas fa-users"></i> EQUIPO
-                        </label>
-                        <div class="group-controls">
-                            <nav class="group-selector" id="groupSelector">
-                                <!-- Groups will be injected by JS -->
-                            </nav>
-                            <button id="addGroupBtn" class="icon-btn" title="Agregar Grupo">
-                                <i class="fas fa-folder-plus"></i>
-                            </button>
-                        </div>
+                    <!-- Selector de Grupo Oculto para ahorrar espacio -->
+                    <div class="group-section" style="display: none;">
+                        <nav class="group-selector" id="groupSelector"></nav>
+                        <button id="addGroupBtn" style="display: none;"></button>
                     </div>
 
                     <!-- Búsqueda de Docente -->
@@ -66,33 +62,33 @@
                     <!-- Filtros de Módulo -->
                     <div class="module-filters">
                         <label>
-                            <input type="checkbox" id="mod1Check" value="1" checked> AGOSTO 1
+                            <input type="checkbox" id="junio1Check" value="1"> JUNIO 1
                         </label>
                         <label>
-                            <input type="checkbox" id="mod2Check" value="2" > AGOSTO 2
+                            <input type="checkbox" id="junio2Check" value="2" checked> JUNIO 2
                         </label>
                         <label>
-                            <input type="checkbox" id="abril1Check" value="1" > SETIEMBRE 1
+                            <input type="checkbox" id="agosto1Check" value="1" checked> AGOSTO 1
                         </label>
                         <label>
-                            <input type="checkbox" id="abril2Check" value="2" > SETIEMBRE 2
+                            <input type="checkbox" id="agosto2Check" value="2"> AGOSTO 2
                         </label>
                         <label>
-                            <input type="checkbox" id="junio1Check" value="1" > OCTUBRE 1
+                            <input type="checkbox" id="setiembre1Check" value="1"> SETIEMBRE 1
                         </label>
                         <label>
-                            <input type="checkbox" id="junio2Check" value="2"> OCTUBRE 2
+                            <input type="checkbox" id="setiembre2Check" value="2"> SETIEMBRE 2
+                        </label>
+                        <label>
+                            <input type="checkbox" id="octubre1Check" value="1"> OCTUBRE 1
+                        </label>
+                        <label>
+                            <input type="checkbox" id="octubre2Check" value="2"> OCTUBRE 2
                         </label>
                     </div>
                     
                     <!-- Botones de Acción -->
                     <div class="action-buttons">
-                        <button id="addCourseBtn" class="primary-btn">
-                            <i class="fas fa-plus"></i> Agregar Curso
-                        </button>
-                        <button id="btnConvertExcel" class="primary-btn-outline export-btn">
-                            <i class="fas fa-file-excel"></i> Exportar
-                        </button>
                         <button id="returnToPtcBtn" class="primary-btn-outline return-btn" style="display: none;">
                             <i class="fas fa-undo"></i> Volver a PTC
                         </button>
@@ -101,7 +97,7 @@
                 
                 <!-- Contenedor de docentes del grupo activo (botones y botón de Añadir) -->
                 <div style="width: 100%;">
-                    <nav class="user-selector" id="userSelector" style="display: none; width: 100%; border-top: 1px dashed #e2e8f0; padding-top: 15px; margin-top: 10px;">
+                    <nav class="user-selector" id="userSelector" style="display: none; width: 100%; margin-top: 4px; gap: 6px; flex-wrap: wrap;">
                     </nav>
                 </div>
                 
@@ -120,7 +116,6 @@
                     <div class="day-col">Jueves</div>
                     <div class="day-col">Viernes</div>
                     <div class="day-col">Sábado</div>
-                    <div class="day-col">Domingo</div>
                 </div>
                 
                 <div class="grid-body" id="gridBody">

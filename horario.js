@@ -1,8 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // State
     const defaultGroups = {
-        "PTC": ['EDUARDO', 'JOSÉ', 'JORGE', 'CARLOS', 'MIRKO', 'LUIS'],
-        "AQP-CIX": ['MARILYN ASTULLE', 'JUAN CARLOS COSTILLA']
+        "PTC": ['EDUARDO', 'JOSÉ', 'JORGE', 'CARLOS', 'MIRKO', 'LUIS']
     };
     
     let groups = JSON.parse(localStorage.getItem('cot_groups')) || defaultGroups;
@@ -12,10 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
         groups[gn] = groups[gn].map(u => u.trim().toUpperCase());
     });
     
-    // Remove OTROS group if it exists
-    if (groups["OTROS"]) {
-        delete groups["OTROS"];
-    }
+    // Remove OTROS and AQP-CIX groups if they exist
+    if (groups["OTROS"]) delete groups["OTROS"];
+    if (groups["AQP-CIX"]) delete groups["AQP-CIX"];
     
     // Ensure default groups exist and are populated if missing
     Object.keys(defaultGroups).forEach(gn => {
@@ -320,29 +318,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (clearSearchBtn) {
             clearSearchBtn.addEventListener('click', () => {
-                if (lastSearchedUser) {
-                    activeUsers.delete(lastSearchedUser);
-                    lastSearchedUser = null;
-                }
                 searchInput.value = '';
                 clearSearchBtn.style.display = 'none';
-                renderCourses();
+                searchResults.classList.add('hidden');
             });
         }
 
         if (searchScheduleBtn) {
             searchScheduleBtn.addEventListener('click', () => {
                 const val = searchInput.value.trim().toUpperCase();
-                if (lastSearchedUser && lastSearchedUser !== val) {
-                    activeUsers.delete(lastSearchedUser);
-                }
                 if (val) {
-                    activeUsers.add(val);
-                    lastSearchedUser = val;
-                } else if (lastSearchedUser) {
-                    activeUsers.delete(lastSearchedUser);
-                    lastSearchedUser = null;
+                    const allTeachers = Object.keys(googleSheetCourses);
+                    const normalizedVal = val.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const matches = allTeachers.filter(t => {
+                        const normT = t.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                        return normT.includes(normalizedVal);
+                    });
+                    
+                    matches.forEach(m => {
+                        activeUsers.add(m);
+                        if (groups[activeGroup] && !groups[activeGroup].includes(m)) {
+                            groups[activeGroup].push(m);
+                        }
+                    });
+                    persistGroups();
+                    renderLegacyButtons();
+                    updateModalUserSelect();
                 }
+                searchResults.classList.add('hidden');
                 renderCourses();
             });
         }
@@ -357,11 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!val) {
                 searchResults.classList.add('hidden');
-                if (lastSearchedUser) {
-                    activeUsers.delete(lastSearchedUser);
-                    lastSearchedUser = null;
-                    renderCourses();
-                }
                 return;
             }
 
@@ -378,12 +376,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 matches.forEach(m => {
                     const li = document.createElement('li');
                     li.className = 'search-result-item';
-                    li.textContent = m;
-                    li.addEventListener('click', () => {
-                        searchInput.value = m;
-                        searchResults.classList.add('hidden');
-                        if (clearSearchBtn) clearSearchBtn.style.display = 'block';
+                    
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = activeUsers.has(m);
+
+                    const span = document.createElement('span');
+                    span.textContent = m;
+                    span.style.flex = '1';
+
+                    li.appendChild(cb);
+                    li.appendChild(span);
+
+                    li.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        if (ev.target !== cb) {
+                            cb.checked = !cb.checked;
+                        }
+                        
+                        if (cb.checked) {
+                            activeUsers.add(m);
+                            if (groups[activeGroup] && !groups[activeGroup].includes(m)) {
+                                groups[activeGroup].push(m);
+                                persistGroups();
+                            }
+                        } else {
+                            activeUsers.delete(m);
+                        }
+                        
+                        renderLegacyButtons();
+                        updateModalUserSelect();
+                        renderCourses();
                     });
+
                     searchResults.appendChild(li);
                 });
             } else {
@@ -444,52 +469,110 @@ document.addEventListener('DOMContentLoaded', () => {
 
             contractData = {};
 
-            // 1. Procesar CONTA
-            for (let i = 1; i < rowsConta.length; i++) {
-                const cols = parseCSVLine(rowsConta[i]);
-                if (cols.length < 8) continue;
-                const dni = cols[1] ? cols[1].trim() : '';
-                const name = cols[2] ? cols[2].trim() : '';
-                const contractType = cols[5] ? cols[5].trim() : '';
-                const contractHours = cols[7] ? cols[7].trim() : '';
+            // 1. Procesar CONTA (COT)
+            let contaHeaderIdx = 0;
+            for (let r = 0; r < Math.min(10, rowsConta.length); r++) {
+                if (rowsConta[r].toUpperCase().includes('DNI') && rowsConta[r].toUpperCase().includes('APELLIDO')) {
+                    contaHeaderIdx = r;
+                    break;
+                }
+            }
+            const headersConta = parseCSVLine(rowsConta[contaHeaderIdx]).map(h => h.trim().toUpperCase());
+            const dniIdxC = headersConta.indexOf('DNI') !== -1 ? headersConta.indexOf('DNI') : 1;
+            const nameIdxC = headersConta.findIndex(h => h.includes('APELLIDO') || h.includes('NOMBRE'));
+            const typeIdxC = headersConta.findIndex(h => h.includes('TIPO') && h.includes('CONTRATO'));
+            const hoursIdxC = headersConta.findIndex(h => h.includes('HORAS') && h.includes('CONTRATO'));
+            const sedeIdxC = headersConta.findIndex(h => h.includes('SEDE'));
 
-                if (name) {
+            for (let i = contaHeaderIdx + 1; i < rowsConta.length; i++) {
+                const cols = parseCSVLine(rowsConta[i]);
+                if (cols.length < 5) continue;
+                const dni = cols[dniIdxC] ? cols[dniIdxC].trim() : '';
+                const name = (nameIdxC !== -1 && cols[nameIdxC]) ? cols[nameIdxC].trim() : (cols[2] ? cols[2].trim() : '');
+                const contractType = (typeIdxC !== -1 && cols[typeIdxC]) ? cols[typeIdxC].trim() : (cols[5] ? cols[5].trim() : '');
+                const contractHours = (hoursIdxC !== -1 && cols[hoursIdxC]) ? cols[hoursIdxC].trim() : (cols[7] ? cols[7].trim() : '');
+                let sede = (sedeIdxC !== -1 && cols[sedeIdxC]) ? cols[sedeIdxC].trim() : '';
+                if (!sede && sedeIdxC !== -1 && cols[sedeIdxC + 1] && !cols[sedeIdxC + 1].includes('/') && cols[sedeIdxC + 1].length < 15) {
+                    sede = cols[sedeIdxC + 1].trim();
+                }
+
+                if (name && !name.toUpperCase().includes('APELLIDO')) {
                     const cleanN = cleanText(name);
                     const teacherObj = {
-                        dni,
+                        dni: dni || '—',
                         name,
-                        contractType,
+                        contractType: contractType || '—',
                         contractHours: parseInt(contractHours) || 0,
+                        sede: sede || '—',
+                        area: 'COT',
                         source: "DOCENTES CONTA 2026"
                     };
                     contractData[cleanN] = teacherObj;
-                    if (dni) {
+                    if (dni && dni !== '—') {
                         contractData[dni] = teacherObj;
+                        contractData[dni.replace(/^0+/, '')] = teacherObj;
                     }
                 }
             }
 
-            // 2. Procesar PLN
-            for (let i = 2; i < rowsPln.length; i++) {
-                const cols = parseCSVLine(rowsPln[i]);
-                if (cols.length < 10) continue;
-                const dni = cols[1] ? cols[1].trim() : '';
-                const name = cols[2] ? cols[2].trim() : '';
-                const contractType = cols[7] ? cols[7].trim() : '';
-                const contractHours = cols[9] ? cols[9].trim() : '';
+            // 2. Procesar PLN (PLN)
+            let plnHeaderIdx = 1;
+            for (let r = 0; r < Math.min(15, rowsPln.length); r++) {
+                if (rowsPln[r].toUpperCase().includes('DNI') && rowsPln[r].toUpperCase().includes('APELLIDO')) {
+                    plnHeaderIdx = r;
+                    break;
+                }
+            }
+            const headersPln = parseCSVLine(rowsPln[plnHeaderIdx]).map(h => h.trim().toUpperCase());
+            const dniIdxP = headersPln.indexOf('DNI') !== -1 ? headersPln.indexOf('DNI') : 1;
+            const nameIdxP = headersPln.findIndex(h => h.includes('APELLIDO') || h.includes('NOMBRE'));
+            const typeIdxP = headersPln.findIndex(h => h.includes('TIPO') && h.includes('CONTRATO'));
+            const hoursIdxP = headersPln.findIndex(h => h.includes('HORAS') && h.includes('CONTRATO'));
+            const sedeIdxP = headersPln.findIndex(h => h === 'SEDE' || h.includes('SEDE'));
 
-                if (name) {
+            for (let i = plnHeaderIdx + 1; i < rowsPln.length; i++) {
+                const cols = parseCSVLine(rowsPln[i]);
+                if (cols.length < 5) continue;
+                const dni = cols[dniIdxP] ? cols[dniIdxP].trim() : '';
+                const name = (nameIdxP !== -1 && cols[nameIdxP]) ? cols[nameIdxP].trim() : (cols[2] ? cols[2].trim() : '');
+                const contractType = (typeIdxP !== -1 && cols[typeIdxP]) ? cols[typeIdxP].trim() : (cols[7] ? cols[7].trim() : '');
+                const contractHours = (hoursIdxP !== -1 && cols[hoursIdxP]) ? cols[hoursIdxP].trim() : (cols[9] ? cols[9].trim() : '');
+                const sede = (sedeIdxP !== -1 && cols[sedeIdxP]) ? cols[sedeIdxP].trim() : '';
+
+                if (name && !name.toUpperCase().includes('APELLIDO')) {
                     const cleanN = cleanText(name);
-                    const teacherObj = {
-                        dni,
-                        name,
-                        contractType,
-                        contractHours: parseInt(contractHours) || 0,
-                        source: "DOCENTES PLN 2026"
-                    };
-                    contractData[cleanN] = teacherObj;
-                    if (dni) {
-                        contractData[dni] = teacherObj;
+                    const cleanDni = dni ? dni.replace(/^0+/, '') : '';
+                    let existing = contractData[cleanN] || (dni ? contractData[dni] : null) || (cleanDni ? contractData[cleanDni] : null);
+
+                    if (existing) {
+                        existing.area = 'COT y PLN';
+                        if ((!existing.dni || existing.dni === '—') && dni) existing.dni = dni;
+                        if (parseInt(contractHours) > 0 && existing.contractHours === 0) existing.contractHours = parseInt(contractHours);
+                        if (contractType && (existing.contractType === '—' || !existing.contractType)) {
+                            existing.contractType = contractType;
+                        } else if (contractType && existing.contractType !== contractType && !existing.contractType.includes(contractType)) {
+                            existing.contractType = `${existing.contractType} / ${contractType}`;
+                        }
+                        if (sede && (existing.sede === '—' || !existing.sede)) {
+                            existing.sede = sede;
+                        } else if (sede && !existing.sede.includes(sede)) {
+                            existing.sede = `${existing.sede}/${sede}`;
+                        }
+                    } else {
+                        const teacherObj = {
+                            dni: dni || '—',
+                            name,
+                            contractType: contractType || '—',
+                            contractHours: parseInt(contractHours) || 0,
+                            sede: sede || '—',
+                            area: 'PLN',
+                            source: "DOCENTES PLN 2026"
+                        };
+                        contractData[cleanN] = teacherObj;
+                        if (dni && dni !== '—') {
+                            contractData[dni] = teacherObj;
+                            contractData[cleanDni] = teacherObj;
+                        }
                     }
                 }
             }
@@ -551,37 +634,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            let name, dni, contractType, contractHours, source;
+            let name, dni, contractType, contractHours, source, sede, area;
             if (contractInfo) {
                 name = contractInfo.name;
-                dni = contractInfo.dni;
+                dni = contractInfo.dni || reqDni || '—';
                 contractType = contractInfo.contractType || '—';
-                contractHours = contractInfo.contractHours;
+                contractHours = contractInfo.contractHours || 0;
                 source = contractInfo.source;
+                sede = contractInfo.sede || '—';
+                area = contractInfo.area || (source && source.includes('CONTA') ? 'COT' : 'PLN');
             } else {
                 name = activeUser;
                 dni = reqDni || '—';
-                contractType = 'De otra área';
+                contractType = '—';
                 contractHours = 0;
                 source = 'Externo';
+                sede = '—';
+                area = '—';
             }
 
-            // 2. Calculate actual programmed hours from grid
+            // 2. Calculate actual programmed hours from grid and collect scheduled Sedes
             const userCourses = activeCoursesList.filter(c => {
                 const cleanCourseUser = cleanText(c.user);
-                
-                // Match by DNI if available
                 if (reqDni && c.dni) {
                     const cDniClean = c.dni.trim().replace(/^0+/, '');
                     const reqDniClean = reqDni.trim().replace(/^0+/, '');
                     if (cDniClean === reqDniClean) return true;
                 }
-                
-                // Match by name
                 return cleanCourseUser.includes(cleanActiveUser) || cleanActiveUser.includes(cleanCourseUser);
             });
 
             let totalProgrammedMinutes = 0;
+            let sedeSet = new Set();
+            if (sede && sede !== '—') {
+                sede.split('/').forEach(s => { if (s.trim()) sedeSet.add(s.trim().toUpperCase()); });
+            }
+
             userCourses.forEach(c => {
                 const start = timeToMinutes(c.startTime);
                 const end = timeToMinutes(c.endTime);
@@ -590,7 +678,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const daysCount = (c.days && c.days.length > 0) ? c.days.length : 1;
                     totalProgrammedMinutes += duration * daysCount;
                 }
+                if (c.sede && c.sede.trim() && c.sede !== '—' && c.sede.toUpperCase() !== 'VIRTUAL') {
+                    c.sede.split('/').forEach(s => { if (s.trim()) sedeSet.add(s.trim().toUpperCase()); });
+                } else if (c.sede && c.sede.trim() && c.sede.toUpperCase() === 'VIRTUAL' && sedeSet.size === 0) {
+                    sedeSet.add('VIRTUAL');
+                }
             });
+            const sedeDisplay = sedeSet.size > 0 ? Array.from(sedeSet).join('/') : '—';
 
             const totalProgrammedHours = totalProgrammedMinutes / 45; // academic hours (45 min)
             const roundedProgrammed = Math.round(totalProgrammedHours * 10) / 10;
@@ -599,7 +693,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'teacher-stat-card';
             
-            // Set dynamic border-left matching teacher color tag
             const cleanUserTag = activeUser.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const userColor = getUserColor(cleanUserTag);
             card.style.borderLeftColor = userColor;
@@ -607,12 +700,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const percentage = contractHours > 0 ? (roundedProgrammed / contractHours) * 100 : 0;
             const pctText = contractHours > 0 ? `${Math.round(percentage)}%` : '—';
             
-            // Badge style
+            // Badge style for contract
             let badgeClass = 'badge-other';
-            const normType = contractType.toUpperCase();
-            if (normType.includes('PTC')) badgeClass = 'badge-ptc';
+            const normType = contractType.toUpperCase().replace(/\s+/g, '');
+            if (normType.includes('PTCIN')) badgeClass = 'badge-ptcin';
+            else if (normType.includes('PTC')) badgeClass = 'badge-ptc';
+            else if (normType.includes('PTD')) badgeClass = 'badge-ptd';
+            else if (normType.includes('PTP')) badgeClass = 'badge-ptp';
+            else if (normType.includes('TCXH') || normType.includes('TCR')) badgeClass = 'badge-tcr';
             else if (normType.includes('PPH')) badgeClass = 'badge-pph';
-            else if (normType.includes('TCR')) badgeClass = 'badge-tcr';
+
+            // Area Badge style
+            let areaBadgeClass = 'badge-other';
+            if (area === 'COT y PLN') areaBadgeClass = 'badge-area-cot-pln';
+            else if (area === 'COT') areaBadgeClass = 'badge-area-cot';
+            else if (area === 'PLN') areaBadgeClass = 'badge-area-pln';
 
             // Fill color style
             let fillClass = 'fill-zero';
@@ -624,26 +726,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 else fillClass = 'fill-excessive';
             }
 
+            card.className = 'teacher-stat-card odoo-stat-bar';
             card.innerHTML = `
-                <div class="teacher-stat-header">
-                    <div class="teacher-stat-name" title="${name}">${name}</div>
-                    <span class="teacher-stat-badge ${badgeClass}">${contractType}</span>
+                <div class="odoo-stat-main" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span class="teacher-stat-name" title="${name}">${name}</span>
+                    <span class="teacher-info-pill" title="Documento de Identidad"><i class="far fa-id-card" style="color: #64748b;"></i> <strong>${dni}</strong></span>
+                    <span class="teacher-info-pill" title="Sede del Docente"><i class="fas fa-map-marker-alt" style="color: #ef4444;"></i> Sede: <strong>${sedeDisplay}</strong></span>
+                    ${area !== '—' ? `<span class="teacher-stat-badge ${areaBadgeClass}" title="Área de Origen">${area}</span>` : ''}
+                    <span class="teacher-stat-badge ${badgeClass}" title="Tipo de Contrato">${contractType}</span>
                 </div>
-                <div class="teacher-stat-body">
-                    <div class="teacher-stat-row">
-                        <span class="teacher-stat-label"><i class="far fa-clock"></i> Horas Programadas:</span>
-                        <span class="teacher-stat-value" style="color: ${userColor}; font-size: 0.95rem;">${roundedProgrammed} h</span>
-                    </div>
-                    <div class="teacher-stat-row">
-                        <span class="teacher-stat-label"><i class="fas fa-file-signature"></i> Horas Contrato:</span>
-                        <span class="teacher-stat-value">${contractHours > 0 ? `${contractHours} h` : '—'}</span>
-                    </div>
-                    <div class="teacher-stat-row">
-                        <span class="teacher-stat-label"><i class="fas fa-tasks"></i> Cumplimiento:</span>
-                        <span class="teacher-stat-value">${pctText}</span>
-                    </div>
+                <div class="odoo-stat-metrics" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <span class="metric-item"><i class="far fa-clock"></i> Prog: <strong style="color: ${userColor};">${roundedProgrammed} h</strong></span>
+                    <span class="metric-sep">|</span>
+                    <span class="metric-item"><i class="fas fa-file-signature"></i> Contrato: <strong>${contractHours > 0 ? `${contractHours} h` : '—'}</strong></span>
+                    <span class="metric-sep">|</span>
+                    <span class="metric-item"><i class="fas fa-tasks"></i> Cumpl.: <strong>${pctText}</strong></span>
                     ${contractHours > 0 ? `
-                    <div class="teacher-progress-container">
+                    <div class="odoo-progress-wrap" title="Cumplimiento: ${pctText}">
                         <div class="teacher-progress-bar-bg">
                             <div class="teacher-progress-bar-fill ${fillClass}" style="width: ${Math.min(percentage, 100)}%;"></div>
                         </div>
@@ -776,7 +875,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const START_HOUR = 7;
     const END_HOUR = 23;
     const MINUTES_PER_PERIOD = 45;
-    const PIXELS_PER_PERIOD = 35;
+    const PIXELS_PER_PERIOD = 25;
     let periodToIndexMap = {}; 
 
     // Initialization
@@ -787,21 +886,32 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromGoogleSheet();
     loadContractData();
 
-    const mod1Check = document.getElementById('mod1Check');
-    const mod2Check = document.getElementById('mod2Check');
-    const abril1Check = document.getElementById('abril1Check');
-    const abril2Check = document.getElementById('abril2Check');
-    const junio1Check = document.getElementById('junio1Check');
-    const junio2Check = document.getElementById('junio2Check');
-    if (mod1Check) mod1Check.addEventListener('change', renderCourses);
-    if (mod2Check) mod2Check.addEventListener('change', renderCourses);
-    if (abril1Check) abril1Check.addEventListener('change', renderCourses);
-    if (abril2Check) abril2Check.addEventListener('change', renderCourses);
-    if (junio1Check) junio1Check.addEventListener('change', renderCourses);
-    if (junio2Check) junio2Check.addEventListener('change', renderCourses);
+    ['junio1Check', 'junio2Check', 'agosto1Check', 'agosto2Check', 'setiembre1Check', 'setiembre2Check', 'octubre1Check', 'octubre2Check', 'mod1Check', 'mod2Check', 'abril1Check', 'abril2Check'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', renderCourses);
+    });
+
+    // Toggle Controls Panel Logic
+    const toggleControlsBtn = document.getElementById('toggleControlsBtn');
+    const collapsibleControls = document.getElementById('collapsibleControls');
+    if (toggleControlsBtn && collapsibleControls) {
+        toggleControlsBtn.addEventListener('click', () => {
+            const isCollapsed = collapsibleControls.classList.toggle('collapsed');
+            const icon = toggleControlsBtn.querySelector('i');
+            const text = toggleControlsBtn.querySelector('span');
+            if (isCollapsed) {
+                if (icon) icon.className = 'fas fa-expand-arrows-alt';
+                if (text) text.textContent = 'Mostrar Controles';
+            } else {
+                if (icon) icon.className = 'fas fa-compress-arrows-alt';
+                if (text) text.textContent = 'Ocultar Controles';
+            }
+        });
+    }
 
     // Group Logic
     function renderGroupSelector() {
+        if (!groupSelector) return;
         groupSelector.innerHTML = '';
         Object.keys(groups).forEach(groupName => {
             const btn = document.createElement('button');
@@ -829,14 +939,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCourses();
     }
 
-    addGroupBtn.onclick = () => {
-        const name = prompt('Nombre del nuevo grupo (ej: DOCENTES):');
-        if (name && !groups[name]) {
-            groups[name] = [];
-            persistGroups();
-            switchGroup(name);
-        }
-    };
+    if (addGroupBtn) {
+        addGroupBtn.onclick = () => {
+            const name = prompt('Nombre del nuevo grupo (ej: DOCENTES):');
+            if (name && !groups[name]) {
+                groups[name] = [];
+                persistGroups();
+                switchGroup(name);
+            }
+        };
+    }
 
     function renderUserSelector() {
         const legacySelector = document.getElementById('userSelector');
@@ -1304,16 +1416,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (i === 15) {
                 row.innerHTML = `
-                    <div class="hour-label" style="background-color: #0f172a; color: white; display: flex; flex-direction: column; justify-content: center; line-height: 1.1;">
+                    <div class="hour-label" style="background-color: #493a4d; color: white; display: flex; flex-direction: column; justify-content: center; line-height: 1.1;">
                         <span>${timeStr}</span>
                         <span style="font-size: 0.65rem; color: #fbbf24; font-weight: bold;">TURNO NOCHE</span>
                     </div>
-                    ${'<div class="grid-cell" style="border-top: 2px solid #0f172a;"></div>'.repeat(7)}
+                    ${'<div class="grid-cell" style="border-top: 2px solid #493a4d;"></div>'.repeat(6)}
                 `;
             } else {
                 row.innerHTML = `
                     <div class="hour-label">${timeStr}</div>
-                    ${'<div class="grid-cell"></div>'.repeat(7)}
+                    ${'<div class="grid-cell"></div>'.repeat(6)}
                 `;
             }
             gridBody.appendChild(row);
@@ -1329,28 +1441,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const activeCoursesList = [];
         const renderedCourseKeys = new Set();
         
-        const mod1Check = document.getElementById('mod1Check');
-        const mod2Check = document.getElementById('mod2Check');
-        const abril1Check = document.getElementById('abril1Check');
-        const abril2Check = document.getElementById('abril2Check');
-        const junio1Check = document.getElementById('junio1Check');
-        const junio2Check = document.getElementById('junio2Check');
+        const junio1El = document.getElementById('junio1Check');
+        const junio2El = document.getElementById('junio2Check');
+        const agosto1El = document.getElementById('agosto1Check') || document.getElementById('mod1Check');
+        const agosto2El = document.getElementById('agosto2Check') || document.getElementById('mod2Check');
+        const setiembre1El = document.getElementById('setiembre1Check') || document.getElementById('abril1Check');
+        const setiembre2El = document.getElementById('setiembre2Check') || document.getElementById('abril2Check');
+        const octubre1El = document.getElementById('octubre1Check');
+        const octubre2El = document.getElementById('octubre2Check');
 
-        const showAgosto1 = mod1Check ? mod1Check.checked : true;
-        const showAgosto2 = mod2Check ? mod2Check.checked : true;
-        const showSetiembre1 = abril1Check ? abril1Check.checked : true;
-        const showSetiembre2 = abril2Check ? abril2Check.checked : true;
-        const showOctubre1 = junio1Check ? junio1Check.checked : true;
-        const showOctubre2 = junio2Check ? junio2Check.checked : true;
+        const showJunio1 = junio1El ? junio1El.checked : true;
+        const showJunio2 = junio2El ? junio2El.checked : true;
+        const showAgosto1 = agosto1El ? agosto1El.checked : true;
+        const showAgosto2 = agosto2El ? agosto2El.checked : true;
+        const showSetiembre1 = setiembre1El ? setiembre1El.checked : true;
+        const showSetiembre2 = setiembre2El ? setiembre2El.checked : true;
+        const showOctubre1 = octubre1El ? octubre1El.checked : true;
+        const showOctubre2 = octubre2El ? octubre2El.checked : true;
 
         const isCourseVisible = (c) => {
             const p = (c.periodo || '').toUpperCase();
             const m = (c.modulo || '').toString();
 
             if (p === '' && m === '') {
-                return showAgosto1 || showAgosto2 || showSetiembre1 || showSetiembre2 || showOctubre1 || showOctubre2;
+                return showJunio1 || showJunio2 || showAgosto1 || showAgosto2 || showSetiembre1 || showSetiembre2 || showOctubre1 || showOctubre2;
             }
 
+            if (showJunio1 && (p === 'JUN' || p === 'JUNIO') && m === '1') return true;
+            if (showJunio2 && (p === 'JUN' || p === 'JUNIO') && m === '2') return true;
             if (showAgosto1 && (p === 'AGO' || p === 'AGOSTO') && m === '1') return true;
             if (showAgosto2 && (p === 'AGO' || p === 'AGOSTO') && m === '2') return true;
             if (showSetiembre1 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && m === '1') return true;
@@ -1436,15 +1554,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // --- End Dynamic Grid logic ---
 
-        const coursesByDay = [[], [], [], [], [], [], []]; // 7 days (including Sunday)
+        const coursesByDay = [[], [], [], [], [], []]; // 6 days (excluding Sunday)
         activeCoursesList.forEach(course => {
             course.days.forEach(day => {
-                if (day < 7) coursesByDay[day].push(course);
+                if (day < 6) coursesByDay[day].push(course);
             });
         });
 
         // For each day, find overlapping groups and render them
-        for (let day = 0; day < 7; day++) { // Iterate for 7 days
+        for (let day = 0; day < 6; day++) { // Iterate for 6 days (Monday-Saturday)
             const dayCourses = coursesByDay[day];
             renderDayCourses(dayCourses, day);
         }
@@ -1501,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlapIndex = concurrent.findIndex(c => c.id === course.id && c.user === course.user);
         const totalConcurrent = concurrent.length;
 
-        const cellWidth = (gridBody.offsetWidth - 120) / 7;
+        const cellWidth = (gridBody.offsetWidth - 120) / 6;
         const cardWidth = (cellWidth - 4) / totalConcurrent;
         const left = 120 + (day * cellWidth) + (overlapIndex * cardWidth) + 2;
 
