@@ -54,8 +54,8 @@ function normalizeLider(str) {
         .trim();
 }
 
-// Líder del docente según área (Si área es únicamente PLN -> LUIS Y MIRKO; si es COT -> se respeta Sede)
-function getDocenteLider(docenteNombre, sede, cursoNombre) {
+// Líder del docente según hoja LISTA DE LIDERES y área (Si es netamente PLN -> LUIS y MIRKO; si es COT o COT y PLN -> respeta archivo)
+function getDocenteLider(docenteNombre, sede, dni) {
     const n = normalizeLider(docenteNombre);
     if (DOCENTES_LIDER_EDUARDO.some(k => n.includes(k))) {
         return 'EDUARDO MAMANI ROQUE';
@@ -64,7 +64,7 @@ function getDocenteLider(docenteNombre, sede, cursoNombre) {
         return 'LUIS y MIRKO';
     }
 
-    // Identificar el área del docente en contractData o por sus cursos programados
+    // Identificar el área del docente en contractData o por su carga general (sin importar el curso al que dio click)
     let area = '';
     if (typeof contractData !== 'undefined' && contractData) {
         let docInfo = null;
@@ -90,31 +90,73 @@ function getDocenteLider(docenteNombre, sede, cursoNombre) {
                 return cNorm.includes('pensamiento logico') || cNorm.includes('pln');
             });
             if (allPln) area = 'PLN';
+            else area = 'COT';
         }
     }
-    if (!area && cursoNombre && normalizeLider(cursoNombre).includes('pensamiento logico')) {
-        area = 'PLN';
-    }
 
-    // Si el área es únicamente PLN (no contiene COT), el líder es LUIS y MIRKO
-    if (area === 'PLN' || (area.includes('PLN') && !area.includes('COT'))) {
+    // REGLA: Si el área es ÚNICAMENTE PLN (no contiene COT en absoluto), el líder es LUIS y MIRKO.
+    const hasCOT = area.includes('COT');
+    const hasPLN = area === 'PLN' || area.includes('PLN');
+    if (!hasCOT && hasPLN) {
         return 'LUIS y MIRKO';
     }
 
-    // Si el área es COT (o COT y PLN), se respeta el líder por sede:
+    // Si es COT o COT y PLN: se toma estrictamente en cuenta la hoja "LISTA DE LIDERES" (por DNI o por Nombre del docente, sin importar el curso)
+    if (window.lideresDocenteSheet) {
+        if (dni && window.lideresDocenteSheet[String(dni).trim()]) {
+            return window.lideresDocenteSheet[String(dni).trim()];
+        }
+        if (window.lideresDocenteSheet[n]) {
+            return window.lideresDocenteSheet[n];
+        }
+        const matchedKey = Object.keys(window.lideresDocenteSheet).find(k => k && isNaN(k) && (k.includes(n) || n.includes(k)));
+        if (matchedKey && window.lideresDocenteSheet[matchedKey]) {
+            return window.lideresDocenteSheet[matchedKey];
+        }
+    }
+
+    // Respaldo por sede de carga/docente en caso el archivo aún esté cargando o el docente no esté listado en la hoja
     const s = normalizeLider(sede);
     if (!s) return '—';
     if (s.includes('surco') || s.includes('ate') || s.includes('prc')) return 'JORGE DURAN DE LA FUENTE';
     if (s.includes('sjl') || s.includes('san juan') || s.includes('ves') || s.includes('villa el salvador')) return 'JOSE RAMIREZ PINEDA';
     if (s.includes('aqp') || s.includes('arequipa')) return 'EDUARDO MAMANI ROQUE';
-    if (s.includes('nor') || s.includes('norte') || s.includes('virtual')) return 'CARLOS YBARRA MAGUIÑA';
+    if (s.includes('nor') || s.includes('norte') || s.includes('virtual') || s.includes('cix')) return 'CARLOS YBARRA MAGUIÑA';
     return '—';
 }
 
-// Líder del curso según la tabla de Unidades Didácticas
-function getLiderCurso(cursoNombre) {
+// Líder del curso según la hoja "LISTA DE LIDERES" y tabla de Unidades Didácticas (con reglas por ciclo para Experiencia Formativa)
+function getLiderCurso(cursoNombre, ciclo) {
     const c = normalizeLider(cursoNombre);
     if (!c) return '—';
+
+    // Regla Prioritaria: Experiencia Formativa en Situación Real de Trabajo según Ciclo
+    if (c.includes('experiencia formativa') || c.includes('efsrt') || c.includes('situacion real')) {
+        const cic = String(ciclo || '').toUpperCase();
+        // Ciclo II o Módulo 1 curricular -> CARLOS YBARRA MAGUIÑA
+        if ((cic.includes('II') && !cic.includes('VII') && !cic.includes('VIII') && !cic.includes('III')) || c.includes('modulo 1') || c.includes('mod 1') || c.includes('ciclo ii') || c.includes('ciclo 2')) {
+            return 'CARLOS YBARRA MAGUIÑA';
+        }
+        // Ciclo IV o Módulo 2 curricular -> JOSE RAMIREZ PINEDA
+        if (cic.includes('IV') || c.includes('modulo 2') || c.includes('mod 2') || c.includes('ciclo iv') || c.includes('ciclo 4')) {
+            return 'JOSE RAMIREZ PINEDA';
+        }
+        // Ciclo VI o Módulo 3 curricular -> JORGE DURAN DE LA FUENTE
+        if ((cic.includes('VI') && !cic.includes('VIII') && !cic.includes('VII') && !cic.includes('IV')) || c.includes('modulo 3') || c.includes('mod 3') || c.includes('ciclo vi') || c.includes('ciclo 6')) {
+            return 'JORGE DURAN DE LA FUENTE';
+        }
+    }
+
+    if (window.lideresCursoSheet) {
+        if (window.lideresCursoSheet[c]) return window.lideresCursoSheet[c];
+        let bestKey = null;
+        for (const k in window.lideresCursoSheet) {
+            if (c.includes(k) || k.includes(c)) {
+                if (!bestKey || k.length > bestKey.length) bestKey = k;
+            }
+        }
+        if (bestKey && window.lideresCursoSheet[bestKey]) return window.lideresCursoSheet[bestKey];
+    }
     let best = null;
     for (const item of LIDERES_POR_CURSO) {
         if (c.includes(item.p)) {
@@ -124,6 +166,59 @@ function getLiderCurso(cursoNombre) {
     if (best) return best.l;
     if (c.includes('pensamiento logico') || c.includes('pln')) return 'LUIS y MIRKO';
     return '—';
+}
+
+// Determinar Ciclo (por columna en archivo o por nombre de curso)
+function getCiclo(course) {
+    if (course && course.ciclo && String(course.ciclo).trim() !== '' && String(course.ciclo).trim() !== '—') {
+        let val = String(course.ciclo).trim().toUpperCase();
+        if (!val.includes('CICLO') && (val === 'I' || val === 'II' || val === 'III' || val === 'IV' || val === 'V' || val === 'VI' || val === 'VII' || val === 'VIII')) {
+            val = 'CICLO ' + val;
+        }
+        return val;
+    }
+    // Deducir por el primer dígito del código de la sección (1xx -> I, 2xx -> II, 3xx -> III, etc.)
+    if (course && course.section && String(course.section).trim() !== '' && String(course.section).trim() !== '—') {
+        const sec = String(course.section).trim();
+        const firstChar = sec.charAt(0);
+        if (firstChar === '1') return 'CICLO I';
+        if (firstChar === '2') return 'CICLO II';
+        if (firstChar === '3') return 'CICLO III';
+        if (firstChar === '4') return 'CICLO IV';
+        if (firstChar === '5') return 'CICLO V';
+        if (firstChar === '6') return 'CICLO VI';
+    }
+    const cName = normalizeLider(course && course.name ? course.name : '');
+    if (!cName) return '—';
+    if (cName.includes('dinamica del plan') || cName.includes('nuevas tendencias')) return 'CICLO I';
+    if (cName.includes('contabilidad superior') || (cName === 'contabilidad') || cName.includes('efsrt modulo 1') || cName.includes('fundamentos de costos') || cName.includes('control y valorizacion')) return 'CICLO II';
+    if (cName.includes('gestion de costos') || cName.includes('costos y presupuestos') || cName.includes('tributaria y laboral') || cName.includes('sistemas de procesos')) return 'CICLO III';
+    if (cName.includes('contabilidad gubernamental') || cName.includes('efsrt modulo 2') || cName.includes('constitucion y organizacion') || cName.includes('gestion y planeamiento') || cName.includes('sistemas contables integrados')) return 'CICLO IV';
+    if (cName.includes('formulacion de estados') || cName.includes('control interno') || cName.includes('entidades financieras') || cName.includes('efsrt modulo 3') || cName.includes('cierre contable')) return 'CICLO V';
+    if (cName.includes('ee ff') || cName.includes('eeff') || cName.includes('estados financieros') || cName.includes('auditoria') || cName.includes('contabilidad gerencial') || cName.includes('calculo financiero') || cName.includes('dja')) return 'CICLO VI';
+    return '—';
+}
+
+
+// Determinar Tipo de Institución (Instituto TEC vs Escuela EC)
+function getTipoInstitucion(course) {
+    if (course && course.tipoInstitucion && String(course.tipoInstitucion).trim() !== '') return course.tipoInstitucion;
+    const carga = String(course && course.cargaCode ? course.cargaCode : (course && course.carga ? course.carga : '')).trim();
+    
+    // Mapeo por código de ciclo lectivo (TE vs EC)
+    const instCodes = ['3313', '3314', '3317', '3318', '3328', '3329', '3334', '3335', '3338', '3339'];
+    const escuCodes = ['3315', '3316', '3319', '3320', '3330', '3331', '3336', '3337', '3340', '3341'];
+    
+    if (instCodes.includes(carga)) return 'INSTITUTO';
+    if (escuCodes.includes(carga)) return 'ESCUELA';
+
+    // Verificación en nombre de curso o strings asociados
+    const cName = String(course && course.name ? course.name : '').toUpperCase();
+    if (cName.includes(' TEC') || cName.endsWith('TEC') || cName.includes('INSTITUTO')) return 'INSTITUTO';
+    if (cName.includes(' EC') || cName.endsWith('EC') || cName.includes('ESCUELA')) return 'ESCUELA';
+    
+    // Por defecto en la malla regular de Certus
+    return 'INSTITUTO';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -400,6 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sede = row[3] != null ? String(row[3]).trim() : '';
                 const periodo = row[11] != null ? String(row[11]).trim().toUpperCase() : '';
                 const modalidad = row[15] != null ? String(row[15]).trim() : '';
+                const carga = row[0] != null ? String(row[0]).trim() : '';
+                const ciclo = row[14] != null ? String(row[14]).trim() : '';
                 const diasStr = row[16] != null ? String(row[16]).trim() : '';
                 const horasStr = row[17] != null ? String(row[17]).trim() : '';
 
@@ -418,6 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         modulo: modulo,
                         dni: dni,
                         periodo: periodo,
+                        cargaCode: carga,
+                        ciclo: ciclo,
                         room: '',
                         startTime: sch.startTime,
                         endTime: sch.endTime,
@@ -428,6 +527,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             
+            // Cargar la hoja "LISTA DE LIDERES" desde el mismo archivo Google Sheets
+            try {
+                const resLid = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent('LISTA DE LIDERES') + '&t=' + Date.now());
+                if (resLid.ok) {
+                    const textLid = await resLid.text();
+                    const wbLid = XLSX.read(textLid, { type: 'string' });
+                    const wsLid = wbLid.Sheets[wbLid.SheetNames[0]];
+                    const lidRows = XLSX.utils.sheet_to_json(wsLid, { header: 1 });
+                    
+                    window.lideresDocenteSheet = {};
+                    window.lideresCursoSheet = {};
+                    
+                    const formatLeaderName = (val) => {
+                        if (!val) return '—';
+                        const str = String(val).trim().toUpperCase();
+                        if (str === 'EDUARDO' || str === 'MAMANI' || str.includes('MAMANI ROQUE')) return 'EDUARDO MAMANI ROQUE';
+                        if (str === 'JORGE' || str.includes('DURAN')) return 'JORGE DURAN DE LA FUENTE';
+                        if (str === 'JOSÉ' || str === 'JOSE' || str.includes('RAMIREZ')) return 'JOSE RAMIREZ PINEDA';
+                        if (str === 'CARLOS' || str === 'VIRTUAL' || str === 'NORTE' || str === 'NOR' || str.includes('YBARRA')) return 'CARLOS YBARRA MAGUIÑA';
+                        if (str.includes('LUIS') && str.includes('MIRKO')) return 'LUIS y MIRKO';
+                        return val;
+                    };
+
+                    lidRows.forEach((row, idx) => {
+                        if (idx === 0) return;
+                        if (row[0] && row[1]) {
+                            const cName = normalizeLider(String(row[0]));
+                            window.lideresCursoSheet[cName] = formatLeaderName(row[1]);
+                        }
+                        const dni = row[4] != null ? String(row[4]).trim() : '';
+                        const docName = row[5] != null ? normalizeLider(String(row[5])) : '';
+                        const liderSede = row[8] != null ? formatLeaderName(row[8]) : '';
+                        
+                        if (liderSede && liderSede !== '—') {
+                            if (dni && dni !== '—' && dni !== 'N/D') window.lideresDocenteSheet[dni] = liderSede;
+                            if (docName) window.lideresDocenteSheet[docName] = liderSede;
+                        }
+                    });
+                }
+            } catch (eLid) {
+                console.warn("Error al cargar la hoja LISTA DE LIDERES:", eLid);
+            }
+
             console.log("Loaded Google Sheet Data");
             setupAutocomplete();
             renderCourses();
@@ -1930,8 +2072,9 @@ document.addEventListener('DOMContentLoaded', () => {
             : '—';
 
         const docenteNombre = (owner || course.user || '—').toUpperCase();
-        const docenteLider = getDocenteLider(docenteNombre, course.sede, course.name);
-        const cursoLider = getLiderCurso(course.name);
+        const docenteLider = getDocenteLider(docenteNombre, course.sede, course.dni);
+        const cicloText = getCiclo(course);
+        const cursoLider = getLiderCurso(course.name, cicloText);
 
         let queryParts = [];
         if (course.section && String(course.section).trim() !== '' && String(course.section).trim() !== '—') {
@@ -1948,111 +2091,126 @@ document.addEventListener('DOMContentLoaded', () => {
         const periodoModulo = (course.periodo || course.modulo)
             ? `${course.periodo || ''} ${course.modulo ? '· Mod ' + course.modulo : ''}`.trim()
             : 'Período Regular';
+        const tipoInsText = getTipoInstitucion(course);
 
         body.innerHTML = `
-            <!-- Cabecera Decorativa con Gradiente -->
-            <div style="background: linear-gradient(135deg, #3d2a45 0%, #714b67 50%, #9e6490 100%); padding: 20px 28px; color: #ffffff; position: relative; border-bottom: 3px solid #f1f5f9;">
-                <button type="button" id="courseDetailCloseBtnTop" style="position: absolute; top: 18px; right: 22px; background: rgba(255,255,255,0.15); border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; font-size: 1.3rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&times;</button>
-                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <span style="background: rgba(255, 255, 255, 0.22); color: #ffffff; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+            <!-- Cabecera Decorativa Compacta con Gradiente -->
+            <div style="background: linear-gradient(135deg, #32213b 0%, #714b67 50%, #985b88 100%); padding: 14px 24px; color: #ffffff; position: relative; border-bottom: 2px solid #f1f5f9; display: flex; flex-direction: column; justify-content: center;">
+                <button type="button" id="courseDetailCloseBtnTop" style="position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.18); border: none; color: #ffffff; width: 28px; height: 28px; border-radius: 50%; font-size: 1.1rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&times;</button>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <span style="background: rgba(255, 255, 255, 0.24); color: #ffffff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.4px; text-transform: uppercase;">
                         <i class="fas fa-bookmark" style="margin-right: 4px;"></i> ${course.modality || 'PRESENCIAL'}
                     </span>
-                    <span style="background: #fbbf24; color: #1e1b4b; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 12px; text-transform: uppercase;">
+                    <span style="background: #fbbf24; color: #1e1b4b; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; text-transform: uppercase;">
                         <i class="far fa-calendar-check" style="margin-right: 4px;"></i> ${periodoModulo}
                     </span>
+                    <span style="background: rgba(16, 185, 129, 0.28); border: 1px solid rgba(16, 185, 129, 0.45); color: #ffffff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.4px; text-transform: uppercase;">
+                        <i class="fas fa-layer-group" style="margin-right: 4px;"></i> ${cicloText}
+                    </span>
+                    <span style="background: #38bdf8; color: #0f172a; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                        <i class="fas fa-university" style="margin-right: 4px;"></i> ${tipoInsText}
+                    </span>
                 </div>
-                <h2 style="margin: 0; font-size: 1.45rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.25; color: #ffffff;">
+                <h2 style="margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; color: #ffffff; padding-right: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                     ${course.name || '—'}
                 </h2>
             </div>
 
-            <!-- Contenido Principal - Grid Horizontal en una sola pantalla -->
-            <div style="padding: 20px 28px; background: #faf8fb;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: stretch;">
+            <!-- Contenido Principal - 3 Columnas Horizontales Fijas (Sin Scroll) -->
+            <div style="padding: 16px 24px; background: #fbf9fc; display: flex; flex-direction: column;">
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: stretch;">
                     
                     <!-- Columna 1: Docente y Sede -->
-                    <div style="background: #ffffff; border: 1px solid #ede8f0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="background: #ffffff; border: 1px solid #e8e2ec; border-radius: 10px; padding: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <div style="font-size: 0.75rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <i class="fas fa-user-tie" style="font-size: 1rem; color: #714b67;"></i> Datos del Docente
+                            <div style="font-size: 0.72rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;">
+                                <i class="fas fa-user-tie" style="font-size: 0.9rem; color: #714b67;"></i> Datos del Docente
                             </div>
-                            <div style="font-size: 1.05rem; font-weight: 700; color: #2d1e32; margin-bottom: 6px; line-height: 1.3;">
+                            <div style="font-size: 0.98rem; font-weight: 700; color: #2d1e32; margin-bottom: 4px; line-height: 1.2;">
                                 ${docenteNombre}
                             </div>
-                            ${course.dni ? `<div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;"><i class="fas fa-id-card" style="margin-right:5px; color:#94a3b8;"></i> DNI: <strong style="color:#334155;">${course.dni}</strong></div>` : ''}
+                            ${course.dni ? `<div style="font-size: 0.8rem; color: #64748b; margin-bottom: 8px;"><i class="fas fa-id-card" style="margin-right:4px; color:#94a3b8;"></i> DNI: <strong style="color:#334155;">${course.dni}</strong></div>` : ''}
                         </div>
-                        <div style="background: #fdf2f8; border-left: 4px solid #e11d48; padding: 10px 12px; border-radius: 0 8px 8px 0; margin-top: 10px;">
-                            <span style="font-size: 0.7rem; font-weight: 700; color: #9f1239; display: block; text-transform: uppercase; letter-spacing: 0.3px;">Sede Asignada</span>
-                            <span style="font-size: 1rem; font-weight: 800; color: #881337; display: block; margin-top: 2px;"><i class="fas fa-map-marker-alt" style="margin-right: 5px; color: #e11d48;"></i> ${course.sede || '—'}</span>
+                        <div style="background: #fdf2f8; border-left: 4px solid #e11d48; padding: 8px 10px; border-radius: 0 6px 6px 0; margin-top: 8px;">
+                            <span style="font-size: 0.65rem; font-weight: 700; color: #9f1239; display: block; text-transform: uppercase; letter-spacing: 0.3px;">Sede Asignada</span>
+                            <span style="font-size: 0.92rem; font-weight: 800; color: #881337; display: block; margin-top: 1px;"><i class="fas fa-map-marker-alt" style="margin-right: 4px; color: #e11d48;"></i> ${course.sede || '—'}</span>
                         </div>
                     </div>
 
                     <!-- Columna 2: Programación y Datos del Curso -->
-                    <div style="background: #ffffff; border: 1px solid #ede8f0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                    <div style="background: #ffffff; border: 1px solid #e8e2ec; border-radius: 10px; padding: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <div style="font-size: 0.75rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-                                <i class="fas fa-calendar-alt" style="font-size: 1rem; color: #6366f1;"></i> Programación y Aula
+                            <div style="font-size: 0.72rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px;">
+                                <i class="fas fa-calendar-alt" style="font-size: 0.9rem; color: #6366f1;"></i> Programación y Aula
                             </div>
-                            <div style="margin-bottom: 10px;">
-                                <div style="font-size: 0.78rem; font-weight:600; color: #64748b; text-transform: uppercase;">Días y Horario:</div>
-                                <div style="font-size: 0.98rem; font-weight: 700; color: #1e293b; margin-top: 3px;"><i class="far fa-clock" style="color:#10b981; margin-right:5px;"></i> ${dayText} (${horarioText})</div>
+                            <div style="margin-bottom: 8px;">
+                                <div style="font-size: 0.72rem; font-weight:600; color: #64748b; text-transform: uppercase;">Días y Horario:</div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin-top: 2px;"><i class="far fa-clock" style="color:#10b981; margin-right:4px;"></i> ${dayText} (${horarioText})</div>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
-                            <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 8px; text-align: center;">
-                                <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; display: block;">SECCIÓN</span>
-                                <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; display: block; margin-top: 2px;">${course.section || '—'}</span>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 5px 4px; border-radius: 6px; text-align: center;">
+                                <span style="font-size: 0.60rem; font-weight: 700; color: #64748b; display: block; text-transform: uppercase;">SECCIÓN</span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #0f172a; display: block; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${course.section || '—'}</span>
                             </div>
-                            <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 8px; border-radius: 8px; text-align: center;">
-                                <span style="font-size: 0.68rem; font-weight: 700; color: #3b82f6; display: block;">NRC</span>
-                                <span style="font-size: 0.95rem; font-weight: 800; color: #1e40af; display: block; margin-top: 2px;">${course.nrc || '—'}</span>
+                            <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 5px 4px; border-radius: 6px; text-align: center;">
+                                <span style="font-size: 0.60rem; font-weight: 700; color: #3b82f6; display: block; text-transform: uppercase;">NRC</span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #1e40af; display: block; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${course.nrc || '—'}</span>
+                            </div>
+                            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 5px 4px; border-radius: 6px; text-align: center;">
+                                <span style="font-size: 0.60rem; font-weight: 700; color: #16a34a; display: block; text-transform: uppercase;">CICLO</span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #14532d; display: block; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cicloText}</span>
+                            </div>
+                            <div style="background: #fdf4ff; border: 1px solid #f3e8ff; padding: 5px 4px; border-radius: 6px; text-align: center;">
+                                <span style="font-size: 0.60rem; font-weight: 700; color: #9333ea; display: block; text-transform: uppercase;">NIVEL</span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #581c87; display: block; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${tipoInsText}</span>
                             </div>
                             ${course.room ? `
-                            <div style="flex: 1; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 8px; border-radius: 8px; text-align: center;">
-                                <span style="font-size: 0.68rem; font-weight: 700; color: #10b981; display: block;">SALÓN</span>
-                                <span style="font-size: 0.95rem; font-weight: 800; color: #065f46; display: block; margin-top: 2px;">${course.room}</span>
+                            <div style="grid-column: span 2; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 5px; border-radius: 6px; text-align: center;">
+                                <span style="font-size: 0.60rem; font-weight: 700; color: #10b981; display: block; text-transform: uppercase;">SALÓN</span>
+                                <span style="font-size: 0.85rem; font-weight: 800; color: #065f46; display: block; margin-top: 1px;">${course.room}</span>
                             </div>` : ''}
                         </div>
                     </div>
 
                     <!-- Columna 3: Líderes Académicos (Resaltado Especial) -->
-                    <div style="background: linear-gradient(145deg, #f8f5fb 0%, #f0e6f5 100%); border: 1.5px solid #d8c8e3; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(113, 75, 103, 0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                    <div style="background: linear-gradient(145deg, #f8f5fb 0%, #f0e6f5 100%); border: 1.5px solid #d4c1df; border-radius: 10px; padding: 14px; box-shadow: 0 4px 10px rgba(113, 75, 103, 0.06); display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <div style="font-size: 0.75rem; font-weight: 800; color: #613957; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
-                                <i class="fas fa-sitemap" style="color: #d97706; font-size: 0.95rem;"></i> Liderazgo y Coordinación
+                            <div style="font-size: 0.72rem; font-weight: 800; color: #613957; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 5px;">
+                                <i class="fas fa-sitemap" style="color: #d97706; font-size: 0.9rem;"></i> Liderazgo y Coordinación
                             </div>
                             
-                            <div style="margin-bottom: 10px; background: #ffffff; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #714b67; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-size: 0.68rem; font-weight: 700; color: #714b67; text-transform: uppercase; display: block;">Líder del Docente</span>
-                                <span style="font-size: 0.92rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 3px;">
-                                    <i class="fas fa-user-check" style="color: #714b67; margin-right: 5px; font-size: 0.85rem;"></i> ${docenteLider || '—'}
+                            <div style="margin-bottom: 8px; background: #ffffff; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #714b67; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                <span style="font-size: 0.64rem; font-weight: 700; color: #714b67; text-transform: uppercase; display: block;">Líder del Docente (Sede / PLN)</span>
+                                <span style="font-size: 0.86rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 2px;">
+                                    <i class="fas fa-user-check" style="color: #714b67; margin-right: 4px; font-size: 0.8rem;"></i> ${docenteLider || '—'}
                                 </span>
                             </div>
 
-                            <div style="background: #ffffff; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #9e6490; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                <span style="font-size: 0.68rem; font-weight: 700; color: #9e6490; text-transform: uppercase; display: block;">Líder del Curso (U.D.)</span>
-                                <span style="font-size: 0.92rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 3px;">
-                                    <i class="fas fa-graduation-cap" style="color: #9e6490; margin-right: 5px; font-size: 0.85rem;"></i> ${cursoLider || '—'}
+                            <div style="background: #ffffff; padding: 8px 10px; border-radius: 6px; border-left: 4px solid #9e6490; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                <span style="font-size: 0.64rem; font-weight: 700; color: #9e6490; text-transform: uppercase; display: block;">Líder del Curso (Unidad Didact.)</span>
+                                <span style="font-size: 0.86rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 2px;">
+                                    <i class="fas fa-graduation-cap" style="color: #9e6490; margin-right: 4px; font-size: 0.8rem;"></i> ${cursoLider || '—'}
                                 </span>
                             </div>
                         </div>
                     </div>
 
                 </div>
+            </div>
 
-                <!-- Barra Inferior de Acción y Enlaces -->
-                <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
-                    <a href="${campusUrl}" target="_blank" rel="noopener noreferrer" 
-                       style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #714b67 0%, #493a4d 100%); color: #ffffff; font-size: 0.92rem; font-weight: 700; padding: 11px 20px; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 10px rgba(113, 75, 103, 0.25); transition: all 0.2s;">
-                        <i class="fas fa-external-link-alt" style="font-size: 1rem; color: #fbbf24;"></i> 
-                        <span>Buscar en Campus Digital Certus <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>
-                    </a>
-                    
-                    <button type="button" id="courseDetailCloseBtnBottom" 
-                            style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; font-size: 0.9rem; padding: 10px 22px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-                        <i class="fas fa-times" style="margin-right: 5px;"></i> Cerrar ventana
-                    </button>
-                </div>
+            <!-- Barra Inferior Fija -->
+            <div style="padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+                <a href="${campusUrl}" target="_blank" rel="noopener noreferrer" 
+                   style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #714b67 0%, #493a4d 100%); color: #ffffff; font-size: 0.88rem; font-weight: 700; padding: 9px 18px; border-radius: 8px; text-decoration: none; box-shadow: 0 3px 8px rgba(113, 75, 103, 0.25); transition: opacity 0.2s;">
+                    <i class="fas fa-external-link-alt" style="font-size: 0.95rem; color: #fbbf24;"></i> 
+                    <span>Buscar en Campus Digital Certus <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>
+                </a>
+                
+                <button type="button" id="courseDetailCloseBtnBottom" 
+                        style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; font-size: 0.85rem; padding: 8px 18px; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;">
+                    <i class="fas fa-times" style="margin-right: 4px;"></i> Cerrar ventana
+                </button>
             </div>
         `;
 
