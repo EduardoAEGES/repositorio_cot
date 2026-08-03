@@ -388,11 +388,11 @@ async function loadData(forceSync = false) {
     
     try {
         const [contaText, pensamientoText, docentesText, cargaText, docentesCargaText] = await Promise.all([
-            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.contabilidad}`).then(r => r.text()),
-            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.pensamiento}`).then(r => r.text()),
-            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.docentes}`).then(r => r.text()),
-            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.carga}`).then(r => r.text()),
-            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.docentes_carga}`).then(r => r.text())
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.contabilidad}&t=${Date.now()}`).then(r => r.text()),
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.pensamiento}&t=${Date.now()}`).then(r => r.text()),
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.docentes}&t=${Date.now()}`).then(r => r.text()),
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.carga}&t=${Date.now()}`).then(r => r.text()),
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${GIDS.docentes_carga}&t=${Date.now()}`).then(r => r.text())
         ]);
 
         // Construir mapa de Líderes y Horas Asignadas (col10 y col11) por DNI

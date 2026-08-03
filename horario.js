@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadFromGoogleSheet() {
         try {
-            const res = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv');
+            const res = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv&gid=1470879596&t=' + Date.now());
             const text = await res.text();
             const workbook = XLSX.read(text, { type: 'string' });
             const sheetName = workbook.SheetNames[0];
@@ -430,8 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log("Iniciando carga de datos de contratos...");
             const [resConta, resPln] = await Promise.all([
-                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=710892901'),
-                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=2112711805')
+                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=710892901&t=' + Date.now()),
+                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=2112711805&t=' + Date.now())
             ]);
 
             if (!resConta.ok || !resPln.ok) throw new Error("Error al descargar los CSV de contratos");
@@ -789,10 +789,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const mod1Check = document.getElementById('mod1Check');
     const mod2Check = document.getElementById('mod2Check');
+    const abril1Check = document.getElementById('abril1Check');
+    const abril2Check = document.getElementById('abril2Check');
     const junio1Check = document.getElementById('junio1Check');
     const junio2Check = document.getElementById('junio2Check');
     if (mod1Check) mod1Check.addEventListener('change', renderCourses);
     if (mod2Check) mod2Check.addEventListener('change', renderCourses);
+    if (abril1Check) abril1Check.addEventListener('change', renderCourses);
+    if (abril2Check) abril2Check.addEventListener('change', renderCourses);
     if (junio1Check) junio1Check.addEventListener('change', renderCourses);
     if (junio2Check) junio2Check.addEventListener('change', renderCourses);
 
@@ -1327,26 +1331,32 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const mod1Check = document.getElementById('mod1Check');
         const mod2Check = document.getElementById('mod2Check');
+        const abril1Check = document.getElementById('abril1Check');
+        const abril2Check = document.getElementById('abril2Check');
         const junio1Check = document.getElementById('junio1Check');
         const junio2Check = document.getElementById('junio2Check');
 
-        const showMarzo1 = mod1Check ? mod1Check.checked : true;
-        const showMarzo2 = mod2Check ? mod2Check.checked : true;
-        const showJunio1 = junio1Check ? junio1Check.checked : true;
-        const showJunio2 = junio2Check ? junio2Check.checked : true;
+        const showAgosto1 = mod1Check ? mod1Check.checked : true;
+        const showAgosto2 = mod2Check ? mod2Check.checked : true;
+        const showSetiembre1 = abril1Check ? abril1Check.checked : true;
+        const showSetiembre2 = abril2Check ? abril2Check.checked : true;
+        const showOctubre1 = junio1Check ? junio1Check.checked : true;
+        const showOctubre2 = junio2Check ? junio2Check.checked : true;
 
         const isCourseVisible = (c) => {
             const p = (c.periodo || '').toUpperCase();
             const m = (c.modulo || '').toString();
 
             if (p === '' && m === '') {
-                return showMarzo1 || showMarzo2 || showJunio1 || showJunio2;
+                return showAgosto1 || showAgosto2 || showSetiembre1 || showSetiembre2 || showOctubre1 || showOctubre2;
             }
 
-            if (showMarzo1 && ((p === 'ENE' || p === 'ENERO') && m === '2' || p === 'MARZO' && m === '1')) return true;
-            if (showMarzo2 && p === 'MARZO' && m === '2') return true;
-            if (showJunio1 && p === 'JUNIO' && m === '1') return true;
-            if (showJunio2 && p === 'JUNIO' && m === '2') return true;
+            if (showAgosto1 && (p === 'AGO' || p === 'AGOSTO') && m === '1') return true;
+            if (showAgosto2 && (p === 'AGO' || p === 'AGOSTO') && m === '2') return true;
+            if (showSetiembre1 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && m === '1') return true;
+            if (showSetiembre2 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && m === '2') return true;
+            if (showOctubre1 && (p === 'OCT' || p === 'OCTUBRE') && m === '1') return true;
+            if (showOctubre2 && (p === 'OCT' || p === 'OCTUBRE') && m === '2') return true;
 
             return false;
         };
@@ -1780,7 +1790,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 // Download the CSV from the source Google Sheet
-                const res = await fetch('https://docs.google.com/spreadsheets/d/1kjTbXxll7tWa76whBj04P-7cBV7EkOwEhM4OK3CukIs/export?format=csv');
+                const res = await fetch('https://docs.google.com/spreadsheets/d/1kjTbXxll7tWa76whBj04P-7cBV7EkOwEhM4OK3CukIs/export?format=csv&t=' + Date.now());
                 if (!res.ok) throw new Error("Error downloading CSV");
                 
                 const blob = await res.blob();

@@ -1347,7 +1347,7 @@ function toggleRowStatus(index) {
 function syncFromGoogleSheets() {
     updateSyncStatus('syncing', 'Sincronizando...');
     
-    fetch(GOOGLE_SHEET_CSV_URL)
+    fetch(GOOGLE_SHEET_CSV_URL + '&t=' + Date.now())
         .then(response => {
             if (!response.ok) throw new Error('Error al descargar el archivo de Google Sheets');
             return response.text();
