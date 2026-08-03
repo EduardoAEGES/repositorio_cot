@@ -1,3 +1,131 @@
+// ==========================================================================
+// LÍDERES DE DOCENTES (POR SEDE) Y LÍDERES DE CURSOS
+// ==========================================================================
+const LIDERES_POR_CURSO = [
+    // CICLO I
+    { p: 'nuevas tendencias en contabilidad', l: 'CARLOS YBARRA MAGUIÑA' },
+    { p: 'dinamica del plan contable', l: 'CARLOS YBARRA MAGUIÑA' },
+    // CICLO II
+    { p: 'contabilidad superior', l: 'CARLOS YBARRA MAGUIÑA' },
+    { p: 'contabilidad', l: 'CARLOS YBARRA MAGUIÑA' },
+    { p: 'efsrt modulo 1', l: 'CARLOS YBARRA MAGUIÑA' },
+    { p: 'fundamentos de costos', l: 'JOSE RAMIREZ PINEDA' },
+    { p: 'control y valorizacion de inventarios', l: 'JOSE RAMIREZ PINEDA' },
+    // CICLO III
+    { p: 'gestion de costos', l: 'JOSE RAMIREZ PINEDA' },
+    { p: 'costos y presupuestos', l: 'JOSE RAMIREZ PINEDA' },
+    { p: 'contabilidad tributaria y laboral', l: 'EDUARDO MAMANI ROQUE' },
+    { p: 'sistemas de procesos contables', l: 'EDUARDO MAMANI ROQUE' },
+    // CICLO IV
+    { p: 'contabilidad gubernamental', l: 'JOSE RAMIREZ PINEDA' },
+    { p: 'efsrt modulo 2', l: 'JOSE RAMIREZ PINEDA' },
+    { p: 'constitucion y organizacion de empresas', l: 'EDUARDO MAMANI ROQUE' },
+    { p: 'gestion y planeamiento tributario', l: 'EDUARDO MAMANI ROQUE' },
+    { p: 'sistemas contables integrados', l: 'EDUARDO MAMANI ROQUE' },
+    // CICLO V
+    { p: 'formulacion de estados financieros', l: 'CARLOS YBARRA MAGUIÑA' },
+    { p: 'control interno', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'contabilidad de entidades financieras', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'efsrt modulo 3', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'cierre contable tributario', l: 'EDUARDO MAMANI ROQUE' },
+    // CICLO VI
+    { p: 'analisis e interpretacion de los ee ff', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'analisis e interpretacion de los eeff', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'analisis e interpretacion de los estados financieros', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'eeff', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'auditoria', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'contabilidad gerencial', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'calculo financiero y tributario para la dja', l: 'EDUARDO MAMANI ROQUE' },
+    // PENSAMIENTO LÓGICO (PLN)
+    { p: 'pensamiento logico para los negocios tec', l: 'LUIS CONDOR' },
+    { p: 'pensamiento logico para los negocios ec', l: 'MIRKO SANCHEZ' },
+    { p: 'pensamiento logico', l: 'LUIS y MIRKO' }
+];
+
+const DOCENTES_LIDER_EDUARDO = ['morillo', 'robles marrufo', 'calle velasquez', 'manay velasquez'];
+
+function normalizeLider(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Líder del docente según área (Si área es únicamente PLN -> LUIS Y MIRKO; si es COT -> se respeta Sede)
+function getDocenteLider(docenteNombre, sede, cursoNombre) {
+    const n = normalizeLider(docenteNombre);
+    if (DOCENTES_LIDER_EDUARDO.some(k => n.includes(k))) {
+        return 'EDUARDO MAMANI ROQUE';
+    }
+    if (n.includes('luis condor') || n.includes('mirko sanchez') || n === 'luis' || n === 'mirko') {
+        return 'LUIS y MIRKO';
+    }
+
+    // Identificar el área del docente en contractData o por sus cursos programados
+    let area = '';
+    if (typeof contractData !== 'undefined' && contractData) {
+        let docInfo = null;
+        if (typeof cleanText === 'function') {
+            docInfo = contractData[cleanText(docenteNombre)] || contractData[String(docenteNombre).trim()];
+        } else {
+            docInfo = contractData[String(docenteNombre).trim()];
+        }
+        if (!docInfo) {
+            const matchedKey = Object.keys(contractData).find(k => normalizeLider(k) === n || n.includes(normalizeLider(k)) || normalizeLider(k).includes(n));
+            if (matchedKey) docInfo = contractData[matchedKey];
+        }
+        if (docInfo && docInfo.area) {
+            area = String(docInfo.area).toUpperCase().trim();
+        }
+    }
+
+    if (!area && typeof googleSheetCourses !== 'undefined' && googleSheetCourses) {
+        const docKey = Object.keys(googleSheetCourses).find(k => normalizeLider(k) === n);
+        if (docKey && googleSheetCourses[docKey] && googleSheetCourses[docKey].length > 0) {
+            const allPln = googleSheetCourses[docKey].every(c => {
+                const cNorm = normalizeLider(c.name || '');
+                return cNorm.includes('pensamiento logico') || cNorm.includes('pln');
+            });
+            if (allPln) area = 'PLN';
+        }
+    }
+    if (!area && cursoNombre && normalizeLider(cursoNombre).includes('pensamiento logico')) {
+        area = 'PLN';
+    }
+
+    // Si el área es únicamente PLN (no contiene COT), el líder es LUIS y MIRKO
+    if (area === 'PLN' || (area.includes('PLN') && !area.includes('COT'))) {
+        return 'LUIS y MIRKO';
+    }
+
+    // Si el área es COT (o COT y PLN), se respeta el líder por sede:
+    const s = normalizeLider(sede);
+    if (!s) return '—';
+    if (s.includes('surco') || s.includes('ate') || s.includes('prc')) return 'JORGE DURAN DE LA FUENTE';
+    if (s.includes('sjl') || s.includes('san juan') || s.includes('ves') || s.includes('villa el salvador')) return 'JOSE RAMIREZ PINEDA';
+    if (s.includes('aqp') || s.includes('arequipa')) return 'EDUARDO MAMANI ROQUE';
+    if (s.includes('nor') || s.includes('norte') || s.includes('virtual')) return 'CARLOS YBARRA MAGUIÑA';
+    return '—';
+}
+
+// Líder del curso según la tabla de Unidades Didácticas
+function getLiderCurso(cursoNombre) {
+    const c = normalizeLider(cursoNombre);
+    if (!c) return '—';
+    let best = null;
+    for (const item of LIDERES_POR_CURSO) {
+        if (c.includes(item.p)) {
+            if (!best || item.p.length > best.p.length) best = item;
+        }
+    }
+    if (best) return best.l;
+    if (c.includes('pensamiento logico') || c.includes('pln')) return 'LUIS y MIRKO';
+    return '—';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // State
     const defaultGroups = {
@@ -1112,6 +1240,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
     window.onclick = (e) => { if (modal && e.target == modal) modal.style.display = 'none'; };
 
+    // Cierre del modal de detalle de curso (solo lectura)
+    const courseDetailModal = document.getElementById('courseDetailModal');
+    const courseDetailCloseBtn = document.getElementById('courseDetailClose');
+    const courseDetailOkBtn = document.getElementById('courseDetailOkBtn');
+    if (courseDetailCloseBtn) courseDetailCloseBtn.onclick = () => courseDetailModal.style.display = 'none';
+    if (courseDetailOkBtn) courseDetailOkBtn.onclick = () => courseDetailModal.style.display = 'none';
+    window.addEventListener('click', (e) => {
+        if (courseDetailModal && e.target == courseDetailModal) courseDetailModal.style.display = 'none';
+    });
+
     async function processCSV(text) {
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
         if (lines.length < 5) {
@@ -1691,7 +1829,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.onclick = (e) => {
             e.stopPropagation();
-            openModal(course, course.user, day);
+            if (typeof isMasterMode !== 'undefined' && isMasterMode) {
+                openModal(course, course.user, day);
+            } else {
+                openCourseDetail(course, course.user);
+            }
         };
         return card;
     }
@@ -1771,6 +1913,157 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         modal.style.display = 'block';
+    }
+
+    // Vista de detalle (solo lectura) decorada y horizontal en una sola pantalla
+    function openCourseDetail(course, owner) {
+        const detailModal = document.getElementById('courseDetailModal');
+        const body = document.getElementById('courseDetailBody');
+        if (!detailModal || !body) return;
+
+        const daysNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const dayText = (course.days && course.days.length)
+            ? course.days.map(d => daysNames[d]).filter(Boolean).join(', ')
+            : '—';
+        const horarioText = (course.startTime && course.endTime)
+            ? `${course.startTime} - ${course.endTime}`
+            : '—';
+
+        const docenteNombre = (owner || course.user || '—').toUpperCase();
+        const docenteLider = getDocenteLider(docenteNombre, course.sede, course.name);
+        const cursoLider = getLiderCurso(course.name);
+
+        let queryParts = [];
+        if (course.section && String(course.section).trim() !== '' && String(course.section).trim() !== '—') {
+            queryParts.push(String(course.section).trim());
+        }
+        if (course.nrc && String(course.nrc).trim() !== '' && String(course.nrc).trim() !== '—') {
+            queryParts.push(String(course.nrc).trim());
+        }
+        const queryStr = queryParts.join('|');
+        const campusUrl = queryStr 
+            ? `https://campusdigital.certus.edu.pe/course/search.php?areaids=core_course-course&q=${encodeURIComponent(queryStr)}`
+            : `https://campusdigital.certus.edu.pe/course/search.php`;
+
+        const periodoModulo = (course.periodo || course.modulo)
+            ? `${course.periodo || ''} ${course.modulo ? '· Mod ' + course.modulo : ''}`.trim()
+            : 'Período Regular';
+
+        body.innerHTML = `
+            <!-- Cabecera Decorativa con Gradiente -->
+            <div style="background: linear-gradient(135deg, #3d2a45 0%, #714b67 50%, #9e6490 100%); padding: 20px 28px; color: #ffffff; position: relative; border-bottom: 3px solid #f1f5f9;">
+                <button type="button" id="courseDetailCloseBtnTop" style="position: absolute; top: 18px; right: 22px; background: rgba(255,255,255,0.15); border: none; color: #ffffff; width: 32px; height: 32px; border-radius: 50%; font-size: 1.3rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&times;</button>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <span style="background: rgba(255, 255, 255, 0.22); color: #ffffff; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                        <i class="fas fa-bookmark" style="margin-right: 4px;"></i> ${course.modality || 'PRESENCIAL'}
+                    </span>
+                    <span style="background: #fbbf24; color: #1e1b4b; font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 12px; text-transform: uppercase;">
+                        <i class="far fa-calendar-check" style="margin-right: 4px;"></i> ${periodoModulo}
+                    </span>
+                </div>
+                <h2 style="margin: 0; font-size: 1.45rem; font-weight: 700; letter-spacing: -0.3px; line-height: 1.25; color: #ffffff;">
+                    ${course.name || '—'}
+                </h2>
+            </div>
+
+            <!-- Contenido Principal - Grid Horizontal en una sola pantalla -->
+            <div style="padding: 20px 28px; background: #faf8fb;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: stretch;">
+                    
+                    <!-- Columna 1: Docente y Sede -->
+                    <div style="background: #ffffff; border: 1px solid #ede8f0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-user-tie" style="font-size: 1rem; color: #714b67;"></i> Datos del Docente
+                            </div>
+                            <div style="font-size: 1.05rem; font-weight: 700; color: #2d1e32; margin-bottom: 6px; line-height: 1.3;">
+                                ${docenteNombre}
+                            </div>
+                            ${course.dni ? `<div style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;"><i class="fas fa-id-card" style="margin-right:5px; color:#94a3b8;"></i> DNI: <strong style="color:#334155;">${course.dni}</strong></div>` : ''}
+                        </div>
+                        <div style="background: #fdf2f8; border-left: 4px solid #e11d48; padding: 10px 12px; border-radius: 0 8px 8px 0; margin-top: 10px;">
+                            <span style="font-size: 0.7rem; font-weight: 700; color: #9f1239; display: block; text-transform: uppercase; letter-spacing: 0.3px;">Sede Asignada</span>
+                            <span style="font-size: 1rem; font-weight: 800; color: #881337; display: block; margin-top: 2px;"><i class="fas fa-map-marker-alt" style="margin-right: 5px; color: #e11d48;"></i> ${course.sede || '—'}</span>
+                        </div>
+                    </div>
+
+                    <!-- Columna 2: Programación y Datos del Curso -->
+                    <div style="background: #ffffff; border: 1px solid #ede8f0; border-radius: 12px; padding: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #8c768a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-calendar-alt" style="font-size: 1rem; color: #6366f1;"></i> Programación y Aula
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <div style="font-size: 0.78rem; font-weight:600; color: #64748b; text-transform: uppercase;">Días y Horario:</div>
+                                <div style="font-size: 0.98rem; font-weight: 700; color: #1e293b; margin-top: 3px;"><i class="far fa-clock" style="color:#10b981; margin-right:5px;"></i> ${dayText} (${horarioText})</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
+                            <div style="flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px; border-radius: 8px; text-align: center;">
+                                <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; display: block;">SECCIÓN</span>
+                                <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; display: block; margin-top: 2px;">${course.section || '—'}</span>
+                            </div>
+                            <div style="flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; padding: 8px; border-radius: 8px; text-align: center;">
+                                <span style="font-size: 0.68rem; font-weight: 700; color: #3b82f6; display: block;">NRC</span>
+                                <span style="font-size: 0.95rem; font-weight: 800; color: #1e40af; display: block; margin-top: 2px;">${course.nrc || '—'}</span>
+                            </div>
+                            ${course.room ? `
+                            <div style="flex: 1; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 8px; border-radius: 8px; text-align: center;">
+                                <span style="font-size: 0.68rem; font-weight: 700; color: #10b981; display: block;">SALÓN</span>
+                                <span style="font-size: 0.95rem; font-weight: 800; color: #065f46; display: block; margin-top: 2px;">${course.room}</span>
+                            </div>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Columna 3: Líderes Académicos (Resaltado Especial) -->
+                    <div style="background: linear-gradient(145deg, #f8f5fb 0%, #f0e6f5 100%); border: 1.5px solid #d8c8e3; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(113, 75, 103, 0.06); display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                        <div>
+                            <div style="font-size: 0.75rem; font-weight: 800; color: #613957; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-sitemap" style="color: #d97706; font-size: 0.95rem;"></i> Liderazgo y Coordinación
+                            </div>
+                            
+                            <div style="margin-bottom: 10px; background: #ffffff; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #714b67; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-size: 0.68rem; font-weight: 700; color: #714b67; text-transform: uppercase; display: block;">Líder del Docente</span>
+                                <span style="font-size: 0.92rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 3px;">
+                                    <i class="fas fa-user-check" style="color: #714b67; margin-right: 5px; font-size: 0.85rem;"></i> ${docenteLider || '—'}
+                                </span>
+                            </div>
+
+                            <div style="background: #ffffff; padding: 10px 12px; border-radius: 8px; border-left: 4px solid #9e6490; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                <span style="font-size: 0.68rem; font-weight: 700; color: #9e6490; text-transform: uppercase; display: block;">Líder del Curso (U.D.)</span>
+                                <span style="font-size: 0.92rem; font-weight: 700; color: #2d1e32; display: block; margin-top: 3px;">
+                                    <i class="fas fa-graduation-cap" style="color: #9e6490; margin-right: 5px; font-size: 0.85rem;"></i> ${cursoLider || '—'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Barra Inferior de Acción y Enlaces -->
+                <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+                    <a href="${campusUrl}" target="_blank" rel="noopener noreferrer" 
+                       style="display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #714b67 0%, #493a4d 100%); color: #ffffff; font-size: 0.92rem; font-weight: 700; padding: 11px 20px; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 10px rgba(113, 75, 103, 0.25); transition: all 0.2s;">
+                        <i class="fas fa-external-link-alt" style="font-size: 1rem; color: #fbbf24;"></i> 
+                        <span>Buscar en Campus Digital Certus <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>
+                    </a>
+                    
+                    <button type="button" id="courseDetailCloseBtnBottom" 
+                            style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 700; font-size: 0.9rem; padding: 10px 22px; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+                        <i class="fas fa-times" style="margin-right: 5px;"></i> Cerrar ventana
+                    </button>
+                </div>
+            </div>
+        `;
+
+        detailModal.style.display = 'flex';
+
+        // Bind events to buttons inside dynamically rendered HTML
+        const closeTop = document.getElementById('courseDetailCloseBtnTop');
+        const closeBot = document.getElementById('courseDetailCloseBtnBottom');
+        const closeModalHandler = () => { detailModal.style.display = 'none'; };
+        if (closeTop) closeTop.onclick = closeModalHandler;
+        if (closeBot) closeBot.onclick = closeModalHandler;
     }
 
     async function saveCourse() {
