@@ -724,25 +724,21 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadContractData() {
         try {
             console.log("Iniciando carga de datos de contratos...");
-            const [resConta, resPln] = await Promise.all([
-                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=710892901&t=' + Date.now()),
-                fetch('https://docs.google.com/spreadsheets/d/1CAx1uAYYlUBSBzZx0Yhp9fbyzURHTjACwYLLUJ6XROI/export?format=csv&gid=2112711805&t=' + Date.now())
-            ]);
+            
+            // Usamos la hoja "Docentes 2026" (tabla principal A-Z que se mantiene actualizada)
+            const resConta = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv&gid=204310163&t=' + Date.now());
 
-            if (!resConta.ok || !resPln.ok) throw new Error("Error al descargar los CSV de contratos");
+            if (!resConta.ok) throw new Error("Error al descargar el CSV de contratos (docentes)");
 
             const textConta = await resConta.text();
-            const textPln = await resPln.text();
-
             const rowsConta = textConta.split(/\r?\n/).filter(r => r.trim() !== '');
-            const rowsPln = textPln.split(/\r?\n/).filter(r => r.trim() !== '');
 
             contractData = {};
 
-            // 1. Procesar CONTA (COT)
+            // 1. Procesar hoja de DOCENTES
             let contaHeaderIdx = 0;
             for (let r = 0; r < Math.min(10, rowsConta.length); r++) {
-                if (rowsConta[r].toUpperCase().includes('DNI') && rowsConta[r].toUpperCase().includes('APELLIDO')) {
+                if (rowsConta[r].toUpperCase().includes('DNI') && (rowsConta[r].toUpperCase().includes('APELLIDO') || rowsConta[r].toUpperCase().includes('NOMBRE'))) {
                     contaHeaderIdx = r;
                     break;
                 }
@@ -753,96 +749,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const typeIdxC = headersConta.findIndex(h => h.includes('TIPO') && h.includes('CONTRATO'));
             const hoursIdxC = headersConta.findIndex(h => h.includes('HORAS') && h.includes('CONTRATO'));
             const sedeIdxC = headersConta.findIndex(h => h.includes('SEDE'));
+            const areaIdxC = headersConta.findIndex(h => h.includes('ÁREA') || h.includes('AREA'));
 
             for (let i = contaHeaderIdx + 1; i < rowsConta.length; i++) {
+                // Detenerse al encontrar una SEGUNDA cabecera (inicio de otra tabla dentro de la misma hoja),
+                // para no leer las secciones secundarias con datos antiguos/duplicados.
+                const rowUpper = rowsConta[i].toUpperCase();
+                if (rowUpper.includes('DNI') && (rowUpper.includes('APELLIDO') || rowUpper.includes('NOMBRE'))) break;
+
                 const cols = parseCSVLine(rowsConta[i]);
                 if (cols.length < 5) continue;
                 const dni = cols[dniIdxC] ? cols[dniIdxC].trim() : '';
                 const name = (nameIdxC !== -1 && cols[nameIdxC]) ? cols[nameIdxC].trim() : (cols[2] ? cols[2].trim() : '');
-                const contractType = (typeIdxC !== -1 && cols[typeIdxC]) ? cols[typeIdxC].trim() : (cols[5] ? cols[5].trim() : '');
+                const contractType = (typeIdxC !== -1 && cols[typeIdxC]) ? cols[typeIdxC].trim() : (cols[6] ? cols[6].trim() : '');
                 const contractHours = (hoursIdxC !== -1 && cols[hoursIdxC]) ? cols[hoursIdxC].trim() : (cols[7] ? cols[7].trim() : '');
                 let sede = (sedeIdxC !== -1 && cols[sedeIdxC]) ? cols[sedeIdxC].trim() : '';
-                if (!sede && sedeIdxC !== -1 && cols[sedeIdxC + 1] && !cols[sedeIdxC + 1].includes('/') && cols[sedeIdxC + 1].length < 15) {
-                    sede = cols[sedeIdxC + 1].trim();
-                }
+                let area = (areaIdxC !== -1 && cols[areaIdxC]) ? cols[areaIdxC].trim() : 'COT';
 
                 if (name && !name.toUpperCase().includes('APELLIDO')) {
                     const cleanN = cleanText(name);
+                    // Tomar solo la PRIMERA aparición de cada docente (la tabla principal A-Z va primero),
+                    // ignorando duplicados en secciones inferiores de la misma hoja (numerada / PLN) con datos antiguos.
+                    const yaRegistrado = contractData[cleanN] || (dni && dni !== '—' && contractData[dni]);
+                    if (yaRegistrado) continue;
                     const teacherObj = {
                         dni: dni || '—',
                         name,
                         contractType: contractType || '—',
-                        contractHours: parseInt(contractHours) || 0,
+                        contractHours: parseFloat(contractHours) || 0,
                         sede: sede || '—',
-                        area: 'COT',
-                        source: "DOCENTES CONTA 2026"
+                        area: area || '—',
+                        source: "DOCENTES 2026"
                     };
                     contractData[cleanN] = teacherObj;
                     if (dni && dni !== '—') {
                         contractData[dni] = teacherObj;
                         contractData[dni.replace(/^0+/, '')] = teacherObj;
-                    }
-                }
-            }
-
-            // 2. Procesar PLN (PLN)
-            let plnHeaderIdx = 1;
-            for (let r = 0; r < Math.min(15, rowsPln.length); r++) {
-                if (rowsPln[r].toUpperCase().includes('DNI') && rowsPln[r].toUpperCase().includes('APELLIDO')) {
-                    plnHeaderIdx = r;
-                    break;
-                }
-            }
-            const headersPln = parseCSVLine(rowsPln[plnHeaderIdx]).map(h => h.trim().toUpperCase());
-            const dniIdxP = headersPln.indexOf('DNI') !== -1 ? headersPln.indexOf('DNI') : 1;
-            const nameIdxP = headersPln.findIndex(h => h.includes('APELLIDO') || h.includes('NOMBRE'));
-            const typeIdxP = headersPln.findIndex(h => h.includes('TIPO') && h.includes('CONTRATO'));
-            const hoursIdxP = headersPln.findIndex(h => h.includes('HORAS') && h.includes('CONTRATO'));
-            const sedeIdxP = headersPln.findIndex(h => h === 'SEDE' || h.includes('SEDE'));
-
-            for (let i = plnHeaderIdx + 1; i < rowsPln.length; i++) {
-                const cols = parseCSVLine(rowsPln[i]);
-                if (cols.length < 5) continue;
-                const dni = cols[dniIdxP] ? cols[dniIdxP].trim() : '';
-                const name = (nameIdxP !== -1 && cols[nameIdxP]) ? cols[nameIdxP].trim() : (cols[2] ? cols[2].trim() : '');
-                const contractType = (typeIdxP !== -1 && cols[typeIdxP]) ? cols[typeIdxP].trim() : (cols[7] ? cols[7].trim() : '');
-                const contractHours = (hoursIdxP !== -1 && cols[hoursIdxP]) ? cols[hoursIdxP].trim() : (cols[9] ? cols[9].trim() : '');
-                const sede = (sedeIdxP !== -1 && cols[sedeIdxP]) ? cols[sedeIdxP].trim() : '';
-
-                if (name && !name.toUpperCase().includes('APELLIDO')) {
-                    const cleanN = cleanText(name);
-                    const cleanDni = dni ? dni.replace(/^0+/, '') : '';
-                    let existing = contractData[cleanN] || (dni ? contractData[dni] : null) || (cleanDni ? contractData[cleanDni] : null);
-
-                    if (existing) {
-                        existing.area = 'COT y PLN';
-                        if ((!existing.dni || existing.dni === '—') && dni) existing.dni = dni;
-                        if (parseInt(contractHours) > 0 && existing.contractHours === 0) existing.contractHours = parseInt(contractHours);
-                        if (contractType && (existing.contractType === '—' || !existing.contractType)) {
-                            existing.contractType = contractType;
-                        } else if (contractType && existing.contractType !== contractType && !existing.contractType.includes(contractType)) {
-                            existing.contractType = `${existing.contractType} / ${contractType}`;
-                        }
-                        if (sede && (existing.sede === '—' || !existing.sede)) {
-                            existing.sede = sede;
-                        } else if (sede && !existing.sede.includes(sede)) {
-                            existing.sede = `${existing.sede}/${sede}`;
-                        }
-                    } else {
-                        const teacherObj = {
-                            dni: dni || '—',
-                            name,
-                            contractType: contractType || '—',
-                            contractHours: parseInt(contractHours) || 0,
-                            sede: sede || '—',
-                            area: 'PLN',
-                            source: "DOCENTES PLN 2026"
-                        };
-                        contractData[cleanN] = teacherObj;
-                        if (dni && dni !== '—') {
-                            contractData[dni] = teacherObj;
-                            contractData[cleanDni] = teacherObj;
-                        }
                     }
                 }
             }
