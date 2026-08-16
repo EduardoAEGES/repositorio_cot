@@ -250,8 +250,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isMasterMode = false;
     let activeGroup = Object.keys(groups)[0] || "PTC";
-    // Default to CARLOS selected for "Modo Master"
-    let activeUsers = new Set(['CARLOS']);
+    // Restaurar los últimos docentes seleccionados; si es la primera vez, CARLOS por defecto.
+    let activeUsers;
+    try {
+        const rawActive = localStorage.getItem('cot_active_users');
+        if (rawActive !== null) {
+            const savedUsers = JSON.parse(rawActive);
+            activeUsers = new Set(Array.isArray(savedUsers) ? savedUsers : ['CARLOS']);
+        } else {
+            activeUsers = new Set(['CARLOS']);
+        }
+    } catch (e) {
+        activeUsers = new Set(['CARLOS']);
+    }
     let lastSearchedUser = null;
     
     console.log('Groups initialized:', groups);
@@ -1098,10 +1109,39 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromGoogleSheet();
     loadContractData();
 
-    ['junio1Check', 'junio2Check', 'agosto1Check', 'agosto2Check', 'setiembre1Check', 'setiembre2Check', 'octubre1Check', 'octubre2Check', 'mod1Check', 'mod2Check', 'abril1Check', 'abril2Check'].forEach(id => {
+    const MODULE_CHECK_IDS = ['junio1Check', 'junio2Check', 'agosto1Check', 'agosto2Check', 'setiembre1Check', 'setiembre2Check', 'octubre1Check', 'octubre2Check', 'mod1Check', 'mod2Check', 'abril1Check', 'abril2Check'];
+
+    // Guarda en el navegador los docentes activos y los módulos marcados (últimas selecciones).
+    function saveUiState() {
+        try {
+            localStorage.setItem('cot_active_users', JSON.stringify(Array.from(activeUsers)));
+            const checks = {};
+            MODULE_CHECK_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) checks[id] = el.checked;
+            });
+            localStorage.setItem('cot_modules', JSON.stringify(checks));
+        } catch (e) { /* almacenamiento no disponible: ignorar */ }
+    }
+
+    // Restaurar los checkboxes de módulo guardados (si es la primera vez, se dejan los del HTML).
+    try {
+        const savedChecks = JSON.parse(localStorage.getItem('cot_modules'));
+        if (savedChecks && typeof savedChecks === 'object') {
+            MODULE_CHECK_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && typeof savedChecks[id] === 'boolean') el.checked = savedChecks[id];
+            });
+        }
+    } catch (e) { /* ignorar */ }
+
+    MODULE_CHECK_IDS.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', renderCourses);
+        if (el) el.addEventListener('change', () => { saveUiState(); renderCourses(); });
     });
+
+    // Reflejar en el grid las selecciones restauradas al abrir.
+    renderCourses();
 
     // Toggle Controls Panel Logic
     const toggleControlsBtn = document.getElementById('toggleControlsBtn');
@@ -1657,6 +1697,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCourses() {
+        // Guardar las últimas selecciones (docentes + módulos) en cada render.
+        if (typeof saveUiState === 'function') saveUiState();
+
         const existingCards = document.querySelectorAll('.course-card');
         existingCards.forEach(c => c.remove());
 
