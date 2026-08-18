@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="infobot.css?v=1">
 </head>
 <body>
     <div class="app-container">
@@ -21,7 +22,7 @@
                     <h1>HORARIOS - EQUIPO COT PLN</h1>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <a href="https://app.powerbi.com/view?r=eyJrIjoiZDY1ZWQ5NmYtZGFkMC00MzY1LTgyNDQtODJjZTg4YjhlNWZlIiwidCI6Ijc1MDRlMzE4LThlMWUtNGQ1NS1iZmZkLTg3NWI0ZGVlODI2MCIsImMiOjR9" target="_blank" rel="noopener" class="dashboard-btn" title="Ver Dashboard Power BI" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: #008272; color: #fff; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 8px; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,130,114,0.35)';" onmouseout="this.style.transform='';this.style.boxShadow='';">
+                    <a href="dashboard.html" class="dashboard-btn" title="Ver Dashboard de Carga Docente" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: #008272; color: #fff; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 8px; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,130,114,0.35)';" onmouseout="this.style.transform='';this.style.boxShadow='';">
                         <i class="fas fa-chart-column"></i> Dashboard
                     </a>
                     <button id="toggleControlsBtn" class="toggle-panel-btn" title="Expandir / Contraer Controles">
@@ -237,5 +238,21 @@
     </div>
 
     <script src="horario.js"></script>
+    <script>
+    window.INFO_BOT = {
+      intro: 'Esta página <b>no guarda datos propios</b>: los lee en vivo de Google Sheets. ' +
+             'Para corregir un horario o un docente, edita el archivo correspondiente y recarga.',
+      fuentes: [
+        { nombre: 'Carga horaria y docentes', hoja: 'CARGA_HORARIA',
+          detalle: 'Horarios asignados: curso, sección, NRC, días y horas. En el mismo archivo están las hojas "Docentes 2026" (tipo de contrato, horas y sede) y "LISTA DE LIDERES".',
+          url: 'https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/edit' },
+        { nombre: 'Carga oficial de PROGRAMACIÓN', hoja: 'CARGA HORARIA',
+          detalle: 'Para visualizar la carga oficial de PROGRAMACIÓN: malla por franjas de 45 min y día con el curso asignado a cada docente.',
+          url: 'https://docs.google.com/spreadsheets/d/1xRvGNqImylhDmOtw2z6XAsC_d8G61-LMVXN9BTQz9as/edit' }
+      ],
+      nota: 'Tras editar en Google Sheets, recarga esta página (Ctrl+F5) para ver los cambios.'
+    };
+    </script>
+    <script src="infobot.js?v=1"></script>
 </body>
 </html>
