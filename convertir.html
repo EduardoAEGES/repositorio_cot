@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convertidor de Carga Horaria - Equipo COT PLN</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-app: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-card-alt: #16213e;
+            --bg-input: #0a0a15;
+            --border-color: rgba(255,255,255,0.08);
+            --border-focus: #6c63ff;
+            --primary: #6c63ff;
+            --primary-light: rgba(108,99,255,0.15);
+            --primary-glow: rgba(108,99,255,0.4);
+            --accent: #00d4aa;
+            --accent-light: rgba(0,212,170,0.15);
+            --danger: #ff6b6b;
+            --warning: #ffd93d;
+            --text-main: #e8e8f0;
+            --text-muted: #8888a8;
+            --text-bright: #ffffff;
+            --success: #00d4aa;
+            --gradient-1: linear-gradient(135deg, #6c63ff 0%, #3b82f6 100%);
+            --gradient-2: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
+            --gradient-hero: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-app);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background particles */
+        .bg-particles {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+            overflow: hidden;
+        }
+        .bg-particles::before, .bg-particles::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s ease-in-out infinite;
+        }
+        .bg-particles::before {
+            width: 500px; height: 500px;
+            background: var(--primary);
+            top: -100px; right: -100px;
+        }
+        .bg-particles::after {
+            width: 400px; height: 400px;
+            background: var(--accent);
+            bottom: -50px; left: -50px;
+            animation-delay: -10s;
+        }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(-30px, 30px) scale(1.05); }
+            50% { transform: translate(20px, -20px) scale(0.95); }
+            75% { transform: translate(-20px, -30px) scale(1.02); }
+        }
+
+        .app-container {
+            position: relative; z-index: 1;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        /* Header */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .header-left .back-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.85rem; font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s;
+        }
+        .header-left .back-btn:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .logo-wrap {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .logo-wrap img { height: 32px; }
+        .logo-wrap h1 {
+            font-size: 1.1rem; font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hero card */
+        .hero-card {
+            background: var(--gradient-hero);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px 36px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient-1);
+        }
+        .hero-card .hero-icon {
+            width: 56px; height: 56px;
+            border-radius: 16px;
+            background: var(--primary-light);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 18px;
+        }
+        .hero-card h2 {
+            font-size: 1.6rem; font-weight: 800;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+        }
+        .hero-card p {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
+            max-width: 700px;
+        }
+
+        /* Input Section */
+        .input-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+        }
+        .input-section .section-label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.78rem; font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 14px;
+        }
+        .input-section .section-label i {
+            color: var(--primary);
+        }
+
+        .url-input-row {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+        }
+        .url-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        .url-input-wrapper i.input-icon {
+            position: absolute;
+            left: 16px; top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .url-input-wrapper input {
+            width: 100%;
+            padding: 14px 14px 14px 44px;
+            background: var(--bg-input);
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 0.92rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+            outline: none;
+        }
+        .url-input-wrapper input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        .url-input-wrapper input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+            background: rgba(108,99,255,0.05);
+        }
+        .url-input-wrapper .clear-btn {
+            position: absolute;
+            right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 0.85rem;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .url-input-wrapper input:not(:placeholder-shown) ~ .clear-btn {
+            opacity: 1;
+        }
+
+        .paste-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-muted);
+            font-size: 0.85rem; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        .paste-btn:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        /* GID input */
+        .gid-row {
+            display: flex; gap: 12px; margin-top: 14px;
+            align-items: center;
+        }
+        .gid-row label {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .gid-row input {
+            width: 200px;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-main);
+            font-size: 0.88rem;
+            font-family: 'Inter', monospace;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .gid-row input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+        .gid-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            opacity: 0.7;
+        }
+
+        /* Action Buttons */
+        .actions-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .btn-generate {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 15px 28px;
+            border: none;
+            border-radius: 14px;
+            font-size: 0.95rem; font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-generate::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+        .btn-generate:hover::before { left: 100%; }
+
+        .btn-excel {
+            background: var(--gradient-2);
+            color: #003d33;
+            box-shadow: 0 4px 20px rgba(0,212,170,0.3);
+        }
+        .btn-excel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,212,170,0.4);
+        }
+        .btn-csv {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 4px 20px rgba(108,99,255,0.3);
+        }
+        .btn-csv:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(108,99,255,0.4);
+        }
+        .btn-generate:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-generate:disabled::before { display: none; }
+
+        /* Progress & Status */
+        .status-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px 28px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .status-section.visible { display: block; }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: var(--gradient-1);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+        .progress-bar.indeterminate {
+            width: 30%;
+            animation: indeterminate 1.5s ease-in-out infinite;
+        }
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+
+        .status-log {
+            max-height: 260px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.8;
+            color: var(--text-muted);
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary) transparent;
+        }
+        .status-log .log-entry {
+            display: flex; align-items: flex-start; gap: 8px;
+            padding: 2px 0;
+        }
+        .status-log .log-icon { flex-shrink: 0; width: 18px; text-align: center; }
+        .log-info .log-icon { color: var(--primary); }
+        .log-success .log-icon { color: var(--accent); }
+        .log-error .log-icon { color: var(--danger); }
+        .log-warn .log-icon { color: var(--warning); }
+
+        /* Results card */
+        .results-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .results-section.visible { display: block; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .sample-table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .sample-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        .sample-table th {
+            background: rgba(108,99,255,0.12);
+            color: var(--primary);
+            font-weight: 700;
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .sample-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sample-table tr:hover td {
+            background: rgba(108,99,255,0.05);
+        }
+
+        /* Footer */
+        .app-footer {
+            text-align: center;
+            padding: 30px 0 20px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            opacity: 0.6;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .url-input-row { flex-direction: column; }
+            .actions-row { flex-direction: column; }
+            .btn-generate { width: 100%; justify-content: center; }
+            .hero-card { padding: 28px 20px; }
+            .hero-card h2 { font-size: 1.3rem; }
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 18px; height: 18px;
+            border: 2.5px solid rgba(255,255,255,0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Pulse animation for download buttons */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 4px 20px rgba(0,212,170,0.3); }
+            50% { box-shadow: 0 4px 30px rgba(0,212,170,0.6); }
+        }
+        .btn-download-ready {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-particles"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Principal</a>
+                <div class="logo-wrap">
+                    <img src="LOGO_CERTUS22.png" alt="Certus Logo">
+                    <h1>CONVERTIDOR DE CARGA</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero -->
+        <div class="hero-card">
+            <div class="hero-icon"><i class="fas fa-exchange-alt"></i></div>
+            <h2>Convertidor de Carga Horaria</h2>
+            <p>Transforma la malla de <strong>Programación de Horas</strong> (franjas de 45 min por docente) al formato plano de <strong>CARGA_HORARIA</strong> (una fila por curso-docente) compatible con el sistema de horarios del equipo COT-PLN.</p>
+        </div>
+
+        <!-- Input Section -->
+        <div class="input-section">
+            <div class="section-label">
+                <i class="fas fa-link"></i> URL del Google Sheet publicado (pubhtml)
+            </div>
+            <div class="url-input-row">
+                <div class="url-input-wrapper">
+                    <i class="fas fa-globe input-icon"></i>
+                    <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/e/2PACX-.../pubhtml" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ6FuzOJ_6Ak54s6Lxgvu3pV6G80XHu99l6wNT9pEDyaJDpknO3NgUe9_OCq6gEm2rLxKibX-vCz3o/pubhtml">
+                    <button class="clear-btn" id="clearUrlBtn" title="Limpiar"><i class="fas fa-times"></i></button>
+                </div>
+                <button class="paste-btn" id="pasteBtn" title="Pegar desde portapapeles">
+                    <i class="fas fa-clipboard"></i> Pegar
+                </button>
+            </div>
+            <div class="gid-row">
+                <label><i class="fas fa-hashtag" style="color:var(--accent);margin-right:4px;"></i> GID de la hoja CARGA HORARIA:</label>
+                <input type="text" id="sheetGid" placeholder="ej: 1657026679" value="1657026679">
+                <span class="gid-hint">Se obtiene del URL de la hoja publicada (#gid=...)</span>
+            </div>
+
+            <div class="actions-row">
+                <button class="btn-generate btn-excel" id="btnExcel" onclick="startConversion('xlsx')">
+                    <i class="fas fa-file-excel"></i> Generar Excel (.xlsx)
+                </button>
+                <button class="btn-generate btn-csv" id="btnCsv" onclick="startConversion('csv')">
+                    <i class="fas fa-file-csv"></i> Generar CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Status Section -->
+        <div class="status-section" id="statusSection">
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="status-log" id="statusLog"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <div class="section-label" style="font-size:0.78rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                <i class="fas fa-chart-bar" style="color:var(--accent);"></i> Resultados de la Conversión
+            </div>
+            <div class="stats-grid" id="statsGrid"></div>
+            <div class="sample-table-wrapper">
+                <table class="sample-table" id="sampleTable">
+                    <thead><tr id="sampleHead"></tr></thead>
+                    <tbody id="sampleBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            &copy; 2026 Equipo COT-PLN &mdash; Convertidor de Carga Horaria v1.0
+        </footer>
+    </div>
+
+    <script>
+    // ======================== CONVERSION LOGIC ========================
+
+    const DAYS_MAP = { 6:'LUNES', 7:'MARTES', 8:'MIÉRCOLES', 9:'JUEVES', 10:'VIERNES', 11:'SABADO', 12:'DOMINGO' };
+    const DAY_ORDER = ['LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SABADO','DOMINGO'];
+
+    function parseCellCourses(cellValue) {
+        if (!cellValue || typeof cellValue !== 'string') return [];
+        const trimmed = cellValue.trim();
+        if (!trimmed || trimmed === '#N/A' || trimmed === '#REF!') return [];
+        const parts = trimmed.split(/\n\/\/\n|\n\/\n|\/{2,}/).map(s => s.trim()).filter(s => s.startsWith('C.L.'));
+        if (parts.length === 0 && trimmed.startsWith('C.L.')) parts.push(trimmed);
+        const results = [];
+        for (const part of parts) {
+            const parsed = parseSingleCourse(part);
+            if (parsed) results.push(parsed);
+        }
+        return results;
+    }
+
+    function parseSingleCourse(str) {
+        if (!str || !str.startsWith('C.L.')) return null;
+        const rest = str.substring(4);
+        let nrc = '', mainPart = rest;
+        const nrcMatch = rest.match(/-NRC\s+(\d+)\s*$/i);
+        if (nrcMatch) { nrc = nrcMatch[1]; mainPart = rest.substring(0, rest.length - nrcMatch[0].length); }
+        const segments = mainPart.split('-');
+        if (segments.length < 6) return null;
+        const carga = segments[0].trim();
+        const tipo = segments[1].trim();
+        let sede = '', restSegments;
+        if (segments[2].trim().toUpperCase() === 'VIRTUAL') { sede = 'VIRTUAL'; restSegments = segments.slice(3); }
+        else if (segments[2].trim().toUpperCase() === 'CRT') { sede = segments[3].trim(); restSegments = segments.slice(4); }
+        else { sede = segments[2].trim(); restSegments = segments.slice(3); }
+        if (restSegments.length < 3) return null;
+        const seccion = restSegments[0].trim();
+        const secModMatch = seccion.match(/(\d+)([MNDT])/i);
+        let turno = '';
+        if (secModMatch) { const l = secModMatch[2].toUpperCase(); turno = l; }
+        const codInterno = restSegments[1].trim();
+        const remainingStr = restSegments.slice(2).join('-');
+        let modulo = '', periodo = '';
+        const bloqueMatch = remainingStr.match(/BLOQUE\s+(\d+)\s+(\w+)/i);
+        if (bloqueMatch) { modulo = bloqueMatch[1]; periodo = bloqueMatch[2].toUpperCase(); }
+        let ciclo = '';
+        const cicloMatch = remainingStr.match(/(I{1,3}V?|IV|V?I{0,3})\s+CICLO/i);
+        if (cicloMatch) ciclo = cicloMatch[1].trim();
+        let nameStr = remainingStr;
+        const bloqueIdx = nameStr.search(/BLOQUE/i);
+        if (bloqueIdx > 0) nameStr = nameStr.substring(0, bloqueIdx);
+        const cicloIdx = nameStr.search(/(I{1,3}V?|IV|V?I{0,3})\s+CICLO/i);
+        if (cicloIdx > 0) nameStr = nameStr.substring(0, cicloIdx);
+        nameStr = nameStr.replace(/[-]?DNI[-]?[NS]\/D[-]?/gi, '');
+        const cursoName = nameStr.replace(/^-+|-+$/g, '').trim();
+        const modalidad = sede === 'VIRTUAL' ? 'VIRTUAL' : 'PRESENCIAL';
+        let sedeNorm = sede.toUpperCase();
+        if (sedeNorm === 'NORTE') sedeNorm = 'NOR';
+        return { carga, tipo, sede: sedeNorm, seccion, codInterno, cursoName, ciclo, modulo, periodo, nrc, turno, modalidad };
+    }
+
+    function courseKey(course, dni) { return `${dni}|${course.carga}|${course.seccion}|${course.nrc}|${course.cursoName}`; }
+    function normalizeTime(t) {
+        if (!t) return '';
+        const parts = t.split(':');
+        if (parts.length >= 2) { let h = parts[0]; if (h.length === 1) h = '0' + h; return `${h}:${parts[1]}`; }
+        return t;
+    }
+
+    // ======================== UI LOGIC ========================
+
+    function log(msg, type = 'info') {
+        const logEl = document.getElementById('statusLog');
+        const icons = { info: 'fas fa-circle-info', success: 'fas fa-check-circle', error: 'fas fa-exclamation-triangle', warn: 'fas fa-exclamation-circle' };
+        const entry = document.createElement('div');
+        entry.className = `log-entry log-${type}`;
+        entry.innerHTML = `<span class="log-icon"><i class="${icons[type] || icons.info}"></i></span><span>${msg}</span>`;
+        logEl.appendChild(entry);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setProgress(pct) {
+        const bar = document.getElementById('progressBar');
+        bar.classList.remove('indeterminate');
+        bar.style.width = pct + '%';
+    }
+
+    function setButtons(disabled) {
+        document.getElementById('btnExcel').disabled = disabled;
+        document.getElementById('btnCsv').disabled = disabled;
+        if (disabled) {
+            document.getElementById('btnExcel').innerHTML = '<span class="spinner"></span> Procesando...';
+            document.getElementById('btnCsv').innerHTML = '<span class="spinner"></span> Procesando...';
+        } else {
+            document.getElementById('btnExcel').innerHTML = '<i class="fas fa-file-excel"></i> Generar Excel (.xlsx)';
+            document.getElementById('btnCsv').innerHTML = '<i class="fas fa-file-csv"></i> Generar CSV';
+        }
+    }
+
+    function buildCsvUrl() {
+        const url = document.getElementById('sheetUrl').value.trim();
+        const gid = document.getElementById('sheetGid').value.trim();
+        if (!url) { alert('Ingresa la URL del Google Sheet publicado'); return null; }
+        // Extract the spreadsheet key from pubhtml URL
+        const match = url.match(/spreadsheets\/d\/e\/([^/]+)/);
+        if (!match) { alert('URL no válida. Debe ser una URL de pubhtml de Google Sheets.'); return null; }
+        const key = match[1];
+        return `https://docs.google.com/spreadsheets/d/e/${key}/pub?gid=${gid || '0'}&single=true&output=csv`;
+    }
+
+    async function startConversion(format) {
+        const csvUrl = buildCsvUrl();
+        if (!csvUrl) return;
+
+        const statusSection = document.getElementById('statusSection');
+        const resultsSection = document.getElementById('resultsSection');
+        statusSection.classList.add('visible');
+        resultsSection.classList.remove('visible');
+        document.getElementById('statusLog').innerHTML = '';
+        setProgress(0);
+        setButtons(true);
+
+        const bar = document.getElementById('progressBar');
+        bar.classList.add('indeterminate');
+
+        try {
+            log('🔄 Descargando datos de CARGA HORARIA...', 'info');
+            const response = await fetch(csvUrl);
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const csvText = await response.text();
+            bar.classList.remove('indeterminate');
+            setProgress(30);
+            log(`📊 Datos descargados: ${(csvText.length / 1024).toFixed(0)} KB`, 'success');
+
+            // Parse CSV
+            log('📋 Parseando CSV con XLSX...', 'info');
+            const workbook = XLSX.read(csvText, { type: 'string', raw: true });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: '' });
+            log(`📋 Total de filas: ${rows.length}`, 'info');
+            setProgress(45);
+
+            // Process
+            log('⚙️ Procesando malla de franjas horarias...', 'info');
+            const HEADER_ROWS = 4;
+            const dataRows = rows.slice(HEADER_ROWS);
+            const courseAssignments = {};
+            const processedTeachers = new Set();
+
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (!row || row.length < 7) continue;
+                const dni = String(row[1] || '').trim();
+                const name = String(row[2] || '').trim();
+                const slotN = parseInt(row[3]);
+                if (!dni || name === '#N/A' || name === '' || isNaN(slotN)) continue;
+                const startTime = String(row[4] || '').trim();
+                const endTime = String(row[5] || '').trim();
+                let contractType = '', contractHours = '';
+                if (slotN === 1) { contractType = String(row[13] || '').trim(); contractHours = String(row[14] || '').trim(); }
+
+                for (let dayCol = 6; dayCol <= 12; dayCol++) {
+                    const cellValue = String(row[dayCol] || '').trim();
+                    if (!cellValue) continue;
+                    const courses = parseCellCourses(cellValue);
+                    for (const course of courses) {
+                        const key = courseKey(course, dni);
+                        if (!courseAssignments[key]) {
+                            courseAssignments[key] = { course, dni, name, contractType: '', contractHours: '', slots: [] };
+                        }
+                        if (slotN === 1 && contractType) {
+                            courseAssignments[key].contractType = contractType;
+                            courseAssignments[key].contractHours = contractHours;
+                        }
+                        courseAssignments[key].slots.push({ day: DAYS_MAP[dayCol], dayCol, slotN, startTime, endTime });
+                    }
+                }
+                if (slotN === 1) processedTeachers.add(dni);
+            }
+
+            setProgress(70);
+            log(`👥 Docentes procesados: ${processedTeachers.size}`, 'success');
+            log(`📚 Asignaciones únicas: ${Object.keys(courseAssignments).length}`, 'success');
+
+            // Build output rows
+            log('🔨 Generando formato de salida...', 'info');
+            const outputRows = [];
+
+            for (const key of Object.keys(courseAssignments)) {
+                const { course, dni, name, contractType, slots } = courseAssignments[key];
+                const slotsByDay = {};
+                for (const slot of slots) { if (!slotsByDay[slot.day]) slotsByDay[slot.day] = []; slotsByDay[slot.day].push(slot); }
+
+                const daySchedules = [];
+                for (const dayName of DAY_ORDER) {
+                    if (!slotsByDay[dayName]) continue;
+                    const daySlots = slotsByDay[dayName].sort((a, b) => a.slotN - b.slotN);
+                    let rangeStart = daySlots[0], rangeEnd = daySlots[0];
+                    for (let s = 1; s < daySlots.length; s++) {
+                        if (daySlots[s].slotN === rangeEnd.slotN + 1) { rangeEnd = daySlots[s]; }
+                        else {
+                            daySchedules.push({ day: dayName, startTime: rangeStart.startTime, endTime: rangeEnd.endTime, slots: rangeEnd.slotN - rangeStart.slotN + 1 });
+                            rangeStart = daySlots[s]; rangeEnd = daySlots[s];
+                        }
+                    }
+                    daySchedules.push({ day: dayName, startTime: rangeStart.startTime, endTime: rangeEnd.endTime, slots: rangeEnd.slotN - rangeStart.slotN + 1 });
+                }
+
+                const horarioDias = daySchedules.map(s => `(${s.day})`).join('');
+                const prefix = course.modalidad === 'VIRTUAL' ? 'VIR' : 'PRE';
+                const horarioHoras = daySchedules.map(s => `(${prefix} ${normalizeTime(s.startTime)}-${normalizeTime(s.endTime)})`).join('');
+                const totalSlots = daySchedules.reduce((sum, s) => sum + s.slots, 0);
+                let turno = course.turno;
+                if (!turno && daySchedules.length > 0) { const h = parseInt(daySchedules[0].startTime); turno = h >= 7 && h < 13 ? 'M' : h >= 13 && h < 18 ? 'D' : 'N'; }
+
+                outputRows.push({
+                    'Carga': course.carga, 'DNI': dni, 'Nombres y Apellidos': name, 'Sede': course.sede,
+                    'Curso': course.cursoName, 'Sección': course.seccion, 'Módulo': course.modulo,
+                    'NRC': course.nrc, 'Horas': totalSlots,
+                    'Key 1': `${dni}${name.substring(0,3).toUpperCase()}`,
+                    'Key 2': `${course.carga}${course.seccion}${course.modulo}${course.nrc}`,
+                    'Periodo': course.periodo || 'AGOSTO', 'TURNO': turno,
+                    'SEDE': course.sede === 'NORTE' ? 'NOR' : course.sede,
+                    'CICLO': course.ciclo || '', 'MODALIDAD': course.modalidad,
+                    'HORARIO (DÍAS)': horarioDias, 'HORARIO (HORAS)': horarioHoras,
+                    'ÁREA': 'ASIGNADO', 'TIPO': '', 'TIPO DE CONTRATO': contractType
+                });
+            }
+
+            outputRows.sort((a, b) => {
+                const c = a['Nombres y Apellidos'].localeCompare(b['Nombres y Apellidos']);
+                return c !== 0 ? c : String(a.Carga).localeCompare(String(b.Carga));
+            });
+
+            setProgress(90);
+            log(`✅ Total de registros generados: ${outputRows.length}`, 'success');
+
+            // Generate file
+            const outWb = XLSX.utils.book_new();
+            const outWs = XLSX.utils.json_to_sheet(outputRows);
+            outWs['!cols'] = [
+                {wch:8},{wch:12},{wch:40},{wch:10},{wch:50},{wch:8},{wch:8},{wch:8},{wch:6},
+                {wch:18},{wch:20},{wch:12},{wch:6},{wch:10},{wch:8},{wch:12},{wch:35},{wch:45},
+                {wch:12},{wch:8},{wch:18}
+            ];
+            XLSX.utils.book_append_sheet(outWb, outWs, 'CARGA_HORARIA');
+
+            if (format === 'xlsx') {
+                XLSX.writeFile(outWb, 'CARGA_HORARIA_CONVERTIDA.xlsx');
+                log('📥 Archivo Excel descargado: CARGA_HORARIA_CONVERTIDA.xlsx', 'success');
+            } else {
+                XLSX.writeFile(outWb, 'CARGA_HORARIA_CONVERTIDA.csv', { bookType: 'csv' });
+                log('📥 Archivo CSV descargado: CARGA_HORARIA_CONVERTIDA.csv', 'success');
+            }
+
+            setProgress(100);
+
+            // Show results
+            const uniqueTeachers = new Set(outputRows.map(r => r.DNI));
+            showResults(outputRows, uniqueTeachers.size, processedTeachers.size);
+
+        } catch (err) {
+            log(`❌ Error: ${err.message}`, 'error');
+            console.error(err);
+        } finally {
+            setButtons(false);
+        }
+    }
+
+    function showResults(rows, uniqueTeachers, processedTeachers) {
+        const section = document.getElementById('resultsSection');
+        section.classList.add('visible');
+
+        // Stats
+        const grid = document.getElementById('statsGrid');
+        grid.innerHTML = `
+            <div class="stat-card"><div class="stat-value">${uniqueTeachers}</div><div class="stat-label">Docentes Únicos</div></div>
+            <div class="stat-card"><div class="stat-value">${rows.length}</div><div class="stat-label">Cursos / Secciones</div></div>
+            <div class="stat-card"><div class="stat-value">${processedTeachers}</div><div class="stat-label">Filas Procesadas</div></div>
+            <div class="stat-card"><div class="stat-value">${new Set(rows.map(r => r.Sede)).size}</div><div class="stat-label">Sedes</div></div>
+        `;
+
+        // Sample table
+        const cols = ['DNI', 'Nombres y Apellidos', 'Sede', 'Curso', 'Sección', 'NRC', 'HORARIO (DÍAS)', 'HORARIO (HORAS)'];
+        const head = document.getElementById('sampleHead');
+        head.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+
+        const body = document.getElementById('sampleBody');
+        body.innerHTML = '';
+        const sample = rows.slice(0, 15);
+        for (const r of sample) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = cols.map(c => `<td title="${r[c] || ''}">${r[c] || ''}</td>`).join('');
+            body.appendChild(tr);
+        }
+    }
+
+    // Paste button
+    document.getElementById('pasteBtn').addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            document.getElementById('sheetUrl').value = text;
+            // Try to auto-extract gid
+            const gidMatch = text.match(/gid=(\d+)/);
+            if (gidMatch) document.getElementById('sheetGid').value = gidMatch[1];
+        } catch (e) {
+            alert('No se pudo acceder al portapapeles. Pega la URL manualmente.');
+        }
+    });
+
+    // Clear button
+    document.getElementById('clearUrlBtn').addEventListener('click', () => {
+        document.getElementById('sheetUrl').value = '';
+        document.getElementById('sheetUrl').focus();
+    });
+    </script>
+</body>
+</html>
