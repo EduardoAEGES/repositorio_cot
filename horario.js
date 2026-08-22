@@ -485,12 +485,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadFromGoogleSheet() {
         try {
-            const res = await fetch('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv&gid=1470879596&t=' + Date.now());
-            const text = await res.text();
-            const workbook = XLSX.read(text, { type: 'string' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const dataRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }).slice(1); // skip header
+            let csvUrl = 'https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/export?format=csv&gid=1470879596&t=' + Date.now();
+            const syncSwitch = document.getElementById('syncSwitchBtn');
+            let dataRows = [];
+            
+            if (syncSwitch && syncSwitch.checked) {
+                csvUrl = 'https://docs.google.com/spreadsheets/d/15K6tJtvREBQPCauHVP53NC7wlRsGQVBToAPiLbJUmxk/export?format=csv&t=' + Date.now();
+                const res = await fetch(csvUrl);
+                const blob = await res.blob();
+                const excelData = await processRawCSVToExcelData(blob);
+                dataRows = excelData.map(d => {
+                    const row = [];
+                    row[2] = d["Nombres y Apellidos"];
+                    row[1] = d["DNI"];
+                    row[4] = d["Curso"];
+                    row[5] = d["Sección"];
+                    row[6] = d["Módulo"];
+                    row[7] = d["NRC"];
+                    row[3] = d["SEDE"];
+                    row[11] = d["Periodo"];
+                    row[15] = d["MODALIDAD"];
+                    row[0] = d["Carga"];
+                    row[14] = d["CICLO"];
+                    row[16] = d["HORARIO (DÍAS)"];
+                    row[17] = d["HORARIO (HORAS)"];
+                    return row;
+                });
+            } else {
+                const res = await fetch(csvUrl);
+                const text = await res.text();
+                const workbook = XLSX.read(text, { type: 'string' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                dataRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }).slice(1); // skip header
+            }
             
             googleSheetCourses = {};
             
@@ -1732,14 +1760,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return showJunio1 || showJunio2 || showAgosto1 || showAgosto2 || showSetiembre1 || showSetiembre2 || showOctubre1 || showOctubre2;
             }
 
-            if (showJunio1 && (p === 'JUN' || p === 'JUNIO') && m === '1') return true;
-            if (showJunio2 && (p === 'JUN' || p === 'JUNIO') && m === '2') return true;
-            if (showAgosto1 && (p === 'AGO' || p === 'AGOSTO') && m === '1') return true;
-            if (showAgosto2 && (p === 'AGO' || p === 'AGOSTO') && m === '2') return true;
-            if (showSetiembre1 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && m === '1') return true;
-            if (showSetiembre2 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && m === '2') return true;
-            if (showOctubre1 && (p === 'OCT' || p === 'OCTUBRE') && m === '1') return true;
-            if (showOctubre2 && (p === 'OCT' || p === 'OCTUBRE') && m === '2') return true;
+            if (showJunio1 && (p === 'JUN' || p === 'JUNIO') && (m === '1' || m === 'REGULAR')) return true;
+            if (showJunio2 && (p === 'JUN' || p === 'JUNIO') && (m === '2' || m === 'REGULAR')) return true;
+            if (showAgosto1 && (p === 'AGO' || p === 'AGOSTO') && (m === '1' || m === 'REGULAR')) return true;
+            if (showAgosto2 && (p === 'AGO' || p === 'AGOSTO') && (m === '2' || m === 'REGULAR')) return true;
+            if (showSetiembre1 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && (m === '1' || m === 'REGULAR')) return true;
+            if (showSetiembre2 && (p === 'SET' || p === 'SETIEMBRE' || p === 'SEPTIEMBRE') && (m === '2' || m === 'REGULAR')) return true;
+            if (showOctubre1 && (p === 'OCT' || p === 'OCTUBRE') && (m === '1' || m === 'REGULAR')) return true;
+            if (showOctubre2 && (p === 'OCT' || p === 'OCTUBRE') && (m === '2' || m === 'REGULAR')) return true;
 
             return false;
         };
@@ -2494,7 +2522,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const colHeaders = Array.from(rawData[headerRowIdx] || []).map(h => String(h || "").trim().toUpperCase());
                     const dniIdx = colHeaders.indexOf('DNI');
-                    const nameIdx = colHeaders.findIndex(h => h.includes('NOMBRE'));
+                    let nameIdx = colHeaders.findIndex(h => h.includes('NOMBRE') || h.includes('APELLIDO'));
+                    if (nameIdx === -1) nameIdx = 2; // Fallback to column 2 if header is missing
                     const horaInicioIdx = colHeaders.findIndex(h => h.includes('HORA INICIO'));
                     const horaFinIdx = colHeaders.findIndex(h => h.includes('HORA FIN'));
 
@@ -2536,6 +2565,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!row || row.length === 0) continue;
 
                         let dni = String(row[dniIdx] || "").trim();
+                        if (!/^\d{8,9}$/.test(dni)) {
+                            dni = String(row[1] || "").trim(); // Fallback to col 1 for merged cells
+                        }
                         if (!dni || dni === "nan" || !/^\d+$/.test(dni)) continue;
                         
                         const name = String(row[nameIdx] || "").trim();
@@ -2677,4 +2709,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.processRawCSVToExcelData = processRawCSVToExcelData; // Expose for testing
     window.addEventListener('resize', renderCourses);
+
+    const syncSwitch = document.getElementById('syncSwitchBtn');
+    const syncLabel = document.getElementById('syncLabel');
+    if (syncSwitch) {
+        syncSwitch.addEventListener('change', async () => {
+            if (syncSwitch.checked) {
+                if (syncLabel) syncLabel.classList.add('sync-active');
+            } else {
+                if (syncLabel) syncLabel.classList.remove('sync-active');
+            }
+            
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.style.display = 'flex';
+            try {
+                await loadFromGoogleSheet();
+            } catch (err) {
+                console.error("Error sincronizando:", err);
+            } finally {
+                if (overlay) overlay.style.display = 'none';
+            }
+        });
+    }
 });

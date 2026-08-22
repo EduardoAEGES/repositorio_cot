@@ -59,10 +59,10 @@ function parseSingleCourse(str) {
     // Try to extract NRC at the end
     let nrc = '';
     let mainPart = rest;
-    const nrcMatch = rest.match(/-NRC\s+(\d+)\s*$/i);
+    const nrcMatch = rest.match(/-NRC\s+(\d+)/i);
     if (nrcMatch) {
         nrc = nrcMatch[1];
-        mainPart = rest.substring(0, rest.length - nrcMatch[0].length);
+        mainPart = rest.replace(nrcMatch[0], '');
     }
 
     // Split by '-'
@@ -107,10 +107,12 @@ function parseSingleCourse(str) {
     // Extract BLOQUE info
     let modulo = '';
     let periodo = '';
-    const bloqueMatch = remainingStr.match(/BLOQUE\s+(\d+)\s+(\w+)/i);
+    const bloqueMatch = remainingStr.match(/(?:BLOQUE|M[OÓ]DULO|MOD)\s+(\d+)\s+(\w+)/i);
     if (bloqueMatch) {
         modulo = bloqueMatch[1];
         periodo = bloqueMatch[2].toUpperCase();
+    } else if (remainingStr.match(/\b(REGULAR SET|REGULAR|R)\b/i)) {
+        modulo = 'REGULAR';
     }
 
     // Extract Ciclo
@@ -122,7 +124,7 @@ function parseSingleCourse(str) {
 
     // Extract course name
     let nameStr = remainingStr;
-    const bloqueIdx = nameStr.search(/BLOQUE/i);
+    const bloqueIdx = nameStr.search(/-?\s*(?:BLOQUE|M[OÓ]DULO|MOD)\b/i);
     if (bloqueIdx > 0) nameStr = nameStr.substring(0, bloqueIdx);
     const cicloIdx = nameStr.search(/(I{1,3}V?|IV|V?I{0,3})\s+CICLO/i);
     if (cicloIdx > 0) nameStr = nameStr.substring(0, cicloIdx);
@@ -317,7 +319,7 @@ async function main() {
             'MODALIDAD': course.modalidad,
             'HORARIO (DÍAS)': horarioDias,
             'HORARIO (HORAS)': horarioHoras,
-            'ÁREA': 'ASIGNADO',
+            'ÁREA': contractType || 'ASIGNADO',
             'TIPO': '',
             'TIPO DE CONTRATO': contractType
         });
