@@ -1,0 +1,133 @@
+/* ===== Actividades puntuales + barra de semana ===== */
+
+/* ---- barra de la semana, encima de la grilla ---- */
+.semana-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+  padding:8px 12px;margin:0 0 10px;
+}
+.semana-nav{display:flex;align-items:center;gap:4px}
+.semana-btn{
+  border:1px solid #e2e8f0;background:#fff;color:#334155;cursor:pointer;
+  width:28px;height:28px;border-radius:7px;display:inline-flex;
+  align-items:center;justify-content:center;font-size:.8rem;transition:all .15s ease;
+}
+.semana-btn:hover{border-color:#493a4d;color:#493a4d;background:#faf7fb}
+.semana-hoy-btn{width:auto;padding:0 11px;font-size:.74rem;font-weight:600}
+.semana-rango{font-weight:700;color:#1e293b;font-size:.92rem;line-height:1.2}
+.semana-sub{font-size:.68rem;color:#64748b;font-weight:500}
+.semana-actual-tag{
+  background:#dcfce7;color:#166534;border-radius:20px;padding:1px 9px;
+  font-size:.64rem;font-weight:700;letter-spacing:.3px;
+}
+.semana-spacer{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn-actividad{
+  display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;
+  background:#7c3aed;color:#fff;font-weight:600;font-size:.78rem;
+  padding:7px 14px;border-radius:8px;transition:all .2s ease;font-family:inherit;
+}
+.btn-actividad:hover{background:#6d28d9;transform:translateY(-1px)}
+.act-contador{font-size:.7rem;color:#64748b}
+
+/* ---- fecha bajo el nombre del dia + dia actual ---- */
+.grid-header .day-col{position:relative}
+.day-fecha{display:block;font-size:.66rem;font-weight:600;color:#94a3b8;margin-top:1px}
+.grid-header .day-col.es-hoy{background:#493a4d;color:#fff;border-radius:6px}
+.grid-header .day-col.es-hoy .day-fecha{color:#fcd34d}
+.col-hoy-marca{
+  position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;
+  background:rgba(73,58,77,.05);border-left:2px solid rgba(73,58,77,.28);
+  border-right:2px solid rgba(73,58,77,.28);
+}
+
+/* ---- tarjeta de actividad dentro de la grilla ---- */
+.actividad-card{
+  position:absolute;z-index:6;border-radius:7px;overflow:hidden;cursor:pointer;
+  background:linear-gradient(135deg,#7c3aed,#9333ea);
+  border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 2px 8px rgba(124,58,237,.35);
+  color:#fff;padding:3px 6px;font-size:.64rem;line-height:1.25;
+  transition:transform .15s ease,box-shadow .15s ease;
+}
+.actividad-card:hover{transform:scale(1.02);box-shadow:0 5px 16px rgba(124,58,237,.5);z-index:20}
+.actividad-card .ac-tit{font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.actividad-card .ac-meta{opacity:.9;font-size:.6rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.actividad-card .ac-badge{
+  position:absolute;top:2px;right:3px;font-size:.55rem;opacity:.85;
+}
+.actividad-card.ac-corta{padding:1px 5px;font-size:.6rem}
+.actividad-card.ac-corta .ac-meta{display:none}
+
+/* ---- modal de actividad ---- */
+.act-modal{
+  display:none;position:fixed;inset:0;z-index:9990;
+  background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:16px;
+}
+.act-modal.abierto{display:flex}
+.act-box{
+  background:#fff;border-radius:12px;width:100%;max-width:440px;
+  max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3);
+}
+.act-head{
+  display:flex;align-items:center;gap:9px;background:#7c3aed;color:#fff;
+  padding:12px 16px;border-radius:12px 12px 0 0;
+}
+.act-head h3{margin:0;font-size:.95rem;font-weight:700;flex:1}
+.act-cerrar{background:none;border:none;color:#fff;font-size:1.05rem;cursor:pointer;padding:2px 6px;border-radius:5px}
+.act-cerrar:hover{background:rgba(255,255,255,.2)}
+.act-body{padding:14px 16px}
+.act-campo{margin-bottom:11px}
+.act-campo label{display:block;font-size:.7rem;font-weight:700;color:#475569;
+  text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.act-campo input,.act-campo select,.act-campo textarea{
+  width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:.85rem;font-family:inherit;outline:none;color:#1e293b;background:#fff;
+}
+.act-campo input:focus,.act-campo select:focus,.act-campo textarea:focus{border-color:#7c3aed}
+.act-campo textarea{resize:vertical;min-height:52px}
+.act-fila{display:flex;gap:10px}
+.act-fila .act-campo{flex:1}
+.act-personas{display:flex;flex-wrap:wrap;gap:6px}
+.act-persona{
+  border:1.5px solid #e2e8f0;background:#fff;color:#334155;border-radius:20px;
+  padding:5px 13px;cursor:pointer;font-size:.78rem;font-weight:600;font-family:inherit;
+  transition:all .15s ease;
+}
+.act-persona:hover{border-color:#7c3aed;color:#7c3aed}
+.act-persona.sel{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.act-pie{
+  display:flex;gap:8px;padding:12px 16px;border-top:1px solid #f1f5f9;
+  background:#f8fafc;border-radius:0 0 12px 12px;flex-wrap:wrap;
+}
+.act-btn{
+  border:none;cursor:pointer;font-weight:600;font-size:.82rem;padding:9px 16px;
+  border-radius:8px;font-family:inherit;display:inline-flex;align-items:center;gap:7px;
+}
+.act-guardar{background:#7c3aed;color:#fff;flex:1;justify-content:center}
+.act-guardar:hover{background:#6d28d9}
+.act-guardar:disabled{opacity:.6;cursor:default}
+.act-eliminar{background:#fee2e2;color:#b91c1c}
+.act-eliminar:hover{background:#fecaca}
+.act-cancelar{background:#f1f5f9;color:#475569}
+.act-cancelar:hover{background:#e2e8f0}
+.act-aviso{font-size:.72rem;padding:7px 10px;border-radius:7px;margin-bottom:10px;display:none}
+.act-aviso.ver{display:block}
+.act-aviso.err{background:#fee2e2;color:#b91c1c}
+.act-aviso.ok{background:#dcfce7;color:#166534}
+
+/* ---- panel lateral: actividades de la semana ---- */
+.act-lista{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.act-item{
+  display:flex;align-items:center;gap:8px;font-size:.74rem;color:#334155;
+  border:1px solid #ede9fe;background:#faf5ff;border-radius:7px;padding:5px 9px;cursor:pointer;
+}
+.act-item:hover{border-color:#7c3aed}
+.act-item .ai-fecha{font-weight:700;color:#7c3aed;min-width:58px}
+.act-item .ai-quien{margin-left:auto;font-size:.68rem;color:#64748b;font-weight:600}
+
+@media(max-width:768px){
+  .semana-bar{padding:7px 9px;gap:7px}
+  .semana-rango{font-size:.82rem}
+  .semana-spacer{margin-left:0;width:100%}
+  .btn-actividad{flex:1;justify-content:center}
+}
