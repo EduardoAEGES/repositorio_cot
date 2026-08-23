@@ -51,6 +51,28 @@
     return PERSONAS_FALLBACK;
   }
 
+  // Lista de participantes de una actividad (soporta filas antiguas con un solo user_id)
+  function participantesDe(a) {
+    if (Array.isArray(a.participantes) && a.participantes.length) return a.participantes;
+    return a.user_id ? [a.user_id] : [];
+  }
+
+  // Docentes marcados en el panel de horario. La actividad solo se muestra si
+  // al menos uno de sus participantes esta activo, igual que los cursos.
+  function docentesActivos() {
+    try {
+      const raw = localStorage.getItem('cot_active_users');
+      if (raw === null) return null;            // null = aun sin definir
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) { return null; }
+  }
+  function estaVisible(a) {
+    const activos = docentesActivos();
+    if (activos === null) return true;          // sin preferencia guardada: mostrar
+    return participantesDe(a).some(p => activos.has(p));
+  }
+
   /* ---------- geometria leida del DOM ---------- */
   const minutos = t => {
     const p = String(t || '').split(':');
@@ -212,6 +234,7 @@
     let visibles = 0;
 
     actividades.forEach(a => {
+      if (!estaVisible(a)) return;              // docente(s) no seleccionados
       const f = desdeISO(a.fecha);
       let dia = -1;
       for (let i = 0; i < 6; i++) if (esMismoDia(sumarDias(lunesVisible, i), f)) dia = i;
@@ -225,27 +248,38 @@
       const alto = Math.max(16, y2 - y1);
       const recortada = estaOculto(ini, filas) || estaOculto(fin, filas);
 
+      const quienes = participantesDe(a).join(', ');
       const card = document.createElement('div');
       card.className = 'actividad-card' + (alto < 26 ? ' ac-corta' : '');
       card.style.top = `${y1}px`;
       card.style.height = `${alto}px`;
       card.style.left = `${120 + dia * ancho + 2}px`;
       card.style.width = `${ancho - 6}px`;
-      card.title = `${a.titulo}\n${a.user_id} · ${a.start_time || ''}-${a.end_time || ''}` +
-                   (a.lugar ? `\n${a.lugar}` : '') + (a.nota ? `\n${a.nota}` : '');
+      const NL = String.fromCharCode(10);
+      card.title = [a.titulo, quienes + ' · ' + (a.start_time || '') + '-' + (a.end_time || ''),
+                    a.lugar || null, a.nota || null,
+                    recortada ? '(parte del horario cae en franjas que la grilla no muestra)' : null
+                   ].filter(Boolean).join(NL);
       if (recortada) card.classList.add('ac-recortada');
       card.innerHTML =
         '<i class="fas fa-star ac-badge"></i>' +
-        `<span class="ac-tit">${esc(a.titulo)}</span>` +
-        `<span class="ac-meta">${esc(a.start_time || '')}${a.end_time ? '-' + esc(a.end_time) : ''} · ${esc(a.user_id)}` +
-        `${a.lugar ? ' · ' + esc(a.lugar) : ''}</span>`;
+        '<span class="ac-tit">' + esc(a.titulo) + '</span>' +
+        '<span class="ac-meta">' + esc(a.start_time || '') +
+        (a.end_time ? '-' + esc(a.end_time) : '') + ' · ' + esc(quienes) +
+        (a.lugar ? ' · ' + esc(a.lugar) : '') + '</span>';
       card.onclick = ev => { ev.stopPropagation(); abrirModal(a); };
       body.appendChild(card);
       visibles++;
     });
 
     const cont = document.getElementById('actContador');
-    if (cont) cont.textContent = visibles ? `${visibles} actividad${visibles === 1 ? '' : 'es'} esta semana` : '';
+    if (cont) {
+      const ocultas = actividades.length - visibles;
+      cont.textContent = visibles
+        ? `${visibles} actividad${visibles === 1 ? '' : 'es'} esta semana` +
+          (ocultas ? ` (${ocultas} de docentes no seleccionados)` : '')
+        : (ocultas ? `${ocultas} actividad${ocultas === 1 ? '' : 'es'} oculta${ocultas === 1 ? '' : 's'}: elige a su docente` : '');
+    }
     marcaColumnaHoy();
     pintando = false;
   }
@@ -269,7 +303,7 @@
           '<button class="act-cerrar" id="actCerrar"><i class="fas fa-xmark"></i></button></div>' +
         '<div class="act-body">' +
           '<div class="act-aviso" id="actAviso"></div>' +
-          '<div class="act-campo"><label>¿Para quién?</label>' +
+          '<div class="act-campo"><label>¿Para quién? <span class="act-resumen" id="actResumen"></span></label>' +
             '<div class="act-personas" id="actPersonas"></div></div>' +
           '<div class="act-campo"><label>Actividad</label>' +
             '<input type="text" id="actNombre" placeholder="Ej: Reunión de coordinación" maxlength="80"></div>' +
@@ -302,17 +336,28 @@
     });
   }
 
+  // Seleccion multiple: se puede marcar a varios docentes a la vez.
   function pintarPersonas(sel) {
+    const elegidos = new Set(Array.isArray(sel) ? sel : (sel ? [sel] : []));
     const cont = document.getElementById('actPersonas');
     cont.innerHTML = personas().map(p =>
-      `<button type="button" class="act-persona${p === sel ? ' sel' : ''}" data-p="${esc(p)}">${esc(p)}</button>`
+      `<button type="button" class="act-persona${elegidos.has(p) ? ' sel' : ''}" data-p="${esc(p)}">` +
+      `<i class="fas fa-check"></i>${esc(p)}</button>`
     ).join('');
     cont.querySelectorAll('.act-persona').forEach(b => {
-      b.onclick = () => {
-        cont.querySelectorAll('.act-persona').forEach(x => x.classList.remove('sel'));
-        b.classList.add('sel');
-      };
+      b.onclick = () => { b.classList.toggle('sel'); actualizarResumen(); };
     });
+    actualizarResumen();
+  }
+  function elegidosActuales() {
+    return [...document.querySelectorAll('#actPersonas .act-persona.sel')].map(b => b.dataset.p);
+  }
+  function actualizarResumen() {
+    const r = document.getElementById('actResumen');
+    if (!r) return;
+    const n = elegidosActuales().length;
+    r.textContent = n === 0 ? 'Ninguno seleccionado'
+      : n === 1 ? '1 docente' : `${n} docentes`;
   }
 
   function aviso(txt, tipo) {
@@ -328,7 +373,7 @@
     limpiarAviso();
     document.getElementById('actTitulo').textContent = act ? 'Editar actividad' : 'Nueva actividad';
     document.getElementById('actEliminar').style.display = act ? 'inline-flex' : 'none';
-    pintarPersonas(act ? act.user_id : personas()[0]);
+    pintarPersonas(act ? participantesDe(act) : []);
     document.getElementById('actNombre').value = act ? act.titulo : '';
     document.getElementById('actFecha').value  = act ? act.fecha : aISO(diaSugerido());
     document.getElementById('actInicio').value = act ? (act.start_time || '') : '09:00';
@@ -351,13 +396,13 @@
   }
 
   async function guardar() {
-    const sel = document.querySelector('#actPersonas .act-persona.sel');
+    const sel = elegidosActuales();
     const titulo = document.getElementById('actNombre').value.trim();
     const fecha = document.getElementById('actFecha').value;
     const ini = document.getElementById('actInicio').value;
     const fin = document.getElementById('actFin').value;
 
-    if (!sel) return aviso('Elige para quién es la actividad.');
+    if (!sel.length) return aviso('Elige al menos un docente para la actividad.');
     if (!titulo) return aviso('Escribe el nombre de la actividad.');
     if (!fecha) return aviso('Indica la fecha.');
     if (!ini || !fin) return aviso('Indica la hora de inicio y de fin.');
@@ -367,7 +412,8 @@
     btn.disabled = true;
     const fila = {
       id: editandoId || ('act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
-      user_id: sel.dataset.p,
+      user_id: sel[0],          // primer participante (compatibilidad)
+      participantes: sel,
       titulo, fecha, start_time: ini, end_time: fin,
       lugar: document.getElementById('actLugar').value.trim() || null,
       nota: document.getElementById('actNota').value.trim() || null
