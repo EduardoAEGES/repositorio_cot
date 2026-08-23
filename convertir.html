@@ -538,9 +538,9 @@
                 </button>
             </div>
             <div class="gid-row">
-                <label><i class="fas fa-hashtag" style="color:var(--accent);margin-right:4px;"></i> GID de la hoja CARGA HORARIA:</label>
-                <input type="text" id="sheetGid" placeholder="ej: 1657026679" value="1657026679">
-                <span class="gid-hint">Se obtiene del URL de la hoja publicada (#gid=...)</span>
+                <label><i class="fas fa-wand-magic-sparkles" style="color:var(--accent);margin-right:4px;"></i> Hoja detectada:</label>
+                <input type="hidden" id="sheetGid" value="">
+                <span class="gid-hint" id="hojaDetectada">Se detecta sola al convertir. Solo pega el link del documento publicado.</span>
             </div>
 
             <div class="actions-row">
@@ -706,20 +706,46 @@ const RE_MES_LARGO = /\b(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SETIE
         }
     }
 
-    function buildCsvUrl() {
+    // Lee el pubhtml y devuelve las hojas publicadas: [{name, gid}].
+    // Google incrusta cada hoja como  items.push({name: "X", pageUrl: "...", gid: "N"})
+    async function detectarHojas(key) {
+        try {
+            const r = await fetch(`https://docs.google.com/spreadsheets/d/e/${key}/pubhtml`);
+            if (!r.ok) return [];
+            const t = await r.text();
+            const hojas = [];
+            const re = /name:\s*"([^"]*)"[\s\S]{0,400}?gid:\s*"(\d+)"/g;
+            let m;
+            while ((m = re.exec(t)) !== null) hojas.push({ name: m[1], gid: m[2] });
+            if (!hojas.length) {
+                for (const g of new Set([...t.matchAll(/gid=(\d+)/g)].map(x => x[1])))
+                    hojas.push({ name: '(sin nombre)', gid: g });
+            }
+            return hojas;
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // Elige la hoja CARGA HORARIA; si no aparece, usa la primera publicada.
+    function elegirHoja(hojas) {
+        return hojas.find(h => /CARGA\s*_?\s*HORARIA/i.test(h.name)) || hojas[0] || null;
+    }
+
+    function sheetKey() {
         const url = document.getElementById('sheetUrl').value.trim();
-        const gid = document.getElementById('sheetGid').value.trim();
-        if (!url) { alert('Ingresa la URL del Google Sheet publicado'); return null; }
-        // Extract the spreadsheet key from pubhtml URL
+        if (!url) { alert('Pega la URL del Google Sheet publicado'); return null; }
         const match = url.match(/spreadsheets\/d\/e\/([^/]+)/);
-        if (!match) { alert('URL no válida. Debe ser una URL de pubhtml de Google Sheets.'); return null; }
-        const key = match[1];
-        return `https://docs.google.com/spreadsheets/d/e/${key}/pub?gid=${gid || '0'}&single=true&output=csv`;
+        if (!match) { alert('URL no válida. Debe ser la URL publicada (…/d/e/2PACX-…/pubhtml).'); return null; }
+        return match[1];
+    }
+    function csvUrlDe(key, gid) {
+        return `https://docs.google.com/spreadsheets/d/e/${key}/pub?gid=${gid}&single=true&output=csv`;
     }
 
     async function startConversion(format) {
-        const csvUrl = buildCsvUrl();
-        if (!csvUrl) return;
+        const key = sheetKey();
+        if (!key) return;
 
         const statusSection = document.getElementById('statusSection');
         const resultsSection = document.getElementById('resultsSection');
@@ -733,9 +759,30 @@ const RE_MES_LARGO = /\b(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SETIE
         bar.classList.add('indeterminate');
 
         try {
+            // El GID no se escribe a mano: se deduce del documento publicado.
+            log('🔎 Leyendo las hojas del documento publicado...', 'info');
+            const hojas = await detectarHojas(key);
+            if (!hojas.length) {
+                throw new Error('No se pudieron leer las hojas de este documento. ' +
+                    'Verifica que este publicado en Archivo > Compartir > Publicar en la web.');
+            }
+            const hoja = elegirHoja(hojas);
+            document.getElementById('sheetGid').value = hoja.gid;
+            const cartel = document.getElementById('hojaDetectada');
+            if (cartel) cartel.textContent = hoja.name + ' (gid ' + hoja.gid + ')';
+            if (/CARGA[ _]*HORARIA/i.test(hoja.name)) {
+                log('✅ Hoja detectada: "' + hoja.name + '" (gid ' + hoja.gid + ')', 'success');
+            } else {
+                log('⚠️ No se encontro una hoja llamada CARGA HORARIA. Se usara "' + hoja.name +
+                    '" (gid ' + hoja.gid + '). Hojas publicadas: ' + hojas.map(h => h.name).join(', '), 'warn');
+            }
+
             log('🔄 Descargando datos de CARGA HORARIA...', 'info');
-            const response = await fetch(csvUrl);
-            if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const response = await fetch(csvUrlDe(key, hoja.gid));
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status + ' al descargar la hoja "' + hoja.name +
+                                '" (gid ' + hoja.gid + ').');
+            }
             const csvText = await response.text();
             bar.classList.remove('indeterminate');
             setProgress(30);
@@ -909,9 +956,7 @@ const RE_MES_LARGO = /\b(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SETIE
         try {
             const text = await navigator.clipboard.readText();
             document.getElementById('sheetUrl').value = text;
-            // Try to auto-extract gid
-            const gidMatch = text.match(/gid=(\d+)/);
-            if (gidMatch) document.getElementById('sheetGid').value = gidMatch[1];
+            // El gid ya no se extrae aqui: se resuelve solo al convertir.
         } catch (e) {
             alert('No se pudo acceder al portapapeles. Pega la URL manualmente.');
         }
