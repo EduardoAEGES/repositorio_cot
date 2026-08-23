@@ -581,6 +581,18 @@
     </div>
 
     <script>
+
+// Normaliza el nombre del mes: acepta abreviaturas (SET, AGO, JUN...) y devuelve el mes completo.
+const MES_CANON = { ENE:'ENERO', FEB:'FEBRERO', MAR:'MARZO', ABR:'ABRIL', MAY:'MAYO',
+                    JUN:'JUNIO', JUL:'JULIO', AGO:'AGOSTO', SET:'SETIEMBRE', SEP:'SETIEMBRE',
+                    OCT:'OCTUBRE', NOV:'NOVIEMBRE', DIC:'DICIEMBRE' };
+function normMes(tok) {
+    if (!tok) return '';
+    const t = String(tok).toUpperCase().normalize('NFD').replace(/[^A-Z]/g, '');
+    if (t.length < 3) return '';
+    return MES_CANON[t.substring(0, 3)] || '';
+}
+const RE_MES_LARGO = /\b(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SETIEMBRE|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\b/i;
     // ======================== CONVERSION LOGIC ========================
 
     const DAYS_MAP = { 6:'LUNES', 7:'MARTES', 8:'MIÉRCOLES', 9:'JUEVES', 10:'VIERNES', 11:'SABADO', 12:'DOMINGO' };
@@ -626,11 +638,19 @@
         const remainingStr = restSegments.slice(2).join('-');
         let modulo = '', periodo = '';
         const bloqueMatch = remainingStr.match(/(?:BLOQUE|M[OÓ]DULO|MOD)\s+(\d+)\s+(\w+)/i);
-        if (bloqueMatch) { 
-            modulo = bloqueMatch[1]; 
-            periodo = bloqueMatch[2].toUpperCase(); 
+        if (bloqueMatch) {
+            modulo = bloqueMatch[1];
+            periodo = normMes(bloqueMatch[2]) || bloqueMatch[2].toUpperCase();
         } else if (remainingStr.match(/\b(REGULAR SET|REGULAR|R)\b/i)) {
             modulo = 'REGULAR';
+            // 'REGULAR SET' = regular de SETIEMBRE: el mes va pegado a REGULAR, no a un BLOQUE.
+            const regMes = remainingStr.match(/REGULAR\s*\.?\s*([A-ZÑ]{3,12})/i);
+            periodo = normMes(regMes && regMes[1]);
+        }
+        // ultimo recurso: cualquier mes escrito completo dentro de la cadena
+        if (!periodo) {
+            const anyMes = remainingStr.match(RE_MES_LARGO);
+            if (anyMes) periodo = normMes(anyMes[1]);
         }
         let ciclo = '';
         const cicloMatch = remainingStr.match(/(I{1,3}V?|IV|V?I{0,3})\s+CICLO/i);

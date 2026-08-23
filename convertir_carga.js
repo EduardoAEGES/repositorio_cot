@@ -13,6 +13,18 @@ const path = require('path');
 // URL de la hoja CARGA HORARIA publicada (gid=1657026679)
 const SOURCE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQ6FuzOJ_6Ak54s6Lxgvu3pV6G80XHu99l6wNT9pEDyaJDpknO3NgUe9_OCq6gEm2rLxKibX-vCz3o/pub?gid=1657026679&single=true&output=csv';
 
+// Normaliza el nombre del mes: acepta abreviaturas (SET, AGO, JUN...) y devuelve el mes completo.
+const MES_CANON = { ENE:'ENERO', FEB:'FEBRERO', MAR:'MARZO', ABR:'ABRIL', MAY:'MAYO',
+                    JUN:'JUNIO', JUL:'JULIO', AGO:'AGOSTO', SET:'SETIEMBRE', SEP:'SETIEMBRE',
+                    OCT:'OCTUBRE', NOV:'NOVIEMBRE', DIC:'DICIEMBRE' };
+function normMes(tok) {
+    if (!tok) return '';
+    const t = String(tok).toUpperCase().normalize('NFD').replace(/[^A-Z]/g, '');
+    if (t.length < 3) return '';
+    return MES_CANON[t.substring(0, 3)] || '';
+}
+const RE_MES_LARGO = /\b(ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SETIEMBRE|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)\b/i;
+
 // Días de la semana según las columnas de la malla (columnas 6-12: LUNES a DOMINGO)
 const DAYS_MAP = {
     6: 'LUNES',
@@ -110,9 +122,17 @@ function parseSingleCourse(str) {
     const bloqueMatch = remainingStr.match(/(?:BLOQUE|M[OÓ]DULO|MOD)\s+(\d+)\s+(\w+)/i);
     if (bloqueMatch) {
         modulo = bloqueMatch[1];
-        periodo = bloqueMatch[2].toUpperCase();
+        periodo = normMes(bloqueMatch[2]) || bloqueMatch[2].toUpperCase();
     } else if (remainingStr.match(/\b(REGULAR SET|REGULAR|R)\b/i)) {
         modulo = 'REGULAR';
+        // 'REGULAR SET' = regular de SETIEMBRE: el mes va pegado a REGULAR, no a un BLOQUE.
+        const regMes = remainingStr.match(/REGULAR\s*\.?\s*([A-ZÑ]{3,12})/i);
+        periodo = normMes(regMes && regMes[1]);
+    }
+    // ultimo recurso: cualquier mes escrito completo dentro de la cadena
+    if (!periodo) {
+        const anyMes = remainingStr.match(RE_MES_LARGO);
+        if (anyMes) periodo = normMes(anyMes[1]);
     }
 
     // Extract Ciclo
