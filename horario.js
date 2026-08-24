@@ -610,6 +610,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log("Loaded Google Sheet Data");
+            // Se expone para el modulo de Reporte por dia (reporte_dia.js)
+            window.googleSheetCourses = googleSheetCourses;
+            document.dispatchEvent(new CustomEvent('cot:cursos-listos'));
             setupAutocomplete();
             renderCourses();
         } catch (err) {
@@ -829,6 +832,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log("Datos de contratos cargados exitosamente. Total registros:", Object.keys(contractData).length / 2);
+            // Se expone para el modulo de Reporte por dia (reporte_dia.js)
+            window.contractData = contractData;
+            document.dispatchEvent(new CustomEvent('cot:contratos-listos'));
             
             // Render stats once loaded (in case teachers are already selected)
             if (typeof activeCoursesListGlobal !== 'undefined') {

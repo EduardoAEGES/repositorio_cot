@@ -1,0 +1,106 @@
+/* ===== Reporte de docentes por día ===== */
+.rd-btn{
+  display:inline-flex;align-items:center;gap:6px;text-decoration:none;cursor:pointer;
+  background:#0ea5e9;color:#fff;font-weight:600;font-size:.85rem;padding:8px 14px;
+  border:none;border-radius:8px;font-family:inherit;
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.rd-btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,165,233,.35)}
+
+/* ---- panel flotante ---- */
+.rd-overlay{
+  display:none;position:fixed;inset:0;z-index:9995;background:rgba(15,23,42,.5);
+  align-items:flex-start;justify-content:center;padding:26px 16px;
+}
+.rd-overlay.abierto{display:flex}
+.rd-panel{
+  background:#fff;border-radius:12px;width:100%;max-width:1180px;max-height:90vh;
+  display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.32);overflow:hidden;
+}
+.rd-head{
+  display:flex;align-items:center;gap:10px;background:#0f172a;color:#fff;padding:12px 16px;
+}
+.rd-head h3{margin:0;font-size:1rem;font-weight:700;flex:1}
+.rd-head .rd-sub{font-size:.72rem;opacity:.75;font-weight:500}
+.rd-cerrar{background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;padding:3px 8px;border-radius:6px}
+.rd-cerrar:hover{background:rgba(255,255,255,.18)}
+
+/* ---- filtros ---- */
+.rd-filtros{padding:10px 16px;border-bottom:1px solid #e2e8f0;background:#f8fafc}
+.rd-fila{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.rd-fila:last-child{margin-bottom:0}
+.rd-lab{
+  font-size:.66rem;font-weight:800;letter-spacing:.5px;color:#64748b;
+  text-transform:uppercase;min-width:78px;
+}
+.rd-chip{
+  border:1.5px solid #e2e8f0;background:#fff;color:#334155;border-radius:20px;
+  padding:4px 12px;cursor:pointer;font-size:.76rem;font-weight:600;font-family:inherit;
+  transition:all .14s ease;display:inline-flex;align-items:center;gap:6px;
+}
+.rd-chip:hover{border-color:#0ea5e9;color:#0284c7}
+.rd-chip.on{background:#0ea5e9;border-color:#0ea5e9;color:#fff}
+.rd-chip .rd-n{font-size:.66rem;opacity:.75;font-weight:700}
+.rd-chip.prog-cot.on{background:#7c3aed;border-color:#7c3aed}
+.rd-chip.prog-pln.on{background:#0d9488;border-color:#0d9488}
+.rd-sep{width:1px;align-self:stretch;background:#e2e8f0;margin:0 3px}
+.rd-tools{margin-left:auto;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.rd-buscar{position:relative}
+.rd-buscar input{
+  padding:5px 10px 5px 27px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:.78rem;font-family:inherit;outline:none;width:210px;
+}
+.rd-buscar input:focus{border-color:#0ea5e9}
+.rd-buscar i{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.75rem}
+.rd-mini{
+  border:1px solid #e2e8f0;background:#fff;color:#475569;border-radius:8px;
+  padding:5px 11px;cursor:pointer;font-size:.75rem;font-weight:600;font-family:inherit;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.rd-mini:hover{border-color:#0ea5e9;color:#0284c7}
+
+/* ---- resultados ---- */
+.rd-body{overflow:auto;flex:1;padding:0 16px 14px}
+.rd-dia{margin-top:14px}
+.rd-dia-tit{
+  position:sticky;top:0;background:#fff;z-index:3;padding:7px 0 5px;
+  font-size:.86rem;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:9px;
+  border-bottom:2px solid #0ea5e9;
+}
+.rd-dia-tit .rd-cuenta{font-size:.7rem;font-weight:600;color:#64748b;margin-left:auto}
+table.rd-tabla{width:100%;border-collapse:collapse;font-size:.76rem;margin-top:4px}
+table.rd-tabla th{
+  text-align:left;font-size:.64rem;text-transform:uppercase;letter-spacing:.3px;
+  color:#64748b;font-weight:800;padding:5px 8px;border-bottom:1px solid #e2e8f0;white-space:nowrap;
+}
+table.rd-tabla td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+table.rd-tabla tr:hover td{background:#f0f9ff}
+.rd-doc{font-weight:700;color:#0f172a;white-space:nowrap}
+.rd-doc small{display:block;font-weight:500;color:#94a3b8;font-size:.64rem}
+.rd-curso{color:#1e293b;min-width:190px}
+.rd-hora{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:#0369a1}
+.rd-tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:.64rem;font-weight:700;white-space:nowrap}
+.rd-vir{background:#dbeafe;color:#1d4ed8}
+.rd-pre{background:#fef3c7;color:#92400e}
+.rd-area{background:#f3e8ff;color:#6b21a8}
+.rd-area.pln{background:#ccfbf1;color:#0f766e}
+.rd-vacio{padding:28px;text-align:center;color:#94a3b8;font-size:.82rem}
+.rd-cargando{padding:34px;text-align:center;color:#64748b;font-size:.82rem}
+.rd-cargando i{font-size:1.5rem;color:#0ea5e9}
+.rd-pie{
+  padding:8px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;
+  font-size:.7rem;color:#64748b;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+}
+
+@media(max-width:768px){
+  .rd-overlay{padding:10px}
+  .rd-lab{min-width:100%}
+  .rd-tools{margin-left:0;width:100%}
+  .rd-buscar input{width:100%}
+  .rd-body{padding:0 9px 10px}
+  table.rd-tabla{font-size:.7rem}
+}
+
+/* chips de modalidad con su color */
+.rd-chip.mod-virtual.on{background:#1d4ed8;border-color:#1d4ed8}
+.rd-chip.mod-presencial.on{background:#b45309;border-color:#b45309}
