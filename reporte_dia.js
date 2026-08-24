@@ -1,12 +1,24 @@
 /* ===== Reporte de docentes por día =====
    Supervision: que docentes dictan cada dia, con curso, seccion, NRC, sede,
-   modalidad y horario. Reutiliza los datos que horario.js ya descargo
-   (window.googleSheetCourses y window.contractData), no vuelve a bajar nada.
-   Los filtros elegidos quedan guardados: al reabrir siguen activos. */
+   modalidad y horario.
+
+   Carga: no depende de horario.js. Si los datos ya estan en memoria los usa al
+   instante; si no, descarga las hojas por su cuenta (las dos en paralelo) y las
+   guarda en sessionStorage, asi la siguiente vez el panel abre de inmediato.
+   Ademas precarga en segundo plano al entrar a la pagina.
+   Los filtros elegidos quedan guardados entre sesiones. */
 (function () {
   'use strict';
 
+  const LIBRO = '1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w';
+  const GID_CARGA = '1470879596';     // hoja CARGA_HORARIA
+  const GID_DOCENTES = '204310163';   // hoja Docentes 2026 (area COT / PLN)
+  const urlHoja = gid => `https://docs.google.com/spreadsheets/d/${LIBRO}/export?format=csv&gid=${gid}`;
+
   const LS = 'cot_reporte_dia_filtros';
+  const CACHE = 'cot_reporte_dia_datos_v1';
+  const CACHE_MIN = 15;               // minutos de vigencia del cache
+
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
   // Por defecto se supervisa el modulo 1 de agosto y el regular de agosto.
@@ -21,6 +33,8 @@
 
   let filtros = cargarFiltros();
   let construido = false;
+  let DATOS = null;        // { filas: [...] }
+  let promesaCarga = null; // descarga en curso
 
   const esc = s => String(s == null ? '' : s)
     .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -47,59 +61,186 @@
     try { localStorage.setItem(LS, JSON.stringify(filtros)); } catch (e) { /* sin persistencia */ }
   };
 
-  /* ---------- datos ---------- */
-  // Normaliza el modulo: 1, 2 o REGULAR
-  function moduloDe(c) {
-    const m = norm(c.modulo);
+  /* ---------- utilidades de datos ---------- */
+  function parseCSV(texto) {
+    const filas = [];
+    let fila = [], celda = '', entre = false;
+    for (let i = 0; i < texto.length; i++) {
+      const c = texto[i];
+      if (entre) {
+        if (c === '"') { if (texto[i + 1] === '"') { celda += '"'; i++; } else entre = false; }
+        else celda += c;
+      } else if (c === '"') entre = true;
+      else if (c === ',') { fila.push(celda); celda = ''; }
+      else if (c === '\n') { fila.push(celda); filas.push(fila); fila = []; celda = ''; }
+      else if (c !== '\r') celda += c;
+    }
+    if (celda !== '' || fila.length) { fila.push(celda); filas.push(fila); }
+    return filas;
+  }
+
+  // Misma logica que horario.js: "(LUNES)(JUEVES)" + "(PRE 07:00-10:00)(...)"
+  const MAPA_DIA = {
+    'LUNES': 0, 'MARTES': 1, 'MIERCOLES': 2, 'MIÉRCOLES': 2,
+    'JUEVES': 3, 'VIERNES': 4, 'SABADO': 5, 'SÁBADO': 5, 'DOMINGO': 6
+  };
+  function parseHorarios(diasStr, horasStr) {
+    if (!diasStr || !horasStr) return [];
+    const sacar = txt => {
+      const out = []; const re = /\((.*?)\)/g; let m;
+      while ((m = re.exec(txt)) !== null) out.push(m[1].trim());
+      return out;
+    };
+    let dias = sacar(diasStr).map(d => d.toUpperCase());
+    if (!dias.length) dias = [String(diasStr).trim().toUpperCase()];
+    let horas = sacar(horasStr);
+    if (!horas.length) horas = [String(horasStr).trim()];
+
+    const res = [];
+    for (let i = 0; i < dias.length; i++) {
+      const d = MAPA_DIA[dias[i]];
+      if (d === undefined) continue;
+      const h = horas[i] || horas[0];
+      if (!h) continue;
+      const t = h.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+      if (t) res.push({ dia: d, ini: t[1].padStart(5, '0'), fin: t[2].padStart(5, '0') });
+    }
+    return res;
+  }
+
+  function moduloDe(mod) {
+    const m = norm(mod);
     if (m.startsWith('REG') || m === 'R') return 'REGULAR';
     const d = m.match(/\d+/);
     return d ? d[0] : (m || '—');
   }
-  const bloqueDe = c => `${norm(c.periodo) || '—'}|${moduloDe(c)}`;
   const rotuloBloque = b => {
     const [p, m] = b.split('|');
     return m === 'REGULAR' ? `${p} regular` : `${p} M${m}`;
   };
+  const areaNorm = a => {
+    const x = norm(a);
+    if (x.includes('PLN')) return 'PLN';
+    if (x.includes('COT') || x.includes('CONTA')) return 'COT';
+    return x || 'OTROS';
+  };
 
-  // Area del docente segun la hoja Docentes 2026 (padron del equipo COT/PLN).
-  // El horario incluye docentes de otras carreras que no figuran en ese padron:
-  // esos se marcan como OTROS en vez de asumirlos COT, para no falsear el reporte.
-  function areaDe(nombre) {
-    const cd = window.contractData;
-    if (!cd) return 'OTROS';
-    let info = cd[nombre] || cd[norm(nombre)];
-    if (!info) {
-      const n = norm(nombre);
-      const k = Object.keys(cd).find(x => isNaN(x) && norm(x) === n);
-      info = k ? cd[k] : null;
-    }
-    if (!info) return 'OTROS';
-    const a = norm(info.area);
-    if (a.includes('PLN')) return 'PLN';
-    if (a.includes('COT') || a.includes('CONTA')) return 'COT';
-    return a || 'OTROS';
-  }
-
-  // Aplana los cursos a filas: una por docente + curso + dia
-  function filas() {
-    const gsc = window.googleSheetCourses || {};
+  /* ---------- origen de los datos ---------- */
+  // 1) lo que horario.js ya tenga en memoria (instantaneo)
+  function desdeMemoria() {
+    const gsc = window.googleSheetCourses;
+    if (!gsc || !Object.keys(gsc).length) return null;
+    const areas = areasDesdeContract();
     const out = [];
     Object.keys(gsc).forEach(docente => {
-      const area = areaDe(docente);
+      const area = areas[norm(docente)] || 'OTROS';
       (gsc[docente] || []).forEach(c => {
-        (c.days || []).forEach(d => {
-          out.push({
-            docente, dni: c.dni || '', area,
-            curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
-            sede: c.sede || '', modalidad: norm(c.modality).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL',
-            dia: d, ini: c.startTime || '', fin: c.endTime || '',
-            bloque: bloqueDe(c), ciclo: c.ciclo || ''
-          });
-        });
+        (c.days || []).forEach(d => out.push({
+          docente, dni: c.dni || '', area,
+          curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
+          sede: c.sede || '', modalidad: norm(c.modality).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL',
+          dia: d, ini: c.startTime || '', fin: c.endTime || '',
+          bloque: `${norm(c.periodo) || '—'}|${moduloDe(c.modulo)}`
+        }));
       });
     });
+    return out.length ? out : null;
+  }
+  function areasDesdeContract() {
+    const cd = window.contractData, mapa = {};
+    if (!cd) return mapa;
+    Object.keys(cd).forEach(k => {
+      const v = cd[k];
+      if (v && v.name) mapa[norm(v.name)] = areaNorm(v.area);
+    });
+    return mapa;
+  }
+
+  // 2) descarga propia de las dos hojas, en paralelo
+  async function descargar(aviso) {
+    if (aviso) aviso('Descargando el horario…');
+    const t = '&t=' + Date.now();
+    const [rCarga, rDoc] = await Promise.all([
+      fetch(urlHoja(GID_CARGA) + t),
+      fetch(urlHoja(GID_DOCENTES) + t).catch(() => null)
+    ]);
+    if (!rCarga || !rCarga.ok) throw new Error('No se pudo descargar la hoja CARGA_HORARIA.');
+
+    if (aviso) aviso('Procesando los cursos…');
+    const filasCsv = parseCSV(await rCarga.text());
+
+    // areas COT / PLN desde Docentes 2026 (si esa hoja responde)
+    const areas = {};
+    if (rDoc && rDoc.ok) {
+      const rows = parseCSV(await rDoc.text());
+      const cab = rows.findIndex(r => r.some(c => norm(c) === 'DNI') &&
+        r.some(c => norm(c).includes('APELLIDO') || norm(c).includes('NOMBRE')));
+      if (cab >= 0) {
+        const h = rows[cab].map(norm);
+        const iN = h.findIndex(x => x.includes('APELLIDO') || x.includes('NOMBRE'));
+        const iA = h.findIndex(x => x.includes('AREA'));
+        for (let i = cab + 1; i < rows.length; i++) {
+          const r = rows[i];
+          const nombre = iN >= 0 ? norm(r[iN]) : '';
+          if (!nombre || nombre.includes('APELLIDO')) continue;
+          if (areas[nombre]) continue;             // vale la primera aparicion
+          areas[nombre] = iA >= 0 ? areaNorm(r[iA]) : 'OTROS';
+        }
+      }
+    }
+
+    const out = [];
+    for (let i = 1; i < filasCsv.length; i++) {
+      const r = filasCsv[i];
+      if (!r || r.length < 18) continue;
+      const docente = String(r[2] || '').trim().toUpperCase();
+      if (!docente) continue;
+      const horarios = parseHorarios(String(r[16] || ''), String(r[17] || ''));
+      if (!horarios.length) continue;
+      const area = areas[norm(docente)] || 'OTROS';
+      const bloque = `${norm(r[11]) || '—'}|${moduloDe(r[6])}`;
+      const modalidad = norm(r[15]).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL';
+      horarios.forEach(h => out.push({
+        docente, dni: String(r[1] || '').trim(), area,
+        curso: String(r[4] || '').trim(), seccion: String(r[5] || '').trim(),
+        nrc: String(r[7] || '').trim(), sede: String(r[3] || '').trim(),
+        modalidad, dia: h.dia, ini: h.ini, fin: h.fin, bloque
+      }));
+    }
+    if (!out.length) throw new Error('La hoja no devolvió cursos con horario.');
     return out;
   }
+
+  function leerCache() {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CACHE));
+      if (c && Array.isArray(c.filas) && c.filas.length &&
+          (Date.now() - c.momento) < CACHE_MIN * 60000) return c.filas;
+    } catch (e) { /* cache invalido */ }
+    return null;
+  }
+  const guardarCache = filas => {
+    try { sessionStorage.setItem(CACHE, JSON.stringify({ filas, momento: Date.now() })); }
+    catch (e) { /* sessionStorage lleno: no es critico */ }
+  };
+
+  function obtenerDatos(aviso) {
+    if (DATOS) return Promise.resolve(DATOS);
+    if (promesaCarga) return promesaCarga;
+
+    const mem = desdeMemoria();
+    if (mem) { DATOS = { filas: mem }; guardarCache(mem); return Promise.resolve(DATOS); }
+
+    const cache = leerCache();
+    if (cache) { DATOS = { filas: cache }; return Promise.resolve(DATOS); }
+
+    promesaCarga = descargar(aviso)
+      .then(filas => { DATOS = { filas }; guardarCache(filas); promesaCarga = null; return DATOS; })
+      .catch(err => { promesaCarga = null; throw err; });
+    return promesaCarga;
+  }
+
+  const filas = () => (DATOS && DATOS.filas) || [];
 
   function pasaFiltro(f, saltar) {
     if (saltar !== 'prog' && filtros.programas.length && !filtros.programas.includes(f.area)) return false;
@@ -135,6 +276,7 @@
               '<div class="rd-buscar"><i class="fas fa-search"></i>' +
                 '<input type="text" id="rdQ" placeholder="Docente, curso, NRC..."></div>' +
               '<button class="rd-mini" id="rdCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
+              '<button class="rd-mini" id="rdRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
               '<button class="rd-mini" id="rdReset"><i class="fas fa-rotate-left"></i> Restablecer</button>' +
             '</div>' +
           '</div>' +
@@ -164,6 +306,11 @@
       document.getElementById('rdQ').value = '';
       pintar();
     };
+    document.getElementById('rdRecargar').onclick = () => {
+      DATOS = null;
+      try { sessionStorage.removeItem(CACHE); } catch (e) { /* nada */ }
+      asegurarDatos(true);
+    };
   }
 
   function chip(txt, activo, extra, cuenta) {
@@ -172,7 +319,6 @@
   }
 
   function pintarFiltros(todas) {
-    // Programa
     const cont = {};
     todas.forEach(f => { cont[f.area] = (cont[f.area] || 0) + 1; });
     const fijos = ['COT', 'PLN', 'OTROS'];
@@ -183,13 +329,11 @@
       chip(p, filtros.programas.includes(p), 'prog-' + p.toLowerCase(),
            todas.filter(f => f.area === p && pasaFiltro(f, 'prog')).length)).join(' ');
     cp.querySelectorAll('.rd-chip').forEach(b => b.onclick = () => {
-      const v = b.dataset.v;
-      const i = filtros.programas.indexOf(v);
+      const v = b.dataset.v, i = filtros.programas.indexOf(v);
       if (i >= 0) filtros.programas.splice(i, 1); else filtros.programas.push(v);
       guardarFiltros(); pintar();
     });
 
-    // Dias
     const cd = document.getElementById('rdDias');
     cd.innerHTML = DIAS.slice(0, 6).map((d, i) =>
       chip(d, filtros.dias.includes(i), 'dia-' + i,
@@ -200,23 +344,20 @@
       guardarFiltros(); pintar();
     });
 
-    // Periodos disponibles, deducidos de los datos reales
     const bl = {};
     todas.forEach(f => { bl[f.bloque] = (bl[f.bloque] || 0) + 1; });
     const orden = b => {
       const [p, m] = b.split('|');
-      const mesOrden = { JUNIO: 1, JULIO: 2, AGOSTO: 3, SETIEMBRE: 4, SEPTIEMBRE: 4, OCTUBRE: 5 };
-      return (mesOrden[p] || 9) * 10 + (m === 'REGULAR' ? 3 : parseInt(m, 10) || 9);
+      const mes = { JUNIO: 1, JULIO: 2, AGOSTO: 3, SETIEMBRE: 4, SEPTIEMBRE: 4, OCTUBRE: 5 };
+      return (mes[p] || 9) * 10 + (m === 'REGULAR' ? 3 : parseInt(m, 10) || 9);
     };
     const cb = document.getElementById('rdBloques');
-    const claves = Object.keys(bl).sort((a, b) => orden(a) - orden(b));
-    cb.innerHTML = claves.map(b =>
+    cb.innerHTML = Object.keys(bl).sort((a, b) => orden(a) - orden(b)).map(b =>
       `<button class="rd-chip${filtros.bloques.includes(b) ? ' on' : ''}" data-v="${esc(b)}">` +
       `${esc(rotuloBloque(b))}<span class="rd-n">${todas.filter(f => f.bloque === b && pasaFiltro(f, 'bloque')).length}</span></button>`
     ).join(' ');
     cb.querySelectorAll('.rd-chip').forEach(b => b.onclick = () => {
-      const v = b.dataset.v;
-      const i = filtros.bloques.indexOf(v);
+      const v = b.dataset.v, i = filtros.bloques.indexOf(v);
       if (i >= 0) filtros.bloques.splice(i, 1); else filtros.bloques.push(v);
       guardarFiltros(); pintar();
     });
@@ -236,8 +377,7 @@
              todas.filter(f => f[campo] === v && pasaFiltro(f, campo === 'sede' ? 'sede' : 'mod')).length)
       ).join(' ');
       cajon.querySelectorAll('.rd-chip').forEach(b => b.onclick = () => {
-        const v = b.dataset.v;
-        const i = filtros[clave].indexOf(v);
+        const v = b.dataset.v, i = filtros[clave].indexOf(v);
         if (i >= 0) filtros[clave].splice(i, 1); else filtros[clave].push(v);
         guardarFiltros(); pintar();
       });
@@ -246,23 +386,22 @@
     grupo('rdModal', 'modalidad', 'modalidades', ['PRESENCIAL', 'VIRTUAL']);
   }
 
+  function mensaje(html) {
+    const b = document.getElementById('rdBody');
+    if (b) b.innerHTML = html;
+  }
+
   function pintar() {
-    const body = document.getElementById('rdBody');
     const todas = filas();
-    if (!todas.length) {
-      document.getElementById('rdSub').textContent = '';
-      body.innerHTML = '<div class="rd-cargando"><i class="fas fa-spinner fa-spin"></i>' +
-        '<br>Esperando los datos del horario…</div>';
-      return;
-    }
+    if (!todas.length) return;
     pintarFiltros(todas);
     pintarSedeModalidad(todas);
 
     const sel = todas.filter(f => pasaFiltro(f));
     const dias = filtros.dias.length ? filtros.dias.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5];
-
+    const totalDocentes = new Set();
     let html = '';
-    let totalDocentes = new Set();
+
     dias.forEach(d => {
       const delDia = sel.filter(f => f.dia === d)
         .sort((a, b) => (a.ini || '').localeCompare(b.ini || '') || a.docente.localeCompare(b.docente, 'es'));
@@ -286,7 +425,8 @@
         '</tbody></table></div>';
     });
 
-    body.innerHTML = html || '<div class="rd-vacio">Ningún curso coincide con los filtros elegidos.</div>';
+    mensaje(html || '<div class="rd-vacio">Ningún curso coincide con los filtros elegidos.</div>');
+
     const extras = [];
     if (filtros.sedes.length) extras.push('Sede: ' + filtros.sedes.join('/'));
     if (filtros.modalidades.length) extras.push(filtros.modalidades.join('/'));
@@ -298,13 +438,25 @@
       `${totalDocentes.size} docentes · ${sel.length} clases en los días elegidos`;
   }
 
+  // Carga los datos mostrando el avance y pinta al terminar
+  function asegurarDatos(forzar) {
+    if (DATOS && !forzar) { pintar(); return; }
+    mensaje('<div class="rd-cargando"><i class="fas fa-spinner fa-spin"></i>' +
+            '<br><span id="rdPaso">Preparando…</span></div>');
+    const aviso = txt => { const p = document.getElementById('rdPaso'); if (p) p.textContent = txt; };
+    obtenerDatos(aviso).then(() => pintar()).catch(err => {
+      mensaje('<div class="rd-vacio"><b>No se pudieron cargar los datos.</b><br>' +
+              esc(err.message) + '<br><br>Revisa tu conexión y pulsa <b>Recargar</b>.</div>');
+    });
+  }
+
   function exportar() {
     const sel = filas().filter(f => pasaFiltro(f));
     const cab = ['Día', 'Horario', 'Docente', 'DNI', 'Programa', 'Curso', 'Sección', 'NRC', 'Sede', 'Modalidad', 'Periodo'];
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const filas_ = sel.map(f => [DIAS[f.dia], `${f.ini} - ${f.fin}`, f.docente, f.dni, f.area,
+    const cuerpo = sel.map(f => [DIAS[f.dia], `${f.ini} - ${f.fin}`, f.docente, f.dni, f.area,
       f.curso, f.seccion, f.nrc, f.sede, f.modalidad, rotuloBloque(f.bloque)].map(q).join(','));
-    const blob = new Blob(['﻿' + [cab.map(q).join(',')].concat(filas_).join('\n')],
+    const blob = new Blob(['﻿' + [cab.map(q).join(',')].concat(cuerpo).join('\n')],
       { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -313,7 +465,11 @@
     URL.revokeObjectURL(a.href);
   }
 
-  function abrir() { construir(); document.getElementById('rdOverlay').classList.add('abierto'); pintar(); }
+  function abrir() {
+    construir();
+    document.getElementById('rdOverlay').classList.add('abierto');
+    asegurarDatos(false);
+  }
   function cerrar() { const o = document.getElementById('rdOverlay'); if (o) o.classList.remove('abierto'); }
 
   /* ---------- boton, al lado de Dashboard ---------- */
@@ -331,9 +487,10 @@
 
   function iniciar() {
     ponerBoton();
-    // Si los datos llegan despues, se repinta solo (el panel puede estar abierto).
-    document.addEventListener('cot:cursos-listos', () => { if (construido) pintar(); });
-    document.addEventListener('cot:contratos-listos', () => { if (construido) pintar(); });
+    // Precarga en segundo plano: al abrir el panel los datos ya estan listos.
+    const precargar = () => { if (!DATOS && !promesaCarga) obtenerDatos(null).catch(() => {}); };
+    if (window.requestIdleCallback) requestIdleCallback(precargar, { timeout: 3000 });
+    else setTimeout(precargar, 2000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
