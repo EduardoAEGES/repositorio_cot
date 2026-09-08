@@ -23,12 +23,18 @@
                     <img src="LOGO_CERTUS22.png" alt="Certus Logo" class="certus-logo">
                     <h1>HORARIOS - EQUIPO COT PLN</h1>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <a href="dashboard.html" class="dashboard-btn" title="Ver Dashboard de Carga Docente" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: #008272; color: #fff; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 8px; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(0,130,114,0.35)';" onmouseout="this.style.transform='';this.style.boxShadow='';">
+                <div class="header-actions">
+                    <a href="dashboard.html" class="hdr-btn hdr-btn-dashboard dashboard-btn" title="Ver Dashboard de Carga Docente">
                         <i class="fas fa-chart-column"></i> Dashboard
                     </a>
-                    <label id="syncLabel" class="sync-switch" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: rgba(255,255,255,0.08); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); transition: all 0.3s;" title="Sincronizar con Google Sheet de Cargas">
-                        <span style="font-size: 0.8rem; font-weight: 600; color: #fff;">Sincronizar</span>
+                    <a href="https://seguimiento-2026-ii.vercel.app/" target="_blank" rel="noopener" class="hdr-btn hdr-btn-status" title="Status Estudiantes - Seguimiento 2026-II">
+                        <i class="fas fa-user-graduate"></i> Status Est.
+                    </a>
+                    <a href="dashboard_primer_ciclo.html" class="hdr-btn hdr-btn-ciclo" title="Dashboard de Estudiantes de Primer Ciclo">
+                        <i class="fas fa-users"></i> 1er Ciclo
+                    </a>
+                    <label id="syncLabel" class="sync-switch" style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: rgba(255,255,255,0.08); padding: 5px 9px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.15); transition: all 0.3s;" title="Sincronizar con Google Sheet de Cargas">
+                        <span style="font-size: 0.75rem; font-weight: 600; color: #fff; white-space: nowrap;">Sincronizar</span>
                         <div style="position: relative; width: 34px; height: 18px;">
                             <input type="checkbox" id="syncSwitchBtn" style="opacity: 0; width: 0; height: 0; position: absolute;">
                             <span class="slider" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #4b5563; transition: .4s; border-radius: 34px;">
@@ -55,11 +61,11 @@
                             100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0); }
                         }
                     </style>
-                    <a href="https://eduardoaeges.github.io/repositorio_cot/convertir" class="export-btn" title="Convertir Carga Horaria" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: #6c63ff; color: #fff; font-weight: 600; font-size: 0.85rem; padding: 8px 14px; border-radius: 8px; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 20px rgba(108,99,255,0.35)';" onmouseout="this.style.transform='';this.style.boxShadow='';">
+                    <a href="https://eduardoaeges.github.io/repositorio_cot/convertir" class="hdr-btn hdr-btn-export" title="Convertir Carga Horaria">
                         <i class="fas fa-file-excel"></i> Exportar
                     </a>
                     <button id="toggleControlsBtn" class="toggle-panel-btn" title="Expandir / Contraer Controles">
-                        <i class="fas fa-compress-arrows-alt"></i> <span>Ocultar Controles</span>
+                        <i class="fas fa-compress-arrows-alt"></i> <span>Ocultar</span>
                     </button>
                 </div>
             </div>

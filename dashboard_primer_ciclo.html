@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Cursos y Docentes - EQUIPO-COT-PLN</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css?v=6">
+    <link rel="stylesheet" href="dashboard_primer_ciclo.css?v=3">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
+            <div class="site-title">EQUIPO-COT-PLN</div>
+        </div>
+        <nav class="nav-menu">
+            <a href="index.html" class="nav-link">Página principal</a>
+            <a href="horario.html" class="nav-link">Horarios</a>
+            <a href="dashboard.html" class="nav-link">Carga docente</a>
+        </nav>
+    </header>
+
+    <main class="dash-main">
+        <div class="dash-head">
+            <h1><i class="fas fa-users"></i> Cursos y docentes <span id="hSub">— Primer ciclo</span></h1>
+            <div class="dash-actions">
+                <div class="search-box search-dark">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="q" placeholder="Buscar NRC, sección, DNI...">
+                </div>
+                <button id="btnClear" class="btn btn-ghost" title="Quitar todos los filtros"><i class="fas fa-eraser"></i> Limpiar</button>
+                <button id="btnXls" class="btn btn-ghost" title="Descargar reporte en Excel"><i class="fas fa-file-excel"></i> Excel</button>
+                <button id="btnPdf" class="btn btn-ghost" title="Descargar reporte en PDF"><i class="fas fa-file-pdf"></i> PDF</button>
+                <a href="horario.html" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Horarios</a>
+                <button id="btnReload" class="btn btn-solid"><i class="fas fa-rotate"></i> Actualizar</button>
+            </div>
+        </div>
+
+        <div id="status" class="dash-status"></div>
+
+        <!-- ============ FILTROS ============ -->
+        <section class="filters">
+            <div class="f-row">
+                <div class="f-group g-wide">
+                    <span class="f-label">Cursos</span>
+                    <div class="ms" id="msCurso"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-wide">
+                    <span class="f-label">Docentes</span>
+                    <div class="ms" id="msDocente"></div>
+                </div>
+            </div>
+            <div class="f-row">
+                <div class="f-group g-nar">
+                    <span class="f-label">Ciclo</span>
+                    <div class="chips" id="fCiclo"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-wide">
+                    <span class="f-label">Periodo</span>
+                    <div class="chips" id="fPeriodo"></div>
+                </div>
+            </div>
+            <div class="f-row">
+                <div class="f-group g-nar">
+                    <span class="f-label">Turno</span>
+                    <div class="chips" id="fTurno"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-wide">
+                    <span class="f-label">Sede</span>
+                    <div class="chips" id="fSede"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-nar">
+                    <span class="f-label">Modalidad</span>
+                    <div class="chips" id="fModalidad"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-nar">
+                    <span class="f-label">Línea</span>
+                    <div class="chips" id="fTipo"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ KPIs ============ -->
+        <section class="kpis" id="kpis"></section>
+
+        <!-- ============ VISUALES ============ -->
+        <section class="charts">
+            <div class="panel">
+                <div class="panel-h"><h3>Secciones por ciclo</h3><span class="hint">clic para filtrar</span></div>
+                <div class="panel-b bars" id="chCiclo"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-h"><h3>Secciones por sede</h3><span class="hint">clic para filtrar</span></div>
+                <div class="panel-b bars" id="chSede"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-h"><h3>Secciones por turno</h3><span class="hint">clic para filtrar</span></div>
+                <div class="panel-b bars" id="chTurno"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-h"><h3>Cursos con más secciones</h3><span class="hint">top 8 · clic para filtrar</span></div>
+                <div class="panel-b bars" id="chCurso"></div>
+            </div>
+        </section>
+
+        <!-- ============ DOCENTES POR CURSO ============ -->
+        <section class="panel">
+            <div class="panel-h">
+                <h3><i class="fas fa-chalkboard-user"></i> Docentes por curso</h3>
+                <span class="hint" id="grpCount">—</span>
+            </div>
+            <div class="tbl-scroll" id="grpWrap">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando “Análisis de cargas asignadas”...</div>
+            </div>
+        </section>
+
+        <!-- ============ DETALLE ============ -->
+        <section class="panel">
+            <div class="panel-h">
+                <h3><i class="fas fa-table-list"></i> Detalle de cargas asignadas</h3>
+                <span class="hint">clic en los encabezados para ordenar</span>
+            </div>
+            <div class="tbl-scroll">
+                <table class="dash-tbl" id="tbl">
+                    <thead>
+                        <tr class="g1">
+                            <th data-k="curso">Curso</th>
+                            <th data-k="docente">Apellidos y Nombres</th>
+                            <th data-k="dni">DNI</th>
+                            <th data-k="seccion">Sección</th>
+                            <th data-k="nrc">NRC</th>
+                            <th data-k="ciclo">Ciclo</th>
+                            <th data-k="periodo">Periodo</th>
+                            <th data-k="turno">Turno</th>
+                            <th data-k="sede">Sede</th>
+                            <th data-k="modalidad">Modalidad</th>
+                            <th data-k="tipo">Línea</th>
+                            <th data-k="horas">Horas</th>
+                            <th data-k="dias">Horario</th>
+                            <th data-k="aula">Aula</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblBody">
+                        <tr><td colspan="14"><div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="tbl-foot">
+                <span id="tblCount">—</span>
+                <span>Fuente: <b>Análisis de cargas asignadas</b> (Google Sheets, en vivo) · aulas desde el <b>Portal de Horarios</b></span>
+            </div>
+        </section>
+    </main>
+
+    <script src="dashboard_primer_ciclo.js?v=6"></script>
+</body>
+</html>

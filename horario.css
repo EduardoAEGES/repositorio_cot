@@ -83,18 +83,75 @@ body {
     text-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+/* ===== Acciones del header (botones compactos) ===== */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.hdr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 7px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hdr-btn i { font-size: 0.8rem; }
+
+.hdr-btn:hover { transform: translateY(-2px); }
+
+.hdr-btn-dashboard { background: #008272; }
+.hdr-btn-dashboard:hover { box-shadow: 0 8px 20px rgba(0, 130, 114, 0.35); }
+
+.hdr-btn-status { background: #2563eb; }
+.hdr-btn-status:hover { box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35); }
+
+.hdr-btn-ciclo { background: #f59e0b; }
+.hdr-btn-ciclo:hover { box-shadow: 0 8px 20px rgba(245, 158, 11, 0.35); }
+
+.hdr-btn-export { background: #6c63ff; }
+.hdr-btn-export:hover { box-shadow: 0 8px 20px rgba(108, 99, 255, 0.35); }
+
+/* El boton inyectado por reporte_dia.js vive en la misma barra */
+.header-actions .rd-btn {
+    font-size: 0.75rem !important;
+    padding: 7px 10px !important;
+    border-radius: 7px !important;
+    gap: 5px !important;
+    white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+    .hdr-btn,
+    .header-actions .rd-btn { padding: 6px 8px !important; font-size: 0.72rem !important; }
+}
+
 .toggle-panel-btn {
     background: rgba(255, 255, 255, 0.15);
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.82rem;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 0.75rem;
+    white-space: nowrap;
     font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 5px;
     transition: all 0.2s ease;
 }
 

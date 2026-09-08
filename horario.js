@@ -1187,10 +1187,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const text = toggleControlsBtn.querySelector('span');
             if (isCollapsed) {
                 if (icon) icon.className = 'fas fa-expand-arrows-alt';
-                if (text) text.textContent = 'Mostrar Controles';
+                if (text) text.textContent = 'Mostrar';
             } else {
                 if (icon) icon.className = 'fas fa-compress-arrows-alt';
-                if (text) text.textContent = 'Ocultar Controles';
+                if (text) text.textContent = 'Ocultar';
             }
         });
     }

@@ -480,7 +480,8 @@
     const b = document.createElement('button');
     b.id = 'btnReporteDia';
     b.className = 'rd-btn';
-    b.innerHTML = '<i class="fas fa-user-check"></i> Reporte docentes por día';
+    b.innerHTML = '<i class="fas fa-user-check"></i> Reporte día';
+    b.title = 'Reporte de docentes por día';
     b.onclick = abrir;
     dash.parentNode.insertBefore(b, dash.nextSibling);
   }
