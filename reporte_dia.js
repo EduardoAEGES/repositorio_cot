@@ -20,6 +20,9 @@
   const CACHE_MIN = 15;               // minutos de vigencia del cache
 
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const TURNOS = ['M', 'T', 'N', 'D'];
+  const TURNO_LABEL = { M: 'Mañana', T: 'Tarde', N: 'Noche', D: 'Diurno' };
+  const CAMPUS_URL = 'https://campusdigital.certus.edu.pe/course/view.php?name=';
 
   // Por defecto se supervisa el modulo 1 de agosto y el regular de agosto.
   const POR_DEFECTO = {
@@ -28,6 +31,7 @@
     bloques: ['AGOSTO|1', 'AGOSTO|REGULAR'],
     sedes: [],          // vacio = todas
     modalidades: [],    // vacio = todas
+    turnos: [],         // vacio = todos
     q: ''
   };
 
@@ -35,6 +39,20 @@
   let construido = false;
   let DATOS = null;        // { filas: [...] }
   let promesaCarga = null; // descarga en curso
+  const ocultos = new Set();   // docentes ocultados de la vista (normalizados)
+  const marcados = new Set();  // docentes marcados para ocultar en el proximo clic
+
+  // Turno = ultima letra de la seccion (304M -> M, 121N -> N, 616D -> D)
+  const turnoDe = (sec, raw) => {
+    const r = norm(raw);
+    if (['M', 'T', 'N', 'D'].includes(r)) return r;
+    const m = String(sec == null ? '' : sec).trim().toUpperCase().match(/([MTND])$/);
+    return m ? m[1] : '';
+  };
+  // Aula virtual = "SECCION|NRC CARGA" (p. ej. "101M|216 3339")
+  const shortNameDe = f => (f.seccion && f.nrc)
+    ? `${String(f.seccion).trim()}|${String(f.nrc).trim()}${f.carga ? ' ' + String(f.carga).trim() : ''}`
+    : '';
 
   const esc = s => String(s == null ? '' : s)
     .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -51,6 +69,7 @@
           bloques: g.bloques,
           sedes: Array.isArray(g.sedes) ? g.sedes : [],
           modalidades: Array.isArray(g.modalidades) ? g.modalidades : [],
+          turnos: Array.isArray(g.turnos) ? g.turnos : [],
           q: typeof g.q === 'string' ? g.q : ''
         };
       }
@@ -138,7 +157,9 @@
         (c.days || []).forEach(d => out.push({
           docente, dni: c.dni || '', area,
           curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
+          carga: c.cargaCode || c.carga || '',
           sede: c.sede || '', modalidad: norm(c.modality).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL',
+          turno: turnoDe(c.section, c.turno),
           dia: d, ini: c.startTime || '', fin: c.endTime || '',
           bloque: `${norm(c.periodo) || '—'}|${moduloDe(c.modulo)}`
         }));
@@ -200,11 +221,14 @@
       const area = areas[norm(docente)] || 'OTROS';
       const bloque = `${norm(r[11]) || '—'}|${moduloDe(r[6])}`;
       const modalidad = norm(r[15]).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL';
+      const seccion = String(r[5] || '').trim();
       horarios.forEach(h => out.push({
         docente, dni: String(r[1] || '').trim(), area,
-        curso: String(r[4] || '').trim(), seccion: String(r[5] || '').trim(),
-        nrc: String(r[7] || '').trim(), sede: String(r[3] || '').trim(),
-        modalidad, dia: h.dia, ini: h.ini, fin: h.fin, bloque
+        curso: String(r[4] || '').trim(), seccion,
+        nrc: String(r[7] || '').trim(), carga: String(r[0] || '').trim(),
+        sede: String(r[3] || '').trim(),
+        modalidad, turno: turnoDe(seccion, r[12]),
+        dia: h.dia, ini: h.ini, fin: h.fin, bloque
       }));
     }
     if (!out.length) throw new Error('La hoja no devolvió cursos con horario.');
@@ -243,11 +267,13 @@
   const filas = () => (DATOS && DATOS.filas) || [];
 
   function pasaFiltro(f, saltar) {
+    if (ocultos.has(norm(f.docente))) return false;
     if (saltar !== 'prog' && filtros.programas.length && !filtros.programas.includes(f.area)) return false;
     if (saltar !== 'dia' && filtros.dias.length && !filtros.dias.includes(f.dia)) return false;
     if (saltar !== 'bloque' && filtros.bloques.length && !filtros.bloques.includes(f.bloque)) return false;
     if (saltar !== 'sede' && filtros.sedes.length && !filtros.sedes.includes(f.sede)) return false;
     if (saltar !== 'mod' && filtros.modalidades.length && !filtros.modalidades.includes(f.modalidad)) return false;
+    if (saltar !== 'turno' && filtros.turnos.length && !filtros.turnos.includes(f.turno)) return false;
     if (filtros.q) {
       const q = norm(filtros.q);
       if (!(norm(f.docente).includes(q) || norm(f.curso).includes(q) ||
@@ -275,6 +301,8 @@
             '<div class="rd-tools">' +
               '<div class="rd-buscar"><i class="fas fa-search"></i>' +
                 '<input type="text" id="rdQ" placeholder="Docente, curso, NRC..."></div>' +
+              '<button class="rd-mini rd-ocultar" id="rdOcultar" title="Oculta de la vista los docentes marcados"><i class="fas fa-user-slash"></i> Ocultar (0)</button>' +
+              '<button class="rd-mini" id="rdMostrar" style="display:none"><i class="fas fa-eye"></i> Mostrar ocultos (0)</button>' +
               '<button class="rd-mini" id="rdCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
               '<button class="rd-mini" id="rdRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
               '<button class="rd-mini" id="rdReset"><i class="fas fa-rotate-left"></i> Restablecer</button>' +
@@ -283,7 +311,9 @@
           '<div class="rd-fila"><span class="rd-lab">Periodo</span><span id="rdBloques"></span></div>' +
           '<div class="rd-fila"><span class="rd-lab">Sede</span><span id="rdSedes"></span>' +
             '<span class="rd-sep"></span><span class="rd-lab">Modalidad</span>' +
-            '<span id="rdModal"></span></div>' +
+            '<span id="rdModal"></span>' +
+            '<span class="rd-sep"></span><span class="rd-lab">Turno</span>' +
+            '<span id="rdTurnos"></span></div>' +
         '</div>' +
         '<div class="rd-body" id="rdBody"></div>' +
         '<div class="rd-pie"><span id="rdPie"></span>' +
@@ -300,9 +330,20 @@
     q.value = filtros.q;
     q.addEventListener('input', e => { filtros.q = e.target.value.trim(); guardarFiltros(); pintar(); });
     document.getElementById('rdCsv').onclick = exportar;
+    document.getElementById('rdOcultar').onclick = () => {
+      if (!marcados.size) return;
+      marcados.forEach(d => ocultos.add(d));
+      marcados.clear();
+      pintar();
+    };
+    document.getElementById('rdMostrar').onclick = () => {
+      ocultos.clear(); marcados.clear();
+      pintar();
+    };
     document.getElementById('rdReset').onclick = () => {
       filtros = JSON.parse(JSON.stringify(POR_DEFECTO));
       guardarFiltros();
+      ocultos.clear(); marcados.clear();
       document.getElementById('rdQ').value = '';
       pintar();
     };
@@ -386,9 +427,60 @@
     grupo('rdModal', 'modalidad', 'modalidades', ['PRESENCIAL', 'VIRTUAL']);
   }
 
+  // Turno: M / T / N / D, en ese orden fijo
+  function pintarTurnos(todas) {
+    const cont = {};
+    todas.forEach(f => { if (f.turno) cont[f.turno] = (cont[f.turno] || 0) + 1; });
+    const claves = TURNOS.filter(t => cont[t])
+      .concat(Object.keys(cont).filter(t => !TURNOS.includes(t)).sort());
+    const cajon = document.getElementById('rdTurnos');
+    cajon.innerHTML = claves.map(v =>
+      `<button class="rd-chip${filtros.turnos.includes(v) ? ' on' : ''}" data-v="${esc(v)}">` +
+      `${esc(TURNO_LABEL[v] || v)}<span class="rd-n">${todas.filter(f => f.turno === v && pasaFiltro(f, 'turno')).length}</span></button>`
+    ).join(' ') || '<span class="rd-n">sin datos</span>';
+    cajon.querySelectorAll('.rd-chip').forEach(b => b.onclick = () => {
+      const v = b.dataset.v, i = filtros.turnos.indexOf(v);
+      if (i >= 0) filtros.turnos.splice(i, 1); else filtros.turnos.push(v);
+      guardarFiltros(); pintar();
+    });
+  }
+
   function mensaje(html) {
     const b = document.getElementById('rdBody');
     if (b) b.innerHTML = html;
+  }
+
+  // Clic en un docente lo marca/desmarca (todas sus filas a la vez), sin repintar todo
+  function bindMarcado() {
+    const body = document.getElementById('rdBody');
+    if (!body) return;
+    body.querySelectorAll('.rd-doc').forEach(cell => {
+      cell.onclick = () => {
+        const d = cell.dataset.doc;
+        const on = !marcados.has(d);
+        if (on) marcados.add(d); else marcados.delete(d);
+        body.querySelectorAll('.rd-doc').forEach(c => {
+          if (c.dataset.doc !== d) return;
+          c.classList.toggle('rd-marcado', on);
+          const chk = c.querySelector('.rd-check');
+          if (chk) chk.className = (on ? 'fas fa-square-check' : 'far fa-square') + ' rd-check';
+        });
+        actualizarBotonesOcultar();
+      };
+    });
+  }
+
+  function actualizarBotonesOcultar() {
+    const bo = document.getElementById('rdOcultar');
+    const bm = document.getElementById('rdMostrar');
+    if (bo) {
+      bo.innerHTML = `<i class="fas fa-user-slash"></i> Ocultar (${marcados.size})`;
+      bo.classList.toggle('rd-ocultar-on', marcados.size > 0);
+    }
+    if (bm) {
+      bm.style.display = ocultos.size ? '' : 'none';
+      bm.innerHTML = `<i class="fas fa-eye"></i> Mostrar ocultos (${ocultos.size})`;
+    }
   }
 
   function pintar() {
@@ -396,6 +488,7 @@
     if (!todas.length) return;
     pintarFiltros(todas);
     pintarSedeModalidad(todas);
+    pintarTurnos(todas);
 
     const sel = todas.filter(f => pasaFiltro(f));
     const dias = filtros.dias.length ? filtros.dias.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5];
@@ -412,20 +505,32 @@
         esc(DIAS[d]) + `<span class="rd-cuenta">${docs.size} docente${docs.size === 1 ? '' : 's'} · ${delDia.length} clase${delDia.length === 1 ? '' : 's'}</span></div>` +
         '<table class="rd-tabla"><thead><tr>' +
         '<th>Horario</th><th>Docente</th><th>Curso</th><th>Sec.</th><th>NRC</th>' +
-        '<th>Sede</th><th>Modalidad</th><th>Periodo</th></tr></thead><tbody>' +
-        delDia.map(f =>
-          '<tr>' +
+        '<th>Turno</th><th>Sede</th><th>Modalidad</th><th>Periodo</th><th>Clase</th></tr></thead><tbody>' +
+        delDia.map(f => {
+          const nd = norm(f.docente);
+          const sn = shortNameDe(f);
+          const link = sn
+            ? `<a class="rd-clase" href="${CAMPUS_URL}${encodeURIComponent(sn)}" target="_blank" rel="noopener" title="Ir al curso en Campus Digital (${esc(sn)})"><i class="fas fa-arrow-up-right-from-square"></i></a>`
+            : '<span class="rd-clase-no">—</span>';
+          return '<tr>' +
           `<td class="rd-hora">${esc(f.ini)} - ${esc(f.fin)}</td>` +
-          `<td class="rd-doc">${esc(f.docente)}<small>${esc(f.dni)} · <span class="rd-tag rd-area${f.area === 'PLN' ? ' pln' : ''}">${esc(f.area)}</span></small></td>` +
+          `<td class="rd-doc${marcados.has(nd) ? ' rd-marcado' : ''}" data-doc="${esc(nd)}" title="Clic para marcar/quitar este docente de la vista">` +
+          `<i class="${marcados.has(nd) ? 'fas fa-square-check' : 'far fa-square'} rd-check"></i><span>${esc(f.docente)}<small>${esc(f.dni)} · <span class="rd-tag rd-area${f.area === 'PLN' ? ' pln' : ''}">${esc(f.area)}</span></small></span></td>` +
           `<td class="rd-curso">${esc(f.curso)}</td>` +
-          `<td>${esc(f.seccion)}</td><td>${esc(f.nrc)}</td><td>${esc(f.sede)}</td>` +
+          `<td>${esc(f.seccion)}</td><td>${esc(f.nrc)}</td>` +
+          `<td>${esc(TURNO_LABEL[f.turno] || f.turno || '—')}</td>` +
+          `<td>${esc(f.sede)}</td>` +
           `<td><span class="rd-tag ${f.modalidad === 'VIRTUAL' ? 'rd-vir' : 'rd-pre'}">${esc(f.modalidad)}</span></td>` +
           `<td>${esc(rotuloBloque(f.bloque))}</td>` +
-          '</tr>').join('') +
+          `<td class="rd-clase-td">${link}</td>` +
+          '</tr>';
+        }).join('') +
         '</tbody></table></div>';
     });
 
     mensaje(html || '<div class="rd-vacio">Ningún curso coincide con los filtros elegidos.</div>');
+    bindMarcado();
+    actualizarBotonesOcultar();
 
     const extras = [];
     if (filtros.sedes.length) extras.push('Sede: ' + filtros.sedes.join('/'));
@@ -452,10 +557,16 @@
 
   function exportar() {
     const sel = filas().filter(f => pasaFiltro(f));
-    const cab = ['Día', 'Horario', 'Docente', 'DNI', 'Programa', 'Curso', 'Sección', 'NRC', 'Sede', 'Modalidad', 'Periodo'];
+    const cab = ['Día', 'Horario', 'Docente', 'DNI', 'Programa', 'Curso', 'Sección', 'NRC',
+      'Turno', 'Sede', 'Modalidad', 'Periodo', 'Enlace clase'];
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const cuerpo = sel.map(f => [DIAS[f.dia], `${f.ini} - ${f.fin}`, f.docente, f.dni, f.area,
-      f.curso, f.seccion, f.nrc, f.sede, f.modalidad, rotuloBloque(f.bloque)].map(q).join(','));
+    const cuerpo = sel.map(f => {
+      const sn = shortNameDe(f);
+      return [DIAS[f.dia], `${f.ini} - ${f.fin}`, f.docente, f.dni, f.area,
+        f.curso, f.seccion, f.nrc, TURNO_LABEL[f.turno] || f.turno,
+        f.sede, f.modalidad, rotuloBloque(f.bloque),
+        sn ? CAMPUS_URL + encodeURIComponent(sn) : ''].map(q).join(',');
+    });
     const blob = new Blob(['﻿' + [cab.map(q).join(',')].concat(cuerpo).join('\n')],
       { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');

@@ -58,6 +58,8 @@
   display:inline-flex;align-items:center;gap:6px;
 }
 .rd-mini:hover{border-color:#0ea5e9;color:#0284c7}
+.rd-mini.rd-ocultar-on{background:#dc2626;border-color:#dc2626;color:#fff}
+.rd-mini.rd-ocultar-on:hover{background:#b91c1c;color:#fff}
 
 /* ---- resultados ---- */
 .rd-body{overflow:auto;flex:1;padding:0 16px 14px}
@@ -75,8 +77,18 @@ table.rd-tabla th{
 }
 table.rd-tabla td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top}
 table.rd-tabla tr:hover td{background:#f0f9ff}
-.rd-doc{font-weight:700;color:#0f172a;white-space:nowrap}
+.rd-doc{font-weight:700;color:#0f172a;white-space:nowrap;cursor:pointer;user-select:none}
 .rd-doc small{display:block;font-weight:500;color:#94a3b8;font-size:.64rem}
+.rd-doc .rd-check{color:#cbd5e1;margin-right:6px;font-size:.8rem;vertical-align:1px}
+.rd-doc:hover .rd-check{color:#0ea5e9}
+.rd-doc.rd-marcado{background:#fee2e2}
+.rd-doc.rd-marcado .rd-check{color:#dc2626;font-weight:900}
+.rd-clase{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;
+  border-radius:6px;background:#eef2ff;color:#4f46e5;text-decoration:none;font-size:.78rem;
+  transition:background .15s ease}
+.rd-clase:hover{background:#4f46e5;color:#fff}
+.rd-clase-no{color:#cbd5e1}
+.rd-clase-td{text-align:center}
 .rd-curso{color:#1e293b;min-width:190px}
 .rd-hora{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600;color:#0369a1}
 .rd-tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:.64rem;font-weight:700;white-space:nowrap}

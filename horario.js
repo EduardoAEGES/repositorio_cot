@@ -223,21 +223,35 @@ function getTipoInstitucion(course) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // State
+    // Equipo base: siempre presentes y NO se pueden eliminar (JORGE salió del equipo)
+    const FIJOS = ['EDUARDO', 'JOSÉ', 'CARLOS', 'MIRKO', 'LUIS'];
+    const esFijo = (nombre) => FIJOS.includes(String(nombre || '').trim().toUpperCase());
     const defaultGroups = {
-        "PTC": ['EDUARDO', 'JOSÉ', 'JORGE', 'CARLOS', 'MIRKO', 'LUIS']
+        "PTC": FIJOS.slice()
     };
-    
+
     let groups = JSON.parse(localStorage.getItem('cot_groups')) || defaultGroups;
-    
+
     // Normalize all names in groups to uppercase
     Object.keys(groups).forEach(gn => {
         groups[gn] = groups[gn].map(u => u.trim().toUpperCase());
     });
-    
+
     // Remove OTROS and AQP-CIX groups if they exist
     if (groups["OTROS"]) delete groups["OTROS"];
     if (groups["AQP-CIX"]) delete groups["AQP-CIX"];
-    
+
+    // JORGE ya no es docente: quitarlo de todos los grupos guardados
+    Object.keys(groups).forEach(gn => {
+        groups[gn] = groups[gn].filter(u => u !== 'JORGE');
+    });
+
+    // Los fijos siempre van primero y sin duplicados en cada grupo
+    Object.keys(groups).forEach(gn => {
+        const extra = groups[gn].filter(u => !esFijo(u));
+        groups[gn] = FIJOS.concat(extra);
+    });
+
     // Ensure default groups exist and are populated if missing
     Object.keys(defaultGroups).forEach(gn => {
         if (!groups[gn] || groups[gn].length === 0) {
@@ -250,6 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isMasterMode = false;
     let activeGroup = Object.keys(groups)[0] || "PTC";
+    // Modo "quitar varios": marcar varios docentes y eliminarlos de un solo golpe
+    let bulkRemoveMode = false;
+    const bulkMarked = new Set();
     // Restaurar los últimos docentes seleccionados; si es la primera vez, CARLOS por defecto.
     let activeUsers;
     try {
@@ -263,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
         activeUsers = new Set(['CARLOS']);
     }
+    activeUsers.delete('JORGE');   // JORGE ya no es docente
     let lastSearchedUser = null;
     
     console.log('Groups initialized:', groups);
@@ -509,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     row[14] = d["CICLO"];
                     row[16] = d["HORARIO (DÍAS)"];
                     row[17] = d["HORARIO (HORAS)"];
+                    row[19] = d["TIPO"];
                     return row;
                 });
             } else {
@@ -538,11 +557,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ciclo = row[14] != null ? String(row[14]).trim() : '';
                 const diasStr = row[16] != null ? String(row[16]).trim() : '';
                 const horasStr = row[17] != null ? String(row[17]).trim() : '';
+                const tipo = row[19] != null ? String(row[19]).trim().toUpperCase() : '';
+                const esMonitoreo = tipo.includes('MONITOREO');
 
                 const parsedSchedules = parseHorarios(diasStr, horasStr);
-                
+
                 if (!googleSheetCourses[name]) googleSheetCourses[name] = [];
-                
+
                 parsedSchedules.forEach(sch => {
                     googleSheetCourses[name].push({
                         id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
@@ -556,6 +577,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         periodo: periodo,
                         cargaCode: carga,
                         ciclo: ciclo,
+                        tipo: tipo,
+                        esMonitoreo: esMonitoreo,
                         room: '',
                         startTime: sch.startTime,
                         endTime: sch.endTime,
@@ -1270,7 +1293,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const normalizedUser = user.trim().toUpperCase();
             const cleanName = normalizedUser.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const isActive = activeUsers.has(normalizedUser);
-            
+            const fijo = esFijo(normalizedUser);
+            const isMarked = bulkMarked.has(normalizedUser);
+
             btn.className = `user-btn ${isActive ? 'active' : ''}`;
             btn.style.display = 'inline-flex';
             btn.style.alignItems = 'center';
@@ -1283,52 +1308,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.style.borderColor = userColor;
                 btn.style.color = 'white';
             }
-            
+
+            // En modo "quitar varios" los marcados se resaltan en rojo
+            if (bulkRemoveMode && isMarked) {
+                btn.style.backgroundColor = '#dc2626';
+                btn.style.borderColor = '#dc2626';
+                btn.style.color = 'white';
+                btn.style.boxShadow = '0 0 0 2px rgba(220,38,38,0.35)';
+            }
+
             const nameSpan = document.createElement('span');
             nameSpan.innerText = user;
             btn.appendChild(nameSpan);
-            
-            // Delete button for user
-            const delIcon = document.createElement('i');
-            delIcon.className = 'fas fa-times';
-            delIcon.style.opacity = '0.5';
-            delIcon.style.fontSize = '0.8em';
-            delIcon.style.transition = 'opacity 0.2s';
-            delIcon.onmouseover = () => delIcon.style.opacity = '1';
-            delIcon.onmouseout = () => delIcon.style.opacity = '0.5';
-            delIcon.title = `Eliminar a ${user}`;
-            delIcon.onclick = (e) => {
-                e.stopPropagation();
-                if (confirm(`¿Estás seguro de eliminar a ${user} de este grupo?`)) {
-                    groups[activeGroup] = groups[activeGroup].filter(u => u !== user);
-                    activeUsers.delete(normalizedUser);
-                    persistGroups();
-                    updateModalUserSelect();
-                    renderLegacyButtons();
-                    renderCourses();
-                }
-            };
-            btn.appendChild(delIcon);
-            
+
+            let delIcon = null;
+            if (fijo) {
+                // Equipo fijo: candado, no se puede eliminar ni marcar
+                const lock = document.createElement('i');
+                lock.className = 'fas fa-lock';
+                lock.style.opacity = '0.45';
+                lock.style.fontSize = '0.68em';
+                lock.title = 'Docente fijo del equipo (no se puede quitar)';
+                btn.appendChild(lock);
+                if (bulkRemoveMode) { btn.style.opacity = '0.55'; btn.style.cursor = 'default'; }
+            } else {
+                // Icono: casilla (marcar) en modo bulk, X (eliminar) en modo normal
+                delIcon = document.createElement('i');
+                delIcon.className = bulkRemoveMode ? (isMarked ? 'fas fa-square-check' : 'far fa-square') : 'fas fa-times';
+                delIcon.style.opacity = bulkRemoveMode ? '0.9' : '0.5';
+                delIcon.style.fontSize = '0.8em';
+                delIcon.style.transition = 'opacity 0.2s';
+                delIcon.onmouseover = () => delIcon.style.opacity = '1';
+                delIcon.onmouseout = () => delIcon.style.opacity = bulkRemoveMode ? '0.9' : '0.5';
+                delIcon.title = bulkRemoveMode ? `Marcar/desmarcar a ${user}` : `Eliminar a ${user}`;
+                delIcon.onclick = (e) => {
+                    e.stopPropagation();
+                    if (bulkRemoveMode) {
+                        if (isMarked) bulkMarked.delete(normalizedUser); else bulkMarked.add(normalizedUser);
+                        renderLegacyButtons();
+                        return;
+                    }
+                    if (confirm(`¿Estás seguro de eliminar a ${user} de este grupo?`)) {
+                        groups[activeGroup] = groups[activeGroup].filter(u => u !== user);
+                        activeUsers.delete(normalizedUser);
+                        persistGroups();
+                        updateModalUserSelect();
+                        renderLegacyButtons();
+                        renderCourses();
+                    }
+                };
+                btn.appendChild(delIcon);
+            }
+
             btn.onclick = (e) => {
-                if (e.target === delIcon) return; // handled above
+                if (delIcon && e.target === delIcon) return; // handled above
+                if (bulkRemoveMode) {
+                    if (fijo) return;   // los fijos no se marcan
+                    if (bulkMarked.has(normalizedUser)) bulkMarked.delete(normalizedUser);
+                    else bulkMarked.add(normalizedUser);
+                    renderLegacyButtons();
+                    return;
+                }
                 if (activeUsers.has(normalizedUser)) {
                     activeUsers.delete(normalizedUser);
                 } else {
                     activeUsers.add(normalizedUser);
                 }
-                
-
-
                 renderLegacyButtons();
                 renderCourses();
             };
             userSelector.appendChild(btn);
         });
 
+        renderBulkControls();
+
         const addUserBtn = document.createElement('button');
         addUserBtn.className = 'add-user-btn-legacy';
         addUserBtn.innerHTML = '<i class="fas fa-plus"></i> Añadir';
+        if (bulkRemoveMode) addUserBtn.style.display = 'none';
         addUserBtn.onclick = () => {
             const name = prompt('Nombre del docente:');
             if (name) {
@@ -1352,6 +1409,67 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
         userSelector.appendChild(addUserBtn);
+    }
+
+    // Botones del modo "quitar varios": entrar, quitar seleccionados, marcar todos, cancelar
+    function renderBulkControls() {
+        const users = groups[activeGroup] || [];
+        const mkBtn = (html, title, bg, onClick) => {
+            const b = document.createElement('button');
+            b.className = 'user-bulk-btn';
+            b.innerHTML = html;
+            b.title = title || '';
+            b.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:6px 11px;' +
+                'border-radius:8px;border:1px solid ' + bg + ';background:' + bg + ';color:#fff;' +
+                'font-weight:600;font-size:0.8rem;cursor:pointer;font-family:inherit;';
+            b.onclick = onClick;
+            return b;
+        };
+
+        const quitables = users.filter(u => !esFijo(u));
+        if (!bulkRemoveMode) {
+            if (!quitables.length) return;   // solo fijos: no hay nada que quitar
+            const enter = mkBtn('<i class="fas fa-trash-can"></i> Quitar varios',
+                'Marca varios docentes y quítalos de una sola vez', '#64748b', () => {
+                    bulkRemoveMode = true; bulkMarked.clear(); renderLegacyButtons();
+                });
+            enter.style.background = 'rgba(255,255,255,0.9)';
+            enter.style.color = '#475569';
+            enter.style.borderColor = '#cbd5e1';
+            userSelector.appendChild(enter);
+            return;
+        }
+
+        // Modo activo
+        const quitar = mkBtn(`<i class="fas fa-user-minus"></i> Quitar seleccionados (${bulkMarked.size})`,
+            'Elimina del grupo los docentes marcados', bulkMarked.size ? '#dc2626' : '#f87171', () => {
+                if (!bulkMarked.size) return;
+                const n = bulkMarked.size;
+                if (!confirm(`¿Quitar ${n} docente${n === 1 ? '' : 's'} del grupo?`)) return;
+                groups[activeGroup] = (groups[activeGroup] || [])
+                    .filter(u => !bulkMarked.has(u.trim().toUpperCase()));
+                bulkMarked.forEach(u => activeUsers.delete(u));
+                bulkMarked.clear();
+                bulkRemoveMode = false;
+                persistGroups();
+                updateModalUserSelect();
+                renderLegacyButtons();
+                renderCourses();
+            });
+        if (!bulkMarked.size) quitar.style.cursor = 'not-allowed';
+
+        const todos = mkBtn('<i class="fas fa-check-double"></i> Marcar todos', 'Marca todos los docentes (menos los fijos)', '#475569', () => {
+            (groups[activeGroup] || []).forEach(u => { const n = u.trim().toUpperCase(); if (!esFijo(n)) bulkMarked.add(n); });
+            renderLegacyButtons();
+        });
+
+        const cancelar = mkBtn('<i class="fas fa-xmark"></i> Cancelar', 'Salir del modo quitar varios', '#94a3b8', () => {
+            bulkRemoveMode = false; bulkMarked.clear(); renderLegacyButtons();
+        });
+
+        userSelector.appendChild(quitar);
+        userSelector.appendChild(todos);
+        userSelector.appendChild(cancelar);
     }
 
 
@@ -1807,7 +1925,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (reqDni) {
                         if (c.dni === reqDni || c.dni === reqDni.padStart(8, '0')) {
                             if (!isCourseVisible(c)) return;
-                            const courseKey = `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
+                            // Monitoreo nunca se descarta como duplicado (clave única por fila)
+                            const courseKey = c.esMonitoreo ? ('MON-' + c.id) : `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
                             if (!renderedCourseKeys.has(courseKey)) {
                                 activeCoursesList.push({ ...c, user: gsUser });
                                 renderedCourseKeys.add(courseKey);
@@ -1815,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     } else if (isMatch) {
                         if (!isCourseVisible(c)) return;
-                        const courseKey = `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
+                        const courseKey = c.esMonitoreo ? ('MON-' + c.id) : `${c.dni}-${c.nrc}-${c.startTime}-${c.days[0]}`;
                         if (!renderedCourseKeys.has(courseKey)) {
                             activeCoursesList.push({ ...c, user: gsUser });
                             renderedCourseKeys.add(courseKey);
@@ -1988,6 +2107,33 @@ document.addEventListener('DOMContentLoaded', () => {
             card.style.opacity = '0.9';
         }
 
+        // MONITOREO: toda la tarjeta de un solo color oscuro, letra blanca.
+        // El color sale del sufijo del TIPO: "MONITOREO - YELLOW/BLUE/RED/GREEN".
+        if (course.esMonitoreo) {
+            const MON = {
+                YELLOW: { bg: '#b8860b', bd: '#6b4f00' },
+                BLUE:   { bg: '#1e3a8a', bd: '#172554' },
+                RED:    { bg: '#991b1b', bd: '#7f1d1d' },
+                GREEN:  { bg: '#166534', bd: '#14532d' }
+            };
+            const clave = (String(course.tipo || '').split('-')[1] || '').trim().toUpperCase();
+            const col = MON[clave] || MON.YELLOW;
+            card.classList.add('course-monitoreo');
+            // Se pinta todo (incluida la píldora del nombre) de un solo color
+            card.querySelectorAll('*').forEach(el => {
+                el.style.backgroundColor = 'transparent';
+                el.style.backgroundImage = 'none';
+                el.style.color = '#fff';
+                el.style.borderColor = 'rgba(255,255,255,0.35)';
+            });
+            card.style.backgroundColor = col.bg;
+            card.style.backgroundImage = 'none';
+            card.style.border = '1px solid ' + col.bd;
+            card.style.borderLeft = '5px solid ' + col.bd;
+            card.style.opacity = '1';
+            card.style.color = '#fff';
+        }
+
         card.onclick = (e) => {
             e.stopPropagation();
             if (typeof isMasterMode !== 'undefined' && isMasterMode) {
@@ -2095,16 +2241,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const cicloText = getCiclo(course);
         const cursoLider = getLiderCurso(course.name, cicloText);
 
-        let queryParts = [];
-        if (course.section && String(course.section).trim() !== '' && String(course.section).trim() !== '—') {
-            queryParts.push(String(course.section).trim());
-        }
-        if (course.nrc && String(course.nrc).trim() !== '' && String(course.nrc).trim() !== '—') {
-            queryParts.push(String(course.nrc).trim());
-        }
-        const queryStr = queryParts.join('|');
-        const campusUrl = queryStr 
-            ? `https://campusdigital.certus.edu.pe/course/search.php?areaids=core_course-course&q=${encodeURIComponent(queryStr)}`
+        // Shortname del aula virtual = "SECCION|NRC CARGA" (p. ej. "101M|216 3339").
+        // Con eso se entra directo al curso, igual que =HIPERVINCULO(...course/view.php?name=SECCION|NRC CARGA)
+        const secClean = course.section && String(course.section).trim() !== '—' ? String(course.section).trim() : '';
+        const nrcClean = course.nrc && String(course.nrc).trim() !== '—' ? String(course.nrc).trim() : '';
+        const cargaClean = String(course.cargaCode || course.carga || '').trim();
+        const shortName = (secClean && nrcClean)
+            ? `${secClean}|${nrcClean}${cargaClean ? ' ' + cargaClean : ''}`
+            : '';
+        const queryStr = shortName;
+        const campusUrl = shortName
+            ? `https://campusdigital.certus.edu.pe/course/view.php?name=${encodeURIComponent(shortName)}`
             : `https://campusdigital.certus.edu.pe/course/search.php`;
 
         const periodoModulo = (course.periodo || course.modulo)
@@ -2222,8 +2369,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
                 <a href="${campusUrl}" target="_blank" rel="noopener noreferrer" 
                    style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #714b67 0%, #493a4d 100%); color: #ffffff; font-size: 0.88rem; font-weight: 700; padding: 9px 18px; border-radius: 8px; text-decoration: none; box-shadow: 0 3px 8px rgba(113, 75, 103, 0.25); transition: opacity 0.2s;">
-                    <i class="fas fa-external-link-alt" style="font-size: 0.95rem; color: #fbbf24;"></i> 
-                    <span>Buscar en Campus Digital Certus <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>
+                    <i class="fas fa-external-link-alt" style="font-size: 0.95rem; color: #fbbf24;"></i>
+                    <span>${shortName ? 'Ir al curso en Campus Digital' : 'Buscar en Campus Digital Certus'} <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>
                 </a>
                 
                 <button type="button" id="courseDetailCloseBtnBottom" 
