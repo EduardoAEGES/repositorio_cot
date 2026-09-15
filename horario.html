@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horario Semanal - Equipo COT</title>
-    <link rel="stylesheet" href="horario.css?v=2">
+    <link rel="stylesheet" href="horario.css?v=3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -30,8 +30,11 @@
                     <a href="https://seguimiento-2026-ii.vercel.app/" target="_blank" rel="noopener" class="hdr-btn hdr-btn-status" title="Status Estudiantes - Seguimiento 2026-II">
                         <i class="fas fa-user-graduate"></i> Status Est.
                     </a>
-                    <a href="dashboard_primer_ciclo.html" class="hdr-btn hdr-btn-ciclo" title="Dashboard de Estudiantes de Primer Ciclo">
-                        <i class="fas fa-users"></i> 1er Ciclo
+                    <a href="https://seguimiento-2026-ii.vercel.app/permanencia.html" target="_blank" rel="noopener" class="hdr-btn hdr-btn-perm" title="Status Docente - Tiempo de sesión de clase">
+                        <i class="fas fa-clock"></i> Status Doc.
+                    </a>
+                    <a href="dashboard_primer_ciclo.html" class="hdr-btn hdr-btn-ciclo" title="Detalle de estudiantes matriculados por curso">
+                        <i class="fas fa-users"></i> Estudiantes
                     </a>
                     <label id="syncLabel" class="sync-switch" style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: rgba(255,255,255,0.08); padding: 5px 9px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.15); transition: all 0.3s;" title="Sincronizar con Google Sheet de Cargas">
                         <span style="font-size: 0.75rem; font-weight: 600; color: #fff; white-space: nowrap;">Sincronizar</span>
