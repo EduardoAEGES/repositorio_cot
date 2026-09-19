@@ -1,0 +1,26 @@
+/* ===== Extras de la página de datos de estudiantes =====
+   Reutiliza dashboard.css y dashboard_primer_ciclo.css; aquí solo lo propio. */
+
+/* Botón de copiar dentro de cada bloque */
+.grp-h .copybtns { display:flex; gap:4px; flex-shrink:0; }
+.grp-h .cbtn {
+    border:1px solid var(--od-border); background:#fff; color:var(--od-text);
+    border-radius:3px; padding:2px 7px; font-size:.66rem; font-weight:600;
+    font-family:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:4px;
+    white-space:nowrap;
+}
+.grp-h .cbtn:hover { border-color:var(--od-purple); color:var(--od-purple); }
+.grp-h .cbtn.ok { border-color:var(--od-green); color:var(--od-green); }
+
+/* Aviso flotante al copiar */
+.toast {
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:#111827; color:#fff; padding:9px 16px; border-radius:8px;
+    font-size:.8rem; box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:9999;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+td.tel, td.mail { font-variant-numeric:tabular-nums; }
+td.mail { text-transform:lowercase; }
+.no-dato { color:var(--od-muted); }
