@@ -1297,3 +1297,60 @@ input, select {
 .fill-excessive { background: linear-gradient(90deg, #ef4444, #dc2626); }
 .fill-zero { background: #cbd5e1; }
 
+
+/* ===== Modo "Mi Horario" (cursos manuales guardados en localStorage) ===== */
+.hdr-btn-personal { background: #714b67; }
+.hdr-btn-personal:hover { box-shadow: 0 8px 20px rgba(113, 75, 103, 0.35); }
+
+.personal-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 8px 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #f5eef3;
+    border: 2px solid #714b67;
+    color: #2d1e32;
+    font-size: 0.85rem;
+}
+.personal-bar-info { display: flex; align-items: center; gap: 8px; }
+.personal-bar-info i { color: #714b67; }
+.personal-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.personal-add-btn,
+.personal-backup-btn,
+.personal-exit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    font-family: inherit;
+}
+.personal-add-btn { background: #7c3aed; color: #fff; border: 1px solid #7c3aed; }
+.personal-add-btn:hover { background: #6d28d9; }
+.personal-backup-btn { background: #fff; color: #714b67; border: 1px solid #714b67; }
+.personal-backup-btn:hover { background: #f5eef3; }
+.personal-exit-btn { background: #fff; color: #ef4444; border: 1px solid #ef4444; }
+.personal-exit-btn:hover { background: #fef2f2; }
+
+.course-card.personal-card {
+    outline: 2px dashed #7c3aed;
+    outline-offset: -2px;
+}
+.course-card.personal-card::after {
+    content: 'MANUAL';
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: #7c3aed;
+    letter-spacing: 0.3px;
+}
+.course-card.personal-card .course-name { flex-shrink: 0; }
