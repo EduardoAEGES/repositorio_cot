@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horario Semanal - Equipo COT</title>
-    <link rel="stylesheet" href="horario.css?v=4">
+    <link rel="stylesheet" href="horario.css?v=5">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -70,6 +70,9 @@
                     <a href="https://eduardoaeges.github.io/repositorio_cot/convertir" class="hdr-btn hdr-btn-export" title="Convertir Carga Horaria">
                         <i class="fas fa-file-excel"></i> Exportar
                     </a>
+                    <button id="personalBtn" class="hdr-btn hdr-btn-personal" title="Mi horario personal (con contraseña): horario de EDUARDO + cursos agregados manualmente, guardados en esta computadora">
+                        <i class="fas fa-user-lock"></i> Mi Horario
+                    </button>
                     <button id="toggleControlsBtn" class="toggle-panel-btn" title="Expandir / Contraer Controles">
                         <i class="fas fa-compress-arrows-alt"></i> <span>Ocultar</span>
                     </button>
@@ -156,6 +159,22 @@
                 <div id="teacherStatsContainer" class="teacher-stats-container" style="width: 100%;"></div>
             </div>
         </header>
+
+        <!-- Barra del modo "Mi Horario" (cursos manuales guardados localmente) -->
+        <div id="personalBar" class="personal-bar" style="display: none;">
+            <div class="personal-bar-info">
+                <i class="fas fa-user-lock"></i>
+                <span><strong>MI HORARIO PERSONAL</strong> — Horario de EDUARDO + cursos agregados manualmente (guardados en esta computadora)</span>
+            </div>
+            <div class="personal-bar-actions">
+                <button type="button" id="personalAddBtn" class="personal-add-btn">
+                    <i class="fas fa-plus"></i> Agregar curso
+                </button>
+                <button type="button" id="personalExitBtn" class="personal-exit-btn">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+            </div>
+        </div>
 
         <main class="schedule-grid-container">
             <div id="scheduleGrid" class="schedule-grid">
@@ -282,7 +301,7 @@
         </div>
     </div>
 
-    <script src="horario.js?v=7"></script>
+    <script src="horario.js?v=8"></script>
     <script>
     window.INFO_BOT = {
       intro: 'Esta página <b>no guarda datos propios</b>: los lee en vivo de Google Sheets. ' +

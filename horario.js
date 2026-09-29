@@ -263,6 +263,28 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('cot_groups', JSON.stringify(groups));
 
     let isMasterMode = false;
+    // Modo "Mi Horario": horario de EDUARDO + cursos manuales guardados solo en esta computadora
+    let isPersonalMode = false;
+    const PERSONAL_PASSWORD = '200192';
+    const PERSONAL_STORAGE_KEY = 'cot_horario_personal';
+    let usersBeforePersonal = null;
+
+    function loadPersonalCourses() {
+        try {
+            const list = JSON.parse(localStorage.getItem(PERSONAL_STORAGE_KEY));
+            return Array.isArray(list) ? list : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function savePersonalCourses(list) {
+        try {
+            localStorage.setItem(PERSONAL_STORAGE_KEY, JSON.stringify(list));
+        } catch (e) {
+            alert('No se pudo guardar en esta computadora: ' + e.message);
+        }
+    }
     let activeGroup = Object.keys(groups)[0] || "PTC";
     // Modo "quitar varios": marcar varios docentes y eliminarlos de un solo golpe
     let bulkRemoveMode = false;
@@ -404,6 +426,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let googleSheetCourses = {}; // Will be filled from Google Sheet
 
     async function loadFromSupabase() {
+        if (isPersonalMode) {
+            courses = { EDUARDO: loadPersonalCourses().map(c => ({ ...c, user: 'EDUARDO', sourceTable: 'local' })) };
+            renderCourses();
+            return;
+        }
+
         let res1, res2;
         
         if (isMasterMode) {
@@ -416,6 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
             res2 = await supabaseClient.from('cot_horarios_externos').select('*');
         }
         
+        // Si mientras cargaba se entró a "Mi Horario", no pisar los cursos locales
+        if (isPersonalMode) return;
+
         const data = [...(res1.data || []), ...(res2.data || [])];
         const error = res1.error;
 
@@ -1035,6 +1066,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveToSupabase(course, owner, tableName = 'cot_horarios') {
+        if (isPersonalMode) {
+            const { user, sourceTable, ...data } = course;
+            const list = loadPersonalCourses().filter(c => c.id !== course.id);
+            list.push(data);
+            savePersonalCourses(list);
+            return;
+        }
         const targetTable = isMasterMode ? 'cot_horarios_privados' : (tableName || 'cot_horarios');
         const payload = {
             id: course.id,
@@ -1064,6 +1102,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function removeFromSupabase(id, tableName = 'cot_horarios') {
+        if (isPersonalMode) {
+            savePersonalCourses(loadPersonalCourses().filter(c => c.id !== id));
+            return;
+        }
         // If tableName is provided specifically from sourceTable, use that. 
         // Otherwise fallback to context-based logic.
         const targetTable = tableName || (isMasterMode ? 'cot_horarios_privados' : 'cot_horarios');
@@ -1142,6 +1184,54 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // ---- Modo "Mi Horario" (contraseña) ----
+    const personalBtn = document.getElementById('personalBtn');
+    const personalBar = document.getElementById('personalBar');
+    const personalAddBtn = document.getElementById('personalAddBtn');
+    const personalExitBtn = document.getElementById('personalExitBtn');
+    const teacherSearchArea = document.getElementById('teacherSearchArea');
+
+    function enterPersonalMode() {
+        const pwd = prompt('Ingrese contraseña para "Mi Horario":');
+        if (pwd === null) return;
+        if (pwd !== PERSONAL_PASSWORD) {
+            alert('Contraseña incorrecta');
+            return;
+        }
+        if (isMasterMode) {
+            isMasterMode = false;
+            document.querySelector('.app-container').style.borderColor = 'transparent';
+        }
+        isPersonalMode = true;
+        usersBeforePersonal = new Set(activeUsers);
+        activeUsers = new Set(['EDUARDO']);
+        document.querySelector('h1').innerText = 'MI HORARIO PERSONAL - EDUARDO';
+        if (personalBtn) personalBtn.style.display = 'none';
+        if (personalBar) personalBar.style.display = 'flex';
+        if (teacherSearchArea) teacherSearchArea.style.display = 'none';
+        renderUserSelector();
+        updateReturnVisibility();
+        loadFromSupabase();
+    }
+
+    function exitPersonalMode() {
+        isPersonalMode = false;
+        activeUsers = usersBeforePersonal || new Set(['EDUARDO']);
+        usersBeforePersonal = null;
+        document.querySelector('h1').innerText = 'HORARIOS - EQUIPO COT PLN';
+        if (personalBtn) personalBtn.style.display = '';
+        if (personalBar) personalBar.style.display = 'none';
+        if (teacherSearchArea) teacherSearchArea.style.display = '';
+        modal.style.display = 'none';
+        renderUserSelector();
+        renderCourses();
+        loadFromSupabase();
+    }
+
+    if (personalBtn) personalBtn.onclick = enterPersonalMode;
+    if (personalExitBtn) personalExitBtn.onclick = exitPersonalMode;
+    if (personalAddBtn) personalAddBtn.onclick = () => openModal();
+
     function updateReturnVisibility() {
         if (!returnToPtcBtn) return;
         if (isMasterMode || activeGroup !== 'PTC') {
@@ -1171,7 +1261,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Guarda en el navegador los docentes activos y los módulos marcados (últimas selecciones).
     function saveUiState() {
         try {
-            localStorage.setItem('cot_active_users', JSON.stringify(Array.from(activeUsers)));
+            // En "Mi Horario" no se pisa la selección normal de docentes
+            if (!isPersonalMode) localStorage.setItem('cot_active_users', JSON.stringify(Array.from(activeUsers)));
             const checks = {};
             MODULE_CHECK_IDS.forEach(id => {
                 const el = document.getElementById(id);
@@ -1261,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderUserSelector() {
         const legacySelector = document.getElementById('userSelector');
-        legacySelector.style.display = 'flex';
+        legacySelector.style.display = isPersonalMode ? 'none' : 'flex';
         renderLegacyButtons();
     }
 
@@ -1897,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         activeUsers.forEach(user => {
-            if (isMasterMode && courses[user]) {
+            if ((isMasterMode || isPersonalMode) && courses[user]) {
                 courses[user].forEach(c => {
                     if (!isCourseVisible(c)) return;
                     activeCoursesList.push({ ...c, user });
@@ -2045,7 +2136,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const isShort = durationMin <= 90;
         const isTiny = durationMin <= 45;
         
-        card.className = `course-card ${isMasterMode ? 'master-card' : ''} ${isShort ? 'card-short' : ''} ${isTiny ? 'card-tiny' : ''}`;
+        const isPersonalCard = isPersonalMode && course.sourceTable === 'local';
+        card.className = `course-card ${isMasterMode ? 'master-card' : ''} ${isPersonalCard ? 'personal-card' : ''} ${isShort ? 'card-short' : ''} ${isTiny ? 'card-tiny' : ''}`;
         card.dataset.user = course.user;
         card.style.top = `${top}px`;
         card.style.height = `${height}px`;
@@ -2136,7 +2228,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.onclick = (e) => {
             e.stopPropagation();
-            if (typeof isMasterMode !== 'undefined' && isMasterMode) {
+            if ((typeof isMasterMode !== 'undefined' && isMasterMode) || isPersonalCard) {
                 openModal(course, course.user, day);
             } else {
                 openCourseDetail(course, course.user);
@@ -2217,6 +2309,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             addScheduleBlock();
+        }
+
+        // En "Mi Horario" todo curso nuevo es de EDUARDO
+        if (isPersonalMode) {
+            userSelect.value = 'EDUARDO';
+            userSelect.disabled = true;
         }
 
         modal.style.display = 'block';
@@ -2392,7 +2490,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function saveCourse() {
         let owner = document.getElementById('courseUserSelect').value.trim().toUpperCase();
-        if (isMasterMode) owner = 'EDUARDO'; // Force Eduardo in Master Mode
+        if (isMasterMode || isPersonalMode) owner = 'EDUARDO'; // Force Eduardo in Master / Mi Horario
         
         const name = document.getElementById('courseName').value;
         const modality = document.getElementById('courseModality').value;
