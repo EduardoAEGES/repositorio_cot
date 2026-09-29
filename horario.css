@@ -1320,6 +1320,7 @@ input, select {
 .personal-bar-info i { color: #714b67; }
 .personal-bar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .personal-add-btn,
+.personal-backup-btn,
 .personal-exit-btn {
     display: inline-flex;
     align-items: center;
@@ -1333,6 +1334,8 @@ input, select {
 }
 .personal-add-btn { background: #7c3aed; color: #fff; border: 1px solid #7c3aed; }
 .personal-add-btn:hover { background: #6d28d9; }
+.personal-backup-btn { background: #fff; color: #714b67; border: 1px solid #714b67; }
+.personal-backup-btn:hover { background: #f5eef3; }
 .personal-exit-btn { background: #fff; color: #ef4444; border: 1px solid #ef4444; }
 .personal-exit-btn:hover { background: #fef2f2; }
 

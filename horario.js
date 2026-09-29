@@ -1232,6 +1232,68 @@ document.addEventListener('DOMContentLoaded', () => {
     if (personalExitBtn) personalExitBtn.onclick = exitPersonalMode;
     if (personalAddBtn) personalAddBtn.onclick = () => openModal();
 
+    // Respaldo de los cursos manuales en un archivo .json
+    const personalExportBtn = document.getElementById('personalExportBtn');
+    const personalImportBtn = document.getElementById('personalImportBtn');
+    const personalImportInput = document.getElementById('personalImportInput');
+
+    if (personalExportBtn) personalExportBtn.onclick = () => {
+        const list = loadPersonalCourses();
+        if (list.length === 0) {
+            alert('No hay cursos manuales para exportar.');
+            return;
+        }
+        const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mi_horario_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    };
+
+    if (personalImportBtn && personalImportInput) {
+        personalImportBtn.onclick = () => personalImportInput.click();
+        personalImportInput.onchange = async () => {
+            const file = personalImportInput.files[0];
+            personalImportInput.value = '';
+            if (!file) return;
+            let imported;
+            try {
+                imported = JSON.parse(await file.text());
+            } catch (e) {
+                alert('El archivo no es un respaldo válido.');
+                return;
+            }
+            const valid = Array.isArray(imported) ? imported.filter(c =>
+                c && c.id && c.name && c.startTime && c.endTime && Array.isArray(c.days)
+            ) : [];
+            if (valid.length === 0) {
+                alert('El archivo no contiene cursos válidos.');
+                return;
+            }
+            if (!confirm(`Se importarán ${valid.length} curso(s). Los que ya existan se actualizarán. ¿Continuar?`)) return;
+            const ids = new Set(valid.map(c => String(c.id)));
+            const list = loadPersonalCourses().filter(c => !ids.has(String(c.id)));
+            savePersonalCourses(list.concat(valid.map(c => ({
+                id: String(c.id),
+                name: String(c.name),
+                modality: c.modality || 'Presencial',
+                sede: c.sede || 'AQP',
+                section: c.section || '',
+                nrc: c.nrc || '',
+                room: c.room || '',
+                startTime: String(c.startTime),
+                endTime: String(c.endTime),
+                days: c.days.map(Number).filter(d => d >= 0 && d <= 6)
+            }))));
+            await loadFromSupabase();
+            alert('Respaldo importado correctamente.');
+        };
+    }
+
     function updateReturnVisibility() {
         if (!returnToPtcBtn) return;
         if (isMasterMode || activeGroup !== 'PTC') {

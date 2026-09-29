@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Horario Semanal - Equipo COT</title>
-    <link rel="stylesheet" href="horario.css?v=5">
+    <link rel="stylesheet" href="horario.css?v=6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -170,6 +170,13 @@
                 <button type="button" id="personalAddBtn" class="personal-add-btn">
                     <i class="fas fa-plus"></i> Agregar curso
                 </button>
+                <button type="button" id="personalExportBtn" class="personal-backup-btn" title="Descargar un archivo con tus cursos manuales">
+                    <i class="fas fa-download"></i> Exportar respaldo
+                </button>
+                <button type="button" id="personalImportBtn" class="personal-backup-btn" title="Cargar cursos manuales desde un archivo de respaldo">
+                    <i class="fas fa-upload"></i> Importar respaldo
+                </button>
+                <input type="file" id="personalImportInput" accept=".json,application/json" style="display: none;">
                 <button type="button" id="personalExitBtn" class="personal-exit-btn">
                     <i class="fas fa-arrow-left"></i> Volver
                 </button>
@@ -301,7 +308,7 @@
         </div>
     </div>
 
-    <script src="horario.js?v=8"></script>
+    <script src="horario.js?v=9"></script>
     <script>
     window.INFO_BOT = {
       intro: 'Esta página <b>no guarda datos propios</b>: los lee en vivo de Google Sheets. ' +
