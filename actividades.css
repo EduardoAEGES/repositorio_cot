@@ -115,6 +115,42 @@
 .act-aviso.err{background:#fee2e2;color:#b91c1c}
 .act-aviso.ok{background:#dcfce7;color:#166534}
 
+/* ---- varios horarios, repeticion y enlace ---- */
+.act-hor-cab,.act-hor-fila{display:grid;grid-template-columns:1.5fr 1fr 1fr 26px;gap:6px;align-items:center}
+.act-hor-cab{font-size:.62rem;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-bottom:3px}
+.act-hor-fila{margin-bottom:6px}
+.act-hor-fila input{width:100%;min-width:0;padding:7px 6px;border:1px solid #e2e8f0;border-radius:8px;
+  font-size:.8rem;font-family:inherit;outline:none;color:#1e293b;background:#fff}
+.act-hor-fila input:focus{border-color:#7c3aed}
+.act-hor-quitar{border:none;background:#f1f5f9;color:#64748b;width:26px;height:26px;border-radius:6px;cursor:pointer}
+.act-hor-quitar:hover{background:#fee2e2;color:#b91c1c}
+.act-mini{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px dashed #c4b5fd;
+  background:#faf5ff;color:#7c3aed;font-weight:600;font-size:.74rem;padding:6px 11px;
+  border-radius:8px;cursor:pointer;font-family:inherit;text-decoration:none;
+}
+.act-mini:hover{background:#ede9fe}
+.act-rep-extra{display:none;align-items:center;gap:8px;margin-top:7px;font-size:.78rem;color:#475569}
+.act-rep-extra.ver{display:flex}
+.act-campo .act-rep-extra input{flex:1}
+.act-campo .act-rep-extra input[type=number]{flex:0 0 80px}
+.act-rep-resumen{display:none;font-size:.72rem;margin-top:6px;padding:6px 9px;border-radius:7px;
+  background:#ede9fe;color:#5b21b6}
+.act-rep-resumen.ver{display:block}
+.act-rep-resumen.err{background:#fee2e2;color:#b91c1c}
+.act-enlace-fila{display:flex;gap:6px}
+.act-enlace-fila .act-mini{border-style:solid;flex:0 0 auto}
+.actividad-card .ac-enlace{
+  position:absolute;top:1px;right:2px;color:#fff;font-size:.62rem;padding:1px 3px;
+  border-radius:4px;background:rgba(255,255,255,.18);
+}
+.actividad-card .ac-enlace:hover{background:rgba(255,255,255,.4)}
+@media(max-width:420px){
+  .act-hor-cab{display:none}
+  .act-hor-fila{grid-template-columns:1fr 1fr 26px}
+  .act-hor-fila .ah-fecha{grid-column:1 / -1}
+}
+
 /* ---- panel lateral: actividades de la semana ---- */
 .act-lista{margin-top:8px;display:flex;flex-direction:column;gap:5px}
 .act-item{
