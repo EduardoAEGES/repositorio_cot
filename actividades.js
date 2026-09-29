@@ -22,6 +22,10 @@
   let lunesVisible = null;    // Date del lunes de la semana mostrada
   let editandoId = null;
   let pintando = false;       // evita que el observer se dispare con lo nuestro
+  let sinColumnaEnlace = false; // la tabla aun no tiene la columna 'enlace'
+
+  const MAX_SEMANAS = 52;
+  const MAX_FILAS = 300;      // tope de actividades creadas de una vez
 
   /* ---------- fechas ---------- */
   const aMedianoche = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -39,6 +43,28 @@
   const desdeISO = s => { const [a, m, d] = String(s).split('-').map(Number); return new Date(a, m - 1, d); };
   const ddmm = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
   const esMismoDia = (a, b) => aISO(a) === aISO(b);
+
+  // El enlace va en la columna 'enlace'; si la tabla no la tiene se guarda al
+  // final de la nota con este prefijo, y aqui se separa para mostrarlo.
+  const PREFIJO_ENLACE = '🔗 ';
+  const RE_ENLACE_NOTA = /(?:^|\n)🔗 (\S+)\s*$/;
+  function enlaceDe(a) {
+    if (a.enlace) return a.enlace;
+    const m = String(a.nota || '').match(RE_ENLACE_NOTA);
+    return m ? m[1] : '';
+  }
+  const notaDe = a => String(a.nota || '').replace(RE_ENLACE_NOTA, '').trim();
+  // Solo se aceptan enlaces http(s); si falta el protocolo se asume https.
+  function normalizarEnlace(txt) {
+    const t = String(txt || '').trim();
+    if (!t) return '';
+    try {
+      const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : 'https://' + t);
+      return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null;
+    } catch (e) { return null; }
+  }
+  // Las actividades repetidas comparten el id base: base, base__1, base__2...
+  const serieDe = id => String(id || '').split('__')[0];
 
   const esc = s => String(s == null ? '' : s)
     .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -257,17 +283,25 @@
       card.style.width = `${ancho - 6}px`;
       const NL = String.fromCharCode(10);
       card.title = [a.titulo, quienes + ' · ' + (a.start_time || '') + '-' + (a.end_time || ''),
-                    a.lugar || null, a.nota || null,
+                    a.lugar || null, notaDe(a) || null, enlaceDe(a) || null,
                     recortada ? '(parte del horario cae en franjas que la grilla no muestra)' : null
                    ].filter(Boolean).join(NL);
       if (recortada) card.classList.add('ac-recortada');
+      const enlace = enlaceDe(a);
       card.innerHTML =
-        '<i class="fas fa-star ac-badge"></i>' +
+        (enlace
+          ? '<a class="ac-enlace" href="' + esc(enlace) + '" target="_blank" rel="noopener noreferrer" title="Abrir enlace">' +
+            '<i class="fas fa-link"></i></a>'
+          : '<i class="fas fa-star ac-badge"></i>') +
         '<span class="ac-tit">' + esc(a.titulo) + '</span>' +
         '<span class="ac-meta">' + esc(a.start_time || '') +
         (a.end_time ? '-' + esc(a.end_time) : '') + ' · ' + esc(quienes) +
         (a.lugar ? ' · ' + esc(a.lugar) : '') + '</span>';
-      card.onclick = ev => { ev.stopPropagation(); abrirModal(a); };
+      card.onclick = ev => {
+        ev.stopPropagation();
+        if (ev.target.closest('.ac-enlace')) return;   // el enlace abre su pestaña
+        abrirModal(a);
+      };
       body.appendChild(card);
       visibles++;
     });
@@ -307,12 +341,28 @@
             '<div class="act-personas" id="actPersonas"></div></div>' +
           '<div class="act-campo"><label>Actividad</label>' +
             '<input type="text" id="actNombre" placeholder="Ej: Reunión de coordinación" maxlength="80"></div>' +
-          '<div class="act-campo"><label>Fecha</label>' +
-            '<input type="date" id="actFecha"></div>' +
-          '<div class="act-fila">' +
-            '<div class="act-campo"><label>Desde</label><input type="time" id="actInicio" step="900"></div>' +
-            '<div class="act-campo"><label>Hasta</label><input type="time" id="actFin" step="900"></div>' +
-          '</div>' +
+          '<div class="act-campo"><label>Horarios</label>' +
+            '<div class="act-hor-cab"><span>Fecha</span><span>Desde</span><span>Hasta</span><span></span></div>' +
+            '<div id="actHorarios"></div>' +
+            '<button type="button" class="act-mini" id="actAgregarHorario">' +
+              '<i class="fas fa-plus"></i> Agregar otro horario</button></div>' +
+          '<div class="act-campo"><label>Repetir</label>' +
+            '<select id="actRepetir">' +
+              '<option value="no">No se repite</option>' +
+              '<option value="semanas">Cada semana, durante N semanas</option>' +
+              '<option value="hasta">Cada semana, hasta una fecha</option>' +
+            '</select>' +
+            '<div class="act-rep-extra" id="actRepSemanas">' +
+              '<input type="number" id="actSemanas" min="2" max="' + MAX_SEMANAS + '" value="4">' +
+              '<span>semanas (contando la primera)</span></div>' +
+            '<div class="act-rep-extra" id="actRepHasta">' +
+              '<span>Hasta el</span><input type="date" id="actHasta"></div>' +
+            '<div class="act-rep-resumen" id="actRepResumen"></div></div>' +
+          '<div class="act-campo"><label>Enlace (opcional)</label>' +
+            '<div class="act-enlace-fila">' +
+              '<input type="url" id="actEnlace" placeholder="Ej: https://meet.google.com/..." maxlength="500">' +
+              '<a class="act-mini" id="actAbrirEnlace" target="_blank" rel="noopener noreferrer" title="Abrir enlace">' +
+                '<i class="fas fa-arrow-up-right-from-square"></i></a></div></div>' +
           '<div class="act-campo"><label>Lugar (opcional)</label>' +
             '<input type="text" id="actLugar" placeholder="Ej: Sala 2 / Virtual" maxlength="60"></div>' +
           '<div class="act-campo"><label>Nota (opcional)</label>' +
@@ -320,7 +370,8 @@
         '</div>' +
         '<div class="act-pie">' +
           '<button class="act-btn act-guardar" id="actGuardar"><i class="fas fa-floppy-disk"></i> Guardar</button>' +
-          '<button class="act-btn act-eliminar" id="actEliminar" style="display:none"><i class="fas fa-trash"></i></button>' +
+          '<button class="act-btn act-eliminar" id="actEliminar" style="display:none" title="Eliminar solo esta"><i class="fas fa-trash"></i></button>' +
+          '<button class="act-btn act-eliminar" id="actEliminarSerie" style="display:none"><i class="fas fa-trash-can"></i> Serie</button>' +
           '<button class="act-btn act-cancelar" id="actCancelar">Cancelar</button>' +
         '</div>' +
       '</div>';
@@ -330,6 +381,18 @@
     document.getElementById('actCancelar').onclick = cerrarModal;
     document.getElementById('actGuardar').onclick = guardar;
     document.getElementById('actEliminar').onclick = eliminar;
+    document.getElementById('actEliminarSerie').onclick = eliminarSerie;
+    document.getElementById('actAgregarHorario').onclick = () => {
+      const filas = leerHorarios();
+      const ult = filas[filas.length - 1];
+      agregarHorario(ult && ult.fecha ? aISO(sumarDias(desdeISO(ult.fecha), 1)) : aISO(diaSugerido()),
+                     ult ? ult.ini : '09:00', ult ? ult.fin : '10:00');
+      actualizarRepeticion();
+    };
+    document.getElementById('actRepetir').onchange = actualizarRepeticion;
+    ['actSemanas', 'actHasta'].forEach(id =>
+      document.getElementById(id).addEventListener('input', actualizarRepeticion));
+    document.getElementById('actEnlace').addEventListener('input', actualizarBotonEnlace);
     m.addEventListener('click', e => { if (e.target === m) cerrarModal(); });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && m.classList.contains('abierto')) cerrarModal();
@@ -360,6 +423,114 @@
       : n === 1 ? '1 docente' : `${n} docentes`;
   }
 
+  /* ---------- horarios (fecha + desde/hasta) ---------- */
+  function agregarHorario(fecha, ini, fin) {
+    const cont = document.getElementById('actHorarios');
+    const fila = document.createElement('div');
+    fila.className = 'act-hor-fila';
+    fila.innerHTML =
+      '<input type="date" class="ah-fecha">' +
+      '<input type="time" class="ah-ini" step="900">' +
+      '<input type="time" class="ah-fin" step="900">' +
+      '<button type="button" class="act-hor-quitar" title="Quitar este horario"><i class="fas fa-xmark"></i></button>';
+    fila.querySelector('.ah-fecha').value = fecha || '';
+    fila.querySelector('.ah-ini').value = ini || '';
+    fila.querySelector('.ah-fin').value = fin || '';
+    fila.querySelector('.ah-fecha').addEventListener('input', actualizarRepeticion);
+    fila.querySelector('.act-hor-quitar').onclick = () => {
+      if (cont.children.length > 1) fila.remove();
+      actualizarQuitar();
+      actualizarRepeticion();
+    };
+    cont.appendChild(fila);
+    actualizarQuitar();
+  }
+  // Siempre debe quedar al menos un horario
+  function actualizarQuitar() {
+    const filas = document.querySelectorAll('#actHorarios .act-hor-fila');
+    filas.forEach(f => { f.querySelector('.act-hor-quitar').style.visibility = filas.length > 1 ? 'visible' : 'hidden'; });
+  }
+  function leerHorarios() {
+    return [...document.querySelectorAll('#actHorarios .act-hor-fila')].map(f => ({
+      fecha: f.querySelector('.ah-fecha').value,
+      ini: f.querySelector('.ah-ini').value,
+      fin: f.querySelector('.ah-fin').value
+    }));
+  }
+
+  // Devuelve {semanas} para "N semanas", {hasta} para "hasta fecha" o {} si no se repite.
+  function leerRepeticion() {
+    const modo = document.getElementById('actRepetir').value;
+    if (modo === 'semanas') return { semanas: parseInt(document.getElementById('actSemanas').value, 10) || 0 };
+    if (modo === 'hasta') return { hasta: document.getElementById('actHasta').value };
+    return {};
+  }
+  // Expande cada horario en sus fechas semanales. Devuelve {fechas:[{fecha,ini,fin}]} o {error}.
+  function ocurrencias(horarios, rep) {
+    if (rep.semanas !== undefined && (rep.semanas < 2 || rep.semanas > MAX_SEMANAS)) {
+      return { error: `El número de semanas debe estar entre 2 y ${MAX_SEMANAS}.` };
+    }
+    if (rep.hasta !== undefined && !rep.hasta) return { error: 'Indica hasta qué fecha se repite.' };
+    const fechas = [];
+    for (const h of horarios) {
+      if (!h.fecha) continue;
+      const base = desdeISO(h.fecha);
+      if (rep.hasta !== undefined) {
+        const tope = desdeISO(rep.hasta);
+        if (tope < base) return { error: `La fecha "hasta" es anterior al horario del ${ddmm(base)}.` };
+        for (let w = 0; w < MAX_SEMANAS; w++) {
+          const f = sumarDias(base, 7 * w);
+          if (f > tope) break;
+          fechas.push({ fecha: aISO(f), ini: h.ini, fin: h.fin });
+        }
+      } else {
+        const n = rep.semanas || 1;
+        for (let w = 0; w < n; w++) fechas.push({ fecha: aISO(sumarDias(base, 7 * w)), ini: h.ini, fin: h.fin });
+      }
+    }
+    fechas.sort((a, b) => (a.fecha + a.ini).localeCompare(b.fecha + b.ini));
+    if (fechas.length > MAX_FILAS) return { error: `Serían ${fechas.length} actividades; el máximo es ${MAX_FILAS}.` };
+    return { fechas };
+  }
+  function actualizarRepeticion() {
+    const modo = document.getElementById('actRepetir').value;
+    document.getElementById('actRepSemanas').classList.toggle('ver', modo === 'semanas');
+    document.getElementById('actRepHasta').classList.toggle('ver', modo === 'hasta');
+    const res = document.getElementById('actRepResumen');
+    const horarios = leerHorarios().filter(h => h.fecha);
+    const r = ocurrencias(horarios, leerRepeticion());
+    if (r.error) { res.textContent = r.error; res.className = 'act-rep-resumen ver err'; return; }
+    const n = r.fechas.length;
+    if (n <= 1) { res.className = 'act-rep-resumen'; return; }
+    const primera = desdeISO(r.fechas[0].fecha), ultima = desdeISO(r.fechas[n - 1].fecha);
+    res.textContent = `Se ${editandoId ? 'guardarán' : 'crearán'} ${n} actividades, del ${ddmm(primera)} al ${ddmm(ultima)}/${ultima.getFullYear()}.`;
+    res.className = 'act-rep-resumen ver';
+  }
+  function actualizarBotonEnlace() {
+    const url = normalizarEnlace(document.getElementById('actEnlace').value);
+    const b = document.getElementById('actAbrirEnlace');
+    if (url) { b.href = url; b.style.display = 'inline-flex'; }
+    else { b.removeAttribute('href'); b.style.display = 'none'; }
+  }
+
+  // Muestra "Eliminar serie" si la actividad tiene hermanas repetidas
+  async function revisarSerie(act) {
+    const btn = document.getElementById('actEliminarSerie');
+    btn.style.display = 'none';
+    if (!act || !sb) return;
+    try {
+      const { data, error } = await sb.from(TABLA).select('id').like('id', serieDe(act.id) + '%');
+      if (error) throw error;
+      const n = (data || []).length;
+      if (n > 1 && editandoId === act.id) {
+        btn.innerHTML = `<i class="fas fa-trash-can"></i> Serie (${n})`;
+        btn.title = `Eliminar las ${n} actividades de esta serie`;
+        btn.dataset.n = n;
+        btn.style.display = 'inline-flex';
+      }
+    } catch (e) { /* sin el boton de serie no se pierde nada */ }
+  }
+
   function aviso(txt, tipo) {
     const a = document.getElementById('actAviso');
     a.className = 'act-aviso ver ' + (tipo || 'err');
@@ -375,11 +546,19 @@
     document.getElementById('actEliminar').style.display = act ? 'inline-flex' : 'none';
     pintarPersonas(act ? participantesDe(act) : []);
     document.getElementById('actNombre').value = act ? act.titulo : '';
-    document.getElementById('actFecha').value  = act ? act.fecha : aISO(diaSugerido());
-    document.getElementById('actInicio').value = act ? (act.start_time || '') : '09:00';
-    document.getElementById('actFin').value    = act ? (act.end_time || '') : '10:00';
+    document.getElementById('actHorarios').innerHTML = '';
+    agregarHorario(act ? act.fecha : aISO(diaSugerido()),
+                   act ? (act.start_time || '') : '09:00',
+                   act ? (act.end_time || '') : '10:00');
+    document.getElementById('actRepetir').value = 'no';
+    document.getElementById('actSemanas').value = 4;
+    document.getElementById('actHasta').value = '';
+    actualizarRepeticion();
+    document.getElementById('actEnlace').value = act ? enlaceDe(act) : '';
+    actualizarBotonEnlace();
     document.getElementById('actLugar').value  = act ? (act.lugar || '') : '';
-    document.getElementById('actNota').value   = act ? (act.nota || '') : '';
+    document.getElementById('actNota').value   = act ? notaDe(act) : '';
+    revisarSerie(act);
     document.getElementById('actModal').classList.add('abierto');
     setTimeout(() => document.getElementById('actNombre').focus(), 40);
   }
@@ -398,28 +577,51 @@
   async function guardar() {
     const sel = elegidosActuales();
     const titulo = document.getElementById('actNombre').value.trim();
-    const fecha = document.getElementById('actFecha').value;
-    const ini = document.getElementById('actInicio').value;
-    const fin = document.getElementById('actFin').value;
+    const horarios = leerHorarios();
 
     if (!sel.length) return aviso('Elige al menos un docente para la actividad.');
     if (!titulo) return aviso('Escribe el nombre de la actividad.');
-    if (!fecha) return aviso('Indica la fecha.');
-    if (!ini || !fin) return aviso('Indica la hora de inicio y de fin.');
-    if (minutos(fin) <= minutos(ini)) return aviso('La hora de fin debe ser posterior a la de inicio.');
+    for (const [i, h] of horarios.entries()) {
+      const cual = horarios.length > 1 ? ` (horario ${i + 1})` : '';
+      if (!h.fecha) return aviso('Indica la fecha' + cual + '.');
+      if (!h.ini || !h.fin) return aviso('Indica la hora de inicio y de fin' + cual + '.');
+      if (minutos(h.fin) <= minutos(h.ini)) return aviso('La hora de fin debe ser posterior a la de inicio' + cual + '.');
+    }
+    const enlace = normalizarEnlace(document.getElementById('actEnlace').value);
+    if (enlace === null) return aviso('El enlace no es válido. Usa una dirección web, por ejemplo https://...');
+    const r = ocurrencias(horarios, leerRepeticion());
+    if (r.error) return aviso(r.error);
+    if (!r.fechas.length) return aviso('Agrega al menos un horario.');
+    if (r.fechas.length > 1 &&
+        !confirm(`Se ${editandoId ? 'guardarán' : 'crearán'} ${r.fechas.length} actividades. ¿Continuar?`)) return;
+
+    const comun = {
+      user_id: sel[0],          // primer participante (compatibilidad)
+      participantes: sel,
+      titulo,
+      lugar: document.getElementById('actLugar').value.trim() || null
+    };
+    const nota = document.getElementById('actNota').value.trim();
+    // Al editar, la primera fecha actualiza la actividad abierta y el resto se
+    // crean como nuevas dentro de la misma serie.
+    const base = editandoId ? serieDe(editandoId)
+      : 'act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const sufijo = Date.now().toString(36);
+    const construir = conColumna => r.fechas.map((f, i) => Object.assign({}, comun, {
+      id: i === 0 ? (editandoId || base) : `${base}__${sufijo}${i}`,
+      fecha: f.fecha, start_time: f.ini, end_time: f.fin,
+      nota: (conColumna || !enlace ? nota : [nota, PREFIJO_ENLACE + enlace].filter(Boolean).join('\n')) || null
+    }, conColumna ? { enlace: enlace || null } : {}));
 
     const btn = document.getElementById('actGuardar');
     btn.disabled = true;
-    const fila = {
-      id: editandoId || ('act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
-      user_id: sel[0],          // primer participante (compatibilidad)
-      participantes: sel,
-      titulo, fecha, start_time: ini, end_time: fin,
-      lugar: document.getElementById('actLugar').value.trim() || null,
-      nota: document.getElementById('actNota').value.trim() || null
-    };
     try {
-      const { error } = await sb.from(TABLA).upsert(fila, { onConflict: 'id' });
+      let { error } = await sb.from(TABLA).upsert(construir(!sinColumnaEnlace), { onConflict: 'id' });
+      // La tabla aun no tiene la columna 'enlace': se guarda dentro de la nota.
+      if (error && !sinColumnaEnlace && /enlace/i.test(error.message || '')) {
+        sinColumnaEnlace = true;
+        ({ error } = await sb.from(TABLA).upsert(construir(false), { onConflict: 'id' }));
+      }
       if (error) throw error;
     } catch (e) {
       btn.disabled = false;
@@ -428,7 +630,7 @@
     btn.disabled = false;
 
     // Si la actividad quedo en otra semana, saltamos a esa semana para que se vea.
-    const dest = lunesDe(desdeISO(fecha));
+    const dest = lunesDe(desdeISO(r.fechas[0].fecha));
     if (!esMismoDia(dest, lunesVisible)) lunesVisible = dest;
     cerrarModal();
     await refrescar();
@@ -442,6 +644,20 @@
       if (error) throw error;
     } catch (e) {
       return aviso('No se pudo eliminar. ' + motivo(e));
+    }
+    cerrarModal();
+    await refrescar();
+  }
+
+  async function eliminarSerie() {
+    if (!editandoId) return;
+    const n = document.getElementById('actEliminarSerie').dataset.n || 'todas las';
+    if (!confirm(`¿Eliminar las ${n} actividades de esta serie para todos?`)) return;
+    try {
+      const { error } = await sb.from(TABLA).delete().like('id', serieDe(editandoId) + '%');
+      if (error) throw error;
+    } catch (e) {
+      return aviso('No se pudo eliminar la serie. ' + motivo(e));
     }
     cerrarModal();
     await refrescar();
