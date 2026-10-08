@@ -113,6 +113,9 @@ body {
 
 .hdr-btn:hover { transform: translateY(-2px); }
 
+.hdr-btn-home { background: #002d72; }
+.hdr-btn-home:hover { box-shadow: 0 8px 20px rgba(0, 45, 114, 0.35); }
+
 .hdr-btn-dashboard { background: #008272; }
 .hdr-btn-dashboard:hover { box-shadow: 0 8px 20px rgba(0, 130, 114, 0.35); }
 
