@@ -348,3 +348,36 @@ main {
 .shake {
     animation: shake 0.3s ease-in-out;
 }
+
+/* Portal principal: 12 accesos en cuadrícula de 4 columnas */
+.grid-container {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1100px) {
+    .grid-container { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 820px) {
+    .grid-container { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .grid-container { grid-template-columns: 1fr; }
+}
+
+.card.card-soon img {
+    filter: grayscale(0.6);
+    opacity: 0.75;
+}
+
+.soon-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: #9aa0a6;
+    padding: 3px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
