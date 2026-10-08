@@ -274,7 +274,8 @@ async function cargarHoras() {
             if (!dni) return;
             const base = {
                 periodo: norm(row[11]), modulo: String(row[6] || '').trim().toUpperCase(),
-                nrc: String(row[7] || '').trim(), curso: String(row[4] || '').trim(), sede: String(row[3] || '').trim()
+                nrc: String(row[7] || '').trim(), curso: String(row[4] || '').trim(), sede: String(row[3] || '').trim(),
+                seccion: String(row[5] || '').trim(), carga: String(row[0] || '').trim(), modalidad: String(row[15] || '').trim()
             };
             parseHorarios(String(row[16] || ''), String(row[17] || '')).forEach((s) => {
                 (porDni[dni] = porDni[dni] || []).push({ ...base, ...s });
@@ -300,16 +301,66 @@ function horasAsignadas(d) {
     const lista = CURSOS_POR_DNI[limpiaDni(d.dni)] || [];
     const vistos = new Set();
     let min = 0;
-    const cursos = new Set();
+    const cursos = new Map(); // un curso por periodo + NRC + sección
     lista.forEach((c) => {
         if (!cursoVisible(c)) return;
         const k = `${c.nrc}-${c.start}-${c.day}`;
         if (vistos.has(k)) return;
         vistos.add(k);
         if (c.end > c.start) min += c.end - c.start;
-        cursos.add(c.curso + (c.nrc ? ' · NRC ' + c.nrc : ''));
+        const per = etiquetaPeriodo(c);
+        const ck = `${per}|${c.nrc}|${c.seccion}|${c.curso}`;
+        if (!cursos.has(ck)) cursos.set(ck, { ...c, periodoLabel: per, horarios: [] });
+        cursos.get(ck).horarios.push(c);
     });
-    return { horas: Math.round((min / 45) * 10) / 10, cursos: [...cursos] };
+    return { horas: Math.round((min / 45) * 10) / 10, cursos: [...cursos.values()] };
+}
+
+// "AGOSTO 1", "OCTUBRE 2", "AGOSTO REGULAR"...
+function etiquetaPeriodo(c) {
+    const p = PERIODOS.find((x) => x.p.includes(c.periodo) && x.m === c.modulo);
+    if (p) return p.label;
+    const mes = PERIODOS.find((x) => x.p.includes(c.periodo));
+    if (mes) return mes.label.replace(/\s\d$/, '') + (c.modulo ? ' ' + c.modulo : '');
+    return [c.periodo, c.modulo].filter(Boolean).join(' ') || 'SIN PERIODO';
+}
+
+// Enlace al aula virtual: shortname "SECCION|NRC CARGA" (igual que en Horarios)
+function enlaceClase(c) {
+    const short = c.seccion && c.nrc ? `${c.seccion}|${c.nrc}${c.carga ? ' ' + c.carga : ''}` : '';
+    return short
+        ? `https://campusdigital.certus.edu.pe/course/view.php?name=${encodeURIComponent(short)}`
+        : 'https://campusdigital.certus.edu.pe/course/search.php';
+}
+
+const NOMBRE_DIA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+function cursosHtml(cursos) {
+    if (!cursos.length) return '';
+    const orden = PERIODOS.map((p) => p.label);
+    const grupos = {};
+    cursos.forEach((c) => { (grupos[c.periodoLabel] = grupos[c.periodoLabel] || []).push(c); });
+    const claves = Object.keys(grupos).sort((a, b) => {
+        const ia = orden.indexOf(a), ib = orden.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+    return `<div class="nf-cursos">${claves.map((k) => `
+        <div class="nf-periodo-grupo">
+            <h4>${esc(k)} · ${grupos[k].length} curso(s)</h4>
+            ${grupos[k].map((c) => {
+                const hor = c.horarios.slice().sort((a, b) => a.day - b.day || a.start - b.start)
+                    .map((h) => `${NOMBRE_DIA[h.day]} ${hhmm(h.start)}-${hhmm(h.end)}`).join(' · ');
+                return `<div class="nf-curso">
+                    <div>
+                        <b>${esc(c.curso || 'Curso')}</b>
+                        <small>NRC ${esc(c.nrc || '—')} · Sec. ${esc(c.seccion || '—')} · ${esc(c.sede || '—')}${c.modalidad ? ' · ' + esc(c.modalidad) : ''}</small><br>
+                        <small>${esc(hor)}</small>
+                    </div>
+                    <a class="nf-clase" href="${enlaceClase(c)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Entrar a la clase</a>
+                </div>`;
+            }).join('')}
+        </div>`).join('')}</div>`;
 }
 
 // ------------------------------------------------------------------ render
@@ -423,8 +474,26 @@ function sugerir() {
     box.hidden = false;
 }
 
-function dato(icono, etiqueta, valor) {
-    return `<div class="nf-dato"><i class="fas ${icono}"></i><div><small>${etiqueta}</small><span>${valor || '—'}</span></div></div>`;
+// Casilla de dato con botón para copiar (copia: texto plano; valor: HTML a mostrar)
+function dato(icono, etiqueta, valor, copia) {
+    const txt = copia != null ? copia : String(valor || '').replace(/<[^>]*>/g, '');
+    return `<div class="nf-dato"><i class="fas ${icono}"></i><div><small>${etiqueta}</small><span>${valor || '—'}</span></div>
+        ${txt ? `<button class="nf-copy" data-copy="${esc(txt)}" title="Copiar"><i class="far fa-copy"></i></button>` : ''}</div>`;
+}
+
+async function copiar(btn) {
+    const t = btn.dataset.copy;
+    try {
+        await navigator.clipboard.writeText(t);
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = t; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch (e2) { /* sin portapapeles */ }
+        ta.remove();
+    }
+    btn.classList.add('ok');
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = '<i class="far fa-copy"></i>'; }, 1200);
 }
 
 function abrir(dni) {
@@ -445,7 +514,7 @@ function abrir(dni) {
                 <div class="nf-kpi"><small>Horas libres</small><b>${h.libres != null ? h.libres : '—'}</b></div>
                 <div class="nf-bar big ${h.cls}"><i style="width:${h.pct}%"></i></div>
                 <p class="nf-note">Según Horarios (${esc(per)}).${d.horasLibresHoja ? ` Horas libres en el Excel: ${esc(d.horasLibresHoja)}.` : ''}</p>
-                ${h.a.cursos.length ? `<details><summary>${h.a.cursos.length} curso(s) asignado(s)</summary><ul>${h.a.cursos.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
+                ${cursosHtml(h.a.cursos)}
             </div>`;
         }
     }
@@ -463,16 +532,17 @@ function abrir(dni) {
         </div>
         <div class="nf-modal-body">
             <div class="nf-datos">
-                ${dato('fa-id-card', 'DNI', esc(d.dni))}
-                ${dato('fa-phone', 'Teléfono', tel ? `<a href="tel:${tel}">${esc(d.telefono)}</a> · <a href="https://wa.me/51${tel.slice(-9)}" target="_blank" rel="noopener">WhatsApp</a>` : '')}
-                ${dato('fa-envelope', 'Correo', d.correo ? `<a href="mailto:${esc(d.correo.toLowerCase())}">${esc(d.correo.toLowerCase())}</a>` : '')}
-                ${dato('fa-file-signature', 'Tipo de contrato', `<span class="nf-contract inline ${c.cls}">${esc(c.code)}</span> ${esc(c.desc)}`)}
-                ${dato('fa-location-dot', 'Sede principal', esc(d.sedePrincipal))}
-                ${dato('fa-map', 'Sedes disponibles', esc(d.sedes.join(' / ')))}
-                ${d.profesion ? dato('fa-graduation-cap', 'Profesión', esc(d.profesion)) : ''}
-                ${d.evaldo ? dato('fa-star', 'EVALDO', esc(d.evaldo)) : ''}
-                ${d.disponibilidad ? dato('fa-calendar-check', 'Disponibilidad', esc(d.disponibilidad)) : ''}
-                ${d.ingreso ? dato('fa-calendar-plus', 'Fecha de ingreso', esc(d.ingreso)) : ''}
+                ${dato('fa-user', 'Apellidos y nombres', esc(d.nombre), d.nombre)}
+                ${dato('fa-id-card', 'DNI', esc(d.dni), d.dni)}
+                ${dato('fa-phone', 'Teléfono', tel ? `<a href="tel:${tel}">${esc(d.telefono)}</a> · <a href="https://wa.me/51${tel.slice(-9)}" target="_blank" rel="noopener">WhatsApp</a>` : '', d.telefono)}
+                ${dato('fa-envelope', 'Correo', d.correo ? `<a href="mailto:${esc(d.correo.toLowerCase())}">${esc(d.correo.toLowerCase())}</a>` : '', d.correo.toLowerCase())}
+                ${dato('fa-file-signature', 'Tipo de contrato', `<span class="nf-contract inline ${c.cls}">${esc(c.code)}</span> ${esc(c.desc)}`, `${c.code} - ${c.desc}`)}
+                ${dato('fa-location-dot', 'Sede principal', esc(d.sedePrincipal), d.sedePrincipal)}
+                ${dato('fa-map', 'Sedes disponibles', esc(d.sedes.join(' / ')), d.sedes.join(' / '))}
+                ${d.profesion ? dato('fa-graduation-cap', 'Profesión', esc(d.profesion), d.profesion) : ''}
+                ${d.evaldo ? dato('fa-star', 'EVALDO', esc(d.evaldo), d.evaldo) : ''}
+                ${d.disponibilidad ? dato('fa-calendar-check', 'Disponibilidad', esc(d.disponibilidad), d.disponibilidad) : ''}
+                ${d.ingreso ? dato('fa-calendar-plus', 'Fecha de ingreso', esc(d.ingreso), d.ingreso) : ''}
             </div>
             ${horasBlock}
             ${d.observacion ? `<div class="nf-alert"><i class="fas fa-triangle-exclamation"></i> ${esc(d.observacion)}</div>` : ''}
@@ -544,6 +614,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('buscar').addEventListener('input', () => { sugerir(); render(); });
     $('buscar').addEventListener('focus', sugerir);
     document.addEventListener('click', (e) => {
+        const cp = e.target.closest('.nf-copy');
+        if (cp) { copiar(cp); return; }
         const item = e.target.closest('[data-dni]');
         if (item) { $('sugerencias').hidden = true; abrir(item.dataset.dni); return; }
         if (!e.target.closest('.nf-search-wrap')) $('sugerencias').hidden = true;
