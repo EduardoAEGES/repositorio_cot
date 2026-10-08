@@ -24,17 +24,17 @@ const LIDERES_POR_CURSO = [
     { p: 'sistemas contables integrados', l: 'EDUARDO MAMANI ROQUE' },
     // CICLO V
     { p: 'formulacion de estados financieros', l: 'CARLOS YBARRA MAGUIÑA' },
-    { p: 'control interno', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'contabilidad de entidades financieras', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'efsrt modulo 3', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'control interno', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'contabilidad de entidades financieras', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'efsrt modulo 3', l: 'FERNANDO FIGUEROA YNCA' },
     { p: 'cierre contable tributario', l: 'EDUARDO MAMANI ROQUE' },
     // CICLO VI
-    { p: 'analisis e interpretacion de los ee ff', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'analisis e interpretacion de los eeff', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'analisis e interpretacion de los estados financieros', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'eeff', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'auditoria', l: 'JORGE DURAN DE LA FUENTE' },
-    { p: 'contabilidad gerencial', l: 'JORGE DURAN DE LA FUENTE' },
+    { p: 'analisis e interpretacion de los ee ff', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'analisis e interpretacion de los eeff', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'analisis e interpretacion de los estados financieros', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'eeff', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'auditoria', l: 'FERNANDO FIGUEROA YNCA' },
+    { p: 'contabilidad gerencial', l: 'FERNANDO FIGUEROA YNCA' },
     { p: 'calculo financiero y tributario para la dja', l: 'EDUARDO MAMANI ROQUE' },
     // PENSAMIENTO LÓGICO (PLN)
     { p: 'pensamiento logico para los negocios tec', l: 'LUIS CONDOR' },
@@ -118,7 +118,7 @@ function getDocenteLider(docenteNombre, sede, dni) {
     // Respaldo por sede de carga/docente en caso el archivo aún esté cargando o el docente no esté listado en la hoja
     const s = normalizeLider(sede);
     if (!s) return '—';
-    if (s.includes('surco') || s.includes('ate') || s.includes('prc')) return 'JORGE DURAN DE LA FUENTE';
+    if (s.includes('surco') || s.includes('ate') || s.includes('prc')) return 'FERNANDO FIGUEROA YNCA';
     if (s.includes('sjl') || s.includes('san juan') || s.includes('ves') || s.includes('villa el salvador')) return 'JOSE RAMIREZ PINEDA';
     if (s.includes('aqp') || s.includes('arequipa')) return 'EDUARDO MAMANI ROQUE';
     if (s.includes('nor') || s.includes('norte') || s.includes('virtual') || s.includes('cix')) return 'CARLOS YBARRA MAGUIÑA';
@@ -141,9 +141,9 @@ function getLiderCurso(cursoNombre, ciclo) {
         if (cic.includes('IV') || c.includes('modulo 2') || c.includes('mod 2') || c.includes('ciclo iv') || c.includes('ciclo 4')) {
             return 'JOSE RAMIREZ PINEDA';
         }
-        // Ciclo VI o Módulo 3 curricular -> JORGE DURAN DE LA FUENTE
+        // Ciclo VI o Módulo 3 curricular -> FERNANDO FIGUEROA YNCA
         if ((cic.includes('VI') && !cic.includes('VIII') && !cic.includes('VII') && !cic.includes('IV')) || c.includes('modulo 3') || c.includes('mod 3') || c.includes('ciclo vi') || c.includes('ciclo 6')) {
-            return 'JORGE DURAN DE LA FUENTE';
+            return 'FERNANDO FIGUEROA YNCA';
         }
     }
 
@@ -223,8 +223,8 @@ function getTipoInstitucion(course) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // State
-    // Equipo base: siempre presentes y NO se pueden eliminar (JORGE salió del equipo)
-    const FIJOS = ['EDUARDO', 'JOSÉ', 'CARLOS', 'MIRKO', 'LUIS'];
+    // Equipo base: siempre presentes y NO se pueden eliminar (FERNANDO reemplaza a JORGE)
+    const FIJOS = ['EDUARDO', 'JOSÉ', 'CARLOS', 'MIRKO', 'LUIS', 'FERNANDO'];
     const esFijo = (nombre) => FIJOS.includes(String(nombre || '').trim().toUpperCase());
     const defaultGroups = {
         "PTC": FIJOS.slice()
@@ -243,7 +243,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // JORGE ya no es docente: quitarlo de todos los grupos guardados
     Object.keys(groups).forEach(gn => {
-        groups[gn] = groups[gn].filter(u => u !== 'JORGE');
+        // FERNANDO ahora es fijo: quitar su chip con nombre completo para no duplicarlo
+        groups[gn] = groups[gn].filter(u => u !== 'JORGE' && u !== 'FIGUEROA YNCA FERNANDO FREDY');
     });
 
     // Los fijos siempre van primero y sin duplicados en cada grupo
@@ -303,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeUsers = new Set(['CARLOS']);
     }
     activeUsers.delete('JORGE');   // JORGE ya no es docente
+    if (activeUsers.delete('FIGUEROA YNCA FERNANDO FREDY')) activeUsers.add('FERNANDO');
     let lastSearchedUser = null;
     
     console.log('Groups initialized:', groups);
@@ -636,7 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (!val) return '—';
                         const str = String(val).trim().toUpperCase();
                         if (str === 'EDUARDO' || str === 'MAMANI' || str.includes('MAMANI ROQUE')) return 'EDUARDO MAMANI ROQUE';
-                        if (str === 'JORGE' || str.includes('DURAN')) return 'JORGE DURAN DE LA FUENTE';
+                        if (str === 'JORGE' || str.includes('DURAN')) return 'FERNANDO FIGUEROA YNCA';   // FERNANDO reemplaza a JORGE
+                        if (str === 'FERNANDO' || str.includes('FIGUEROA')) return 'FERNANDO FIGUEROA YNCA';
                         if (str === 'JOSÉ' || str === 'JOSE' || str.includes('RAMIREZ')) return 'JOSE RAMIREZ PINEDA';
                         if (str === 'CARLOS' || str === 'VIRTUAL' || str === 'NORTE' || str === 'NOR' || str.includes('YBARRA')) return 'CARLOS YBARRA MAGUIÑA';
                         if (str.includes('LUIS') && str.includes('MIRKO')) return 'LUIS y MIRKO';
@@ -921,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'EDUARDO': '46069339',
                 'JOSÉ': '41403863',
                 'JOSE': '41403863',
-                'JORGE': '70092982',
+                'FERNANDO': '41768946',
                 'CARLOS': '8133862',
                 'LUIS': '40073403',
                 'MIRKO': '42670470'
@@ -2061,7 +2064,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'EDUARDO': '46069339',
                 'JOSÉ': '41403863',
                 'JOSE': '41403863',
-                'JORGE': '70092982',
+                'FERNANDO': '41768946',
                 'CARLOS': '8133862',
                 'LUIS': '40073403',
                 'MIRKO': '42670470'
