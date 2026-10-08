@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento EVALDO - EQUIPO-COT-PLN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="evaldo.css">
+</head>
+<body>
+    <header class="nf-nav">
+        <div class="nf-brand">
+            <img src="LOGO_CERTUS.png" alt="Certus" class="nf-logo">
+            <span class="nf-brand-title">EVALDO</span>
+        </div>
+        <div class="nf-nav-actions">
+            <a href="https://campusevolution.certus.edu.pe/psp/CS90PRD/?cmd=login&languageCd=ESP"
+                rel="noopener" class="nf-btn nf-btn-campus">
+                <i class="fas fa-graduation-cap"></i> <span class="lg">Campus Evolution</span><span class="sm">Campus</span>
+            </a>
+            <a href="index.html" class="nf-btn nf-btn-home">
+                <i class="fas fa-house"></i> <span class="lg">Volver a Inicio</span><span class="sm">Inicio</span>
+            </a>
+        </div>
+    </header>
+
+    <section class="nf-hero">
+        <h1>Seguimiento EVALDO</h1>
+        <p>Notas por sección: qué docentes no han subido notas, avance de evaluaciones y reprobados (nota 1 a 11).</p>
+        <div class="nf-stats" id="stats">
+            <div class="nf-stat"><i class="fas fa-layer-group"></i><b id="cSec">0</b><span>Secciones</span></div>
+            <div class="nf-stat"><i class="fas fa-user-graduate"></i><b id="cEst">0</b><span>Estudiantes</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-triangle-exclamation"></i><b id="cSin">0</b><span>Secciones sin notas</span></div>
+            <div class="nf-stat"><i class="fas fa-circle-xmark"></i><b id="cRep">0</b><span>Notas reprobadas</span></div>
+        </div>
+        <div class="nf-status" id="estado"><span class="nf-spinner"></span> Preparando...</div>
+        <p class="nf-privacidad"><i class="fas fa-lock"></i> Los reportes se procesan y guardan solo en este navegador. No se suben a ningún servidor.</p>
+    </section>
+
+    <main>
+        <!-- ══ 1 · DESCARGA GUIADA ══ -->
+        <details class="ev-card" id="cardDescarga" open>
+            <summary class="ev-card-head">
+                <h2><span class="ev-num">1</span> Descargar reportes de Campus Evolution</h2>
+                <span class="ev-muted" id="manualInfo"></span>
+                <i class="fas fa-chevron-down ev-caret"></i>
+            </summary>
+            <div class="ev-card-body">
+                <div class="ev-filtros">
+                    <div class="ev-fila"><span class="ev-label">Grado</span><div class="ev-chips" id="dGrados"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Ciclo</span><div class="ev-chips" id="dCiclos"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="dCampus"></div></div>
+                </div>
+                <div class="ev-auto">
+                    <div class="ev-auto-head">
+                        <i class="fas fa-robot"></i>
+                        <div>
+                            <b>Descarga automática</b>
+                            <span>Baja las combinaciones marcadas sin hacer los pasos a mano.</span>
+                        </div>
+                    </div>
+                    <div class="ev-auto-acciones">
+                        <button class="ev-btn ev-btn-auto" id="autoBtn"><i class="fas fa-bolt"></i> Descargar automáticamente (<span id="nAuto">0</span>)</button>
+                        <label class="ev-check"><input type="checkbox" id="incluirCompletas"> Volver a bajar también las completas</label>
+                    </div>
+                    <div class="ev-agente" id="agenteEstado"></div>
+                </div>
+                <details class="ev-pasos">
+                    <summary><b>Hacerlo a mano (Programación de Consultas)</b>: clic para ver los pasos</summary>
+                    <ol>
+                        <li>Entra a <a href="https://campusevolution.certus.edu.pe/psp/CS90PRD/?cmd=login&languageCd=ESP"  rel="noopener">Campus Evolution</a>:
+                            <b>Menú Principal › Herramientas de Informes › Consultas › Programación de Consultas</b>.</li>
+                        <li><b>Buscar un Valor</b> → Buscar → clic en el ID Control Ejecución <code>AC_ALUMNOS_GB</code>.
+                            (Si no existe: <b>Añadir un Valor</b> → <code>AC_ALUMNOS_GB</code> → Añadir → Consulta <code>AC_ALUMNOS_GB</code>.)</li>
+                        <li>Escribe los 4 valores de la fila de abajo (clic en cada uno para copiarlo) → <b>Acep</b>.
+                            Para la siguiente combinación usa <b>Actualizar Parámetros</b>.</li>
+                        <li><b>Ejec</b> → Formato <b>XLS</b> → Acep.</li>
+                        <li><b>Monitor Procesos</b> → Actualizar hasta "Correcto / Enviado" → <b>Detalles</b> →
+                            <b>Registro/Rastreo</b> → clic en <code>AC_ALUMNOS_GB-NNNNNNN.xls</code>.</li>
+                        <li>Arrastra los archivos descargados al paso 2. No hace falta renombrarlos: cada uno se reconoce por su contenido.</li>
+                    </ol>
+                    <p class="ev-nota"><i class="fas fa-circle-info"></i> Evita el botón <b>Ver Resultado</b> de Consulta: ese Excel puede venir cortado.
+                        Los archivos de Programación de Consultas se marcan como <span class="ev-ok">completo</span>.</p>
+                </details>
+                <div id="listaManual" class="ev-lista-manual"></div>
+            </div>
+        </details>
+
+        <!-- ══ 2 · CARGAR REPORTES ══ -->
+        <section class="ev-card">
+            <div class="ev-card-head">
+                <h2><span class="ev-num">2</span> Cargar reportes</h2>
+                <span class="ev-muted" id="archInfo"></span>
+                <div class="ev-head-actions">
+                    <button class="ev-btn ev-btn-ghost" id="actualizarHoja" title="Volver a leer CARGA_HORARIA y Docentes 2026"><i class="fas fa-rotate"></i> Actualizar hoja de carga</button>
+                    <button class="ev-btn ev-btn-ghost" id="quitarTodos" hidden><i class="fas fa-trash-can"></i> Quitar todos</button>
+                    <button class="ev-btn ev-btn-auto" id="publicarBtn" title="Sube los reportes cifrados para que el equipo los vea con la contraseña"><i class="fas fa-cloud-arrow-up"></i> Publicar para el equipo</button>
+                </div>
+            </div>
+            <div class="ev-card-body">
+                <label id="zonaSubir" class="ev-zona">
+                    <input type="file" id="inputSubir" accept=".xls,.xlsx" multiple hidden>
+                    <i class="fas fa-file-arrow-up"></i>
+                    <span>Arrastra aquí los archivos <b>AC_ALUMNOS_GB…xls</b> o <u>haz clic para elegirlos</u></span>
+                    <small>Puedes elegir varios a la vez (Ctrl+A en la carpeta Descargas).</small>
+                </label>
+                <div class="ev-agente" id="publicarEstado"></div>
+                <div class="ev-hoja" id="hojaInfo"></div>
+                <div id="importLog" class="ev-log" hidden></div>
+                <div class="ev-archivos" id="archivos"></div>
+            </div>
+        </section>
+
+        <!-- ══ 3 · RESULTADOS ══ -->
+        <section class="ev-card" id="cardResultados">
+            <div class="ev-card-head">
+                <h2><span class="ev-num">3</span> <span id="tituloTabla">Resultados</span></h2>
+                <div class="ev-head-actions">
+                    <button class="ev-btn ev-btn-excel" id="exportarBtn"><i class="fas fa-file-excel"></i> Excel por sección</button>
+                    <button class="ev-btn ev-btn-excel" id="exportarEstBtn"><i class="fas fa-file-excel"></i> Excel de estudiantes</button>
+                </div>
+            </div>
+            <div class="ev-card-body">
+                <div class="ev-buscar">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="search" id="buscar" placeholder="Docente, curso, sección, NRC o alumno..." autocomplete="off">
+                    <button class="ev-btn ev-btn-ghost" id="limpiarFiltros"><i class="fas fa-filter-circle-xmark"></i> Limpiar filtros</button>
+                </div>
+                <div class="ev-filtros" id="filtrosNotas">
+                    <div class="ev-fila"><span class="ev-label">Área</span><div class="ev-chips" id="fArea"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Periodo</span><div class="ev-chips" id="fPeriodo"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Módulo</span><div class="ev-chips" id="fModulo"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Ciclo</span><div class="ev-chips" id="fCicloAcad"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Turno</span><div class="ev-chips" id="fTurno"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Modalidad</span><div class="ev-chips" id="fModalidad"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fCampus"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Ccl Lvo</span><div class="ev-chips" id="fCiclo"></div></div>
+                    <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. Los Excel exportan solo lo filtrado.</p>
+                </div>
+                <div class="ev-vistas" role="tablist">
+                    <button class="nf-chip on" data-vista="secciones">Por sección</button>
+                    <button class="nf-chip" data-vista="sinnotas">Secciones sin notas</button>
+                    <button class="nf-chip" data-vista="docentes">Por docente</button>
+                    <button class="nf-chip" data-vista="reprobados">Reprobados</button>
+                </div>
+                <div id="tabla"><div class="ev-vacio">Carga los reportes en el paso 2 para ver resultados.</div></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Detalle de una sección: estudiantes y sus notas -->
+    <div id="modal" class="nf-modal" hidden>
+        <div class="nf-modal-box" role="dialog" aria-modal="true">
+            <button class="nf-modal-close" id="modal-cerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+            <div id="modal-contenido"></div>
+        </div>
+    </div>
+
+    <!-- Contraseña del equipo para ver los reportes publicados (cifrados) -->
+    <div id="modalClave" class="nf-modal" hidden>
+        <div class="nf-modal-box ev-asistente" role="dialog" aria-modal="true" aria-labelledby="claveTitulo">
+            <div class="ev-modal-hero">
+                <h3 id="claveTitulo"><i class="fas fa-lock"></i> Datos del equipo</h3>
+                <p>Escribe la contraseña del equipo para ver los reportes publicados. Se recuerda en este navegador.</p>
+            </div>
+            <div class="ev-modal-body">
+                <form id="claveForm" class="ev-clave">
+                    <input type="password" id="claveInput" placeholder="Contraseña" autocomplete="current-password" required>
+                    <button class="ev-btn ev-btn-auto" type="submit"><i class="fas fa-unlock"></i> Ver datos</button>
+                </form>
+                <p class="ev-bad" id="claveError"></p>
+                <button class="ev-btn ev-btn-ghost" id="claveOmitir" type="button">Continuar sin los datos del equipo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ventana de la descarga automática: 3 pasos que se marcan solos -->
+    <div id="modalAuto" class="nf-modal" hidden>
+        <div class="nf-modal-box ev-asistente" role="dialog" aria-modal="true" aria-labelledby="asisTitulo">
+            <button class="nf-modal-close" id="asisCerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+            <div class="ev-modal-hero">
+                <h3 id="asisTitulo"><i class="fas fa-bolt"></i> Descarga automática</h3>
+                <p id="asisSub">Pulsa el botón de cada paso. Se marcan con ✓ solos.</p>
+            </div>
+            <div class="ev-modal-body">
+                <div class="ev-paso" id="paso1">
+                    <span class="ev-paso-icono">1</span>
+                    <div class="ev-paso-txt"><b>Abrir el agente</b><small id="paso1Txt"></small></div>
+                    <button class="ev-btn ev-btn-auto" id="paso1Btn"><i class="fas fa-play"></i> Abrir agente</button>
+                </div>
+                <div class="ev-paso" id="paso2">
+                    <span class="ev-paso-icono">2</span>
+                    <div class="ev-paso-txt"><b>Iniciar sesión en Campus Evolution</b><small id="paso2Txt"></small></div>
+                    <button class="ev-btn ev-btn-auto" id="paso2Btn"><i class="fas fa-right-to-bracket"></i> Abrir Campus</button>
+                </div>
+                <div class="ev-paso" id="paso3">
+                    <span class="ev-paso-icono">3</span>
+                    <div class="ev-paso-txt"><b id="paso3Tit">Descargar reportes</b><small id="paso3Txt"></small></div>
+                    <button class="ev-btn ev-btn-auto" id="paso3Btn"><i class="fas fa-download"></i> Descargar</button>
+                    <button class="ev-btn ev-btn-ghost" id="detenerBtn" hidden><i class="fas fa-stop"></i> Detener</button>
+                </div>
+                <div class="ev-progreso" id="asisProgreso" hidden><i id="asisBarra"></i></div>
+                <div class="ev-asis-lista" id="asisLista"></div>
+                <details class="ev-asis-detalle">
+                    <summary>Ver detalle</summary>
+                    <div id="autoLog" class="ev-log"></div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="evaldo-core.js"></script>
+    <script src="evaldo.js"></script>
+</body>
+</html>
