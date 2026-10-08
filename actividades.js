@@ -12,7 +12,7 @@
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E';
   const TABLA = 'cot_actividades';
 
-  const PERSONAS_FALLBACK = ['EDUARDO', 'JOSÉ', 'JORGE', 'CARLOS', 'MIRKO', 'LUIS'];
+  const PERSONAS_FALLBACK = ['EDUARDO', 'JOSÉ', 'FERNANDO', 'CARLOS', 'MIRKO', 'LUIS'];
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                  'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];
