@@ -3,155 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Carga Docente - EQUIPO-COT-PLN</title>
+    <title>Gestor de Carga Académica - EQUIPO-COT-PLN</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="dashboard.css?v=6">
-    <link rel="stylesheet" href="infobot.css?v=1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+        .btn {
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #fff;
+            border-radius: 4px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-green { background: #107c41; color: white !important; }
+        .btn-green:hover { background: #0c5e31; }
+        .btn-blue { background: #002d72; color: white !important; }
+        .btn-blue:hover { background: #001f4f; }
+        
+        .main-content {
+            padding: 20px;
+            height: calc(100vh - 100px);
+            box-sizing: border-box;
+        }
+        
+        .grid-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            height: 100%;
+            overflow: auto;
+        }
+        
+        /* DataTables overrides for Excel-like feel */
+        tfoot input {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        table.dataTable {
+            font-size: 13px;
+            border-collapse: collapse;
+        }
+        table.dataTable thead th, table.dataTable tfoot th {
+            white-space: nowrap;
+            background-color: #f3f2f1;
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            color: #333;
+        }
+        table.dataTable tbody td {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+        }
+        
+        /* Adjust DT buttons */
+        .dt-buttons .dt-button {
+            background: #107c41 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 4px !important;
+            padding: 8px 15px !important;
+        }
+        .dt-buttons .dt-button:hover {
+            background: #0c5e31 !important;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <div class="logo-container">
-            <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
-            <div class="site-title">EQUIPO-COT-PLN</div>
+    <header class="app-header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="LOGO_CERTUS.png" alt="Certus Logo" height="40">
+            <h2 style="margin: 0; color: #002d72;">Gestor de Carga Académica</h2>
         </div>
-        <nav class="nav-menu">
-            <a href="index.html" class="nav-link">Página principal</a>
-            <a href="horario.html" class="nav-link">Horarios</a>
-        </nav>
+        <div class="header-actions">
+            <a href="index.html" class="btn btn-blue"><i class="fas fa-home"></i> Volver a Inicio</a>
+            <a href="https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w/edit?usp=sharing" class="btn btn-green"><i class="fas fa-file-excel"></i> ABRIR EXCEL BASE</a>
+        </div>
     </header>
 
-    <main class="dash-main">
-        <div class="dash-head">
-            <h1><i class="fas fa-chart-column"></i> Dashboard de Carga Docente</h1>
-            <div class="dash-actions">
-                <div class="search-box search-dark">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="q" placeholder="Buscar docente, DNI o correo...">
-                </div>
-                <button id="btnClear" class="btn btn-ghost"><i class="fas fa-eraser"></i> Limpiar</button>
-                <a href="horario.html" class="btn btn-ghost"><i class="fas fa-arrow-left"></i> Horarios</a>
-                <button id="btnExport" class="btn btn-ghost"><i class="fas fa-file-csv"></i> Exportar</button>
-                <button id="btnReload" class="btn btn-solid"><i class="fas fa-rotate"></i> Actualizar</button>
+    <main class="main-content">
+        <div class="grid-container">
+            <div id="loadingMsg" style="text-align: center; padding: 40px; font-size: 1.2rem; color: #666;">
+                <i class="fas fa-spinner fa-spin"></i> Cargando datos de Carga Horaria...
             </div>
+            <table id="gridTable" class="display nowrap" style="width:100%; display: none;">
+            </table>
         </div>
-
-        <div id="status" class="dash-status"></div>
-
-        <!-- ============ FILTROS (2 filas) ============ -->
-        <section class="filters">
-            <div class="f-row">
-                <div class="f-group g-wide">
-                    <span class="f-label">Tipo de contrato</span>
-                    <div class="chips" id="fTipo"></div>
-                </div>
-                <div class="f-sep"></div>
-                <div class="f-group g-nar">
-                    <span class="f-label">Programa</span>
-                    <div class="chips" id="fProg"></div>
-                </div>
-            </div>
-            <div class="f-row">
-                <div class="f-group g-wide">
-                    <span class="f-label">Sede</span>
-                    <div class="chips" id="fSede"></div>
-                </div>
-                <div class="f-sep"></div>
-                <div class="f-group g-nar">
-                    <span class="f-label">Estado</span>
-                    <div class="chips" id="fEstado"></div>
-                </div>
-                <div class="f-sep"></div>
-                <div class="f-group g-nar">
-                    <span class="f-label">Módulo</span>
-                    <div class="chips" id="fModulo">
-                        <button class="chip on" data-v="M1">Módulo 1</button>
-                        <button class="chip" data-v="M2">Módulo 2</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ============ KPIs ============ -->
-        <section class="kpis" id="kpis"></section>
-
-        <!-- ============ TABLA (protagonista) ============ -->
-        <section class="panel">
-            <div class="panel-h">
-                <h3><i class="fas fa-table-list"></i> Listado de docentes</h3>
-                <span class="hint">clic en los encabezados para ordenar</span>
-            </div>
-            <div class="tbl-scroll" id="tblWrap">
-                <table class="dash-tbl">
-                    <thead>
-                        <tr class="g1">
-                            <th rowspan="2" data-k="nombre">Apellidos y Nombres</th>
-                            <th rowspan="2" data-k="tipo">Tipo</th>
-                            <th rowspan="2" data-k="sede">Sede</th>
-                            <th rowspan="2" data-k="prog">Programa</th>
-                            <th rowspan="2" data-k="contrato">Horas s/contrato</th>
-                            <th colspan="3" class="grp m1">Módulo 1</th>
-                            <th colspan="3" class="grp m2">Módulo 2</th>
-                            <th rowspan="2" data-k="total">Total</th>
-                        </tr>
-                        <tr class="g2">
-                            <th data-k="m1">Asignadas</th>
-                            <th data-k="p1">Cumplimiento</th>
-                            <th data-k="d1">Faltantes</th>
-                            <th data-k="m2">Asignadas</th>
-                            <th data-k="p2">Cumplimiento</th>
-                            <th data-k="d2">Faltantes</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tblBody">
-                        <tr><td colspan="12"><div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="tbl-foot">
-                <span id="tblCount">—</span>
-                <span>Fuente: hoja <b>CARGA_HORARIA</b> · lectura en vivo desde Google Sheets</span>
-            </div>
-        </section>
-
-        <!-- ============ VISUALES (al final) ============ -->
-        <section class="charts">
-            <div class="panel">
-                <div class="panel-h"><h3>Docentes por tipo de contrato</h3><span class="hint">clic para filtrar</span></div>
-                <div class="panel-b" id="chTipo"></div>
-            </div>
-            <div class="panel">
-                <div class="panel-h"><h3>Docentes por sede</h3><span class="hint">clic para filtrar</span></div>
-                <div class="panel-b bars" id="chSede"></div>
-            </div>
-            <div class="panel">
-                <div class="panel-h"><h3>Nivel de cumplimiento</h3><span class="hint">clic para filtrar</span></div>
-                <div class="panel-b bars" id="chCumpl"></div>
-            </div>
-            <div class="panel">
-                <div class="panel-h"><h3>Ocupación por tipo de contrato</h3><span class="hint">asignadas / contratadas</span></div>
-                <div class="panel-b bars" id="chOcup"></div>
-            </div>
-            <div class="panel">
-                <div class="panel-h"><h3>Modalidad de los cursos</h3></div>
-                <div class="panel-b" id="chModal"></div>
-            </div>
-        </section>
     </main>
 
-    <script src="dashboard.js?v=3"></script>
+    <!-- jQuery & DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    
+    <!-- DataTables Buttons for Excel Export -->
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+    
+    <!-- PapaParse for CSV reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
     <script>
-    window.INFO_BOT = {
-      intro: 'Este tablero <b>no guarda datos propios</b>: lee en vivo la hoja <b>CARGA_HORARIA</b>. ' +
-             'Si un docente aparece con horas equivocadas, hay que corregirlo en el archivo fuente.',
-      fuentes: [
-        { nombre: 'Reporte de Carga Docente', hoja: 'CARGA_HORARIA',
-          detalle: 'Una fila por docente: tipo de contrato, sede, programa, horas de contrato y las horas asignadas de Módulo 1 y Módulo 2. Es la única fuente de este tablero.',
-          url: 'https://docs.google.com/spreadsheets/d/19gd-PXm-8Abftuw706RwQS22rupZe7_sGAzasMNY9cA/edit' }
-      ],
-      nota: 'Después de editar, pulsa <b>Actualizar</b> aquí arriba para releer la hoja.'
-    };
+        $(document).ready(function() {
+            // URL de la hoja publicada como CSV (usando el GID de CARGA_HORARIA)
+            const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSbJ9v-qxajK2K221OqEeBbUEWNJRnmwNl8TLeAJsqfncUuiaBsRHs_gjzB7DMgJTQAKHLPHoMjJhR_/pub?gid=1470879596&single=true&output=csv';
+
+            Papa.parse(csvUrl, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    $('#loadingMsg').hide();
+                    $('#gridTable').show();
+                    
+                    const data = results.data;
+                    if(data.length === 0) {
+                        $('#gridTable').html('<p>No se encontraron datos.</p>');
+                        return;
+                    }
+                    
+                    // Extraer columnas únicas
+                    let allColumns = Object.keys(data[0]);
+                    const columns = allColumns.map(k => ({ title: k, data: k, defaultContent: "" }));
+                    
+                    // Construir cabecera (thead) y pie (tfoot) para los filtros por columna
+                    let thead = '<tr>' + columns.map(c => `<th>${c.title}</th>`).join('') + '</tr>';
+                    let tfoot = '<tr>' + columns.map(c => `<th><input type="text" placeholder="Filtrar ${c.title}" /></th>`).join('') + '</tr>';
+                    
+                    $('#gridTable').html(`<thead>${thead}</thead><tfoot>${tfoot}</tfoot>`);
+
+                    // Inicializar DataTables
+                    var table = $('#gridTable').DataTable({
+                        data: data,
+                        columns: columns,
+                        dom: '<"top"Bf>rt<"bottom"lip><"clear">',
+                        buttons: [
+                            {
+                                extend: 'excelHtml5',
+                                text: '<i class="fas fa-file-excel"></i> Exportar a Excel',
+                                title: 'Gestor_Carga_Academica',
+                                exportOptions: {
+                                    modifier: {
+                                        search: 'applied' // Exporta solo lo filtrado
+                                    }
+                                }
+                            }
+                        ],
+                        scrollX: true,
+                        scrollY: 'calc(100vh - 280px)',
+                        scrollCollapse: true,
+                        pageLength: 50,
+                        language: {
+                            url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                        },
+                        initComplete: function () {
+                            // Aplicar la lógica de filtro por cada columna
+                            this.api().columns().every(function () {
+                                var that = this;
+                                $('input', this.footer()).on('keyup change clear', function () {
+                                    if (that.search() !== this.value) {
+                                        that.search(this.value).draw();
+                                    }
+                                });
+                            });
+                        }
+                    });
+                },
+                error: function(err) {
+                    $('#loadingMsg').html('<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Error cargando los datos. Verifica tu conexión a internet o el enlace público.</span>');
+                }
+            });
+        });
     </script>
-    <script src="infobot.js?v=1"></script>
 </body>
 </html>

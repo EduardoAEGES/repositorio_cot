@@ -357,7 +357,7 @@ function cursosHtml(cursos) {
                         <small>NRC ${esc(c.nrc || '—')} · Sec. ${esc(c.seccion || '—')} · ${esc(c.sede || '—')}${c.modalidad ? ' · ' + esc(c.modalidad) : ''}</small><br>
                         <small>${esc(hor)}</small>
                     </div>
-                    <a class="nf-clase" href="${enlaceClase(c)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Entrar a la clase</a>
+                    <a class="nf-clase" href="${enlaceClase(c)}"  rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Entrar a la clase</a>
                 </div>`;
             }).join('')}
         </div>`).join('')}</div>`;
@@ -534,7 +534,7 @@ function abrir(dni) {
             <div class="nf-datos">
                 ${dato('fa-user', 'Apellidos y nombres', esc(d.nombre), d.nombre)}
                 ${dato('fa-id-card', 'DNI', esc(d.dni), d.dni)}
-                ${dato('fa-phone', 'Teléfono', tel ? `<a href="tel:${tel}">${esc(d.telefono)}</a> · <a href="https://wa.me/51${tel.slice(-9)}" target="_blank" rel="noopener">WhatsApp</a>` : '', d.telefono)}
+                ${dato('fa-phone', 'Teléfono', tel ? `<a href="tel:${tel}">${esc(d.telefono)}</a> · <a href="https://wa.me/51${tel.slice(-9)}"  rel="noopener">WhatsApp</a>` : '', d.telefono)}
                 ${dato('fa-envelope', 'Correo', d.correo ? `<a href="mailto:${esc(d.correo.toLowerCase())}">${esc(d.correo.toLowerCase())}</a>` : '', d.correo.toLowerCase())}
                 ${dato('fa-file-signature', 'Tipo de contrato', `<span class="nf-contract inline ${c.cls}">${esc(c.code)}</span> ${esc(c.desc)}`, `${c.code} - ${c.desc}`)}
                 ${dato('fa-location-dot', 'Sede principal', esc(d.sedePrincipal), d.sedePrincipal)}

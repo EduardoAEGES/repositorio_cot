@@ -2530,7 +2530,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <!-- Barra Inferior Fija -->
             <div style="padding: 12px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
-                <a href="${campusUrl}" target="_blank" rel="noopener noreferrer" 
+                <a href="${campusUrl}"  rel="noopener noreferrer" 
                    style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #714b67 0%, #493a4d 100%); color: #ffffff; font-size: 0.88rem; font-weight: 700; padding: 9px 18px; border-radius: 8px; text-decoration: none; box-shadow: 0 3px 8px rgba(113, 75, 103, 0.25); transition: opacity 0.2s;">
                     <i class="fas fa-external-link-alt" style="font-size: 0.95rem; color: #fbbf24;"></i>
                     <span>${shortName ? 'Ir al curso en Campus Digital' : 'Buscar en Campus Digital Certus'} <strong>${queryStr ? `(${queryStr})` : ''}</strong></span>

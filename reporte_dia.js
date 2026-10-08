@@ -510,7 +510,7 @@
           const nd = norm(f.docente);
           const sn = shortNameDe(f);
           const link = sn
-            ? `<a class="rd-clase" href="${CAMPUS_URL}${encodeURIComponent(sn)}" target="_blank" rel="noopener" title="Ir al curso en Campus Digital (${esc(sn)})"><i class="fas fa-arrow-up-right-from-square"></i></a>`
+            ? `<a class="rd-clase" href="${CAMPUS_URL}${encodeURIComponent(sn)}"  rel="noopener" title="Ir al curso en Campus Digital (${esc(sn)})"><i class="fas fa-arrow-up-right-from-square"></i></a>`
             : '<span class="rd-clase-no">—</span>';
           return '<tr>' +
           `<td class="rd-hora">${esc(f.ini)} - ${esc(f.fin)}</td>` +

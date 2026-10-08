@@ -290,7 +290,7 @@
       const enlace = enlaceDe(a);
       card.innerHTML =
         (enlace
-          ? '<a class="ac-enlace" href="' + esc(enlace) + '" target="_blank" rel="noopener noreferrer" title="Abrir enlace">' +
+          ? '<a class="ac-enlace" href="' + esc(enlace) + '"  rel="noopener noreferrer" title="Abrir enlace">' +
             '<i class="fas fa-link"></i></a>'
           : '<i class="fas fa-star ac-badge"></i>') +
         '<span class="ac-tit">' + esc(a.titulo) + '</span>' +
@@ -361,7 +361,7 @@
           '<div class="act-campo"><label>Enlace (opcional)</label>' +
             '<div class="act-enlace-fila">' +
               '<input type="url" id="actEnlace" placeholder="Ej: https://meet.google.com/..." maxlength="500">' +
-              '<a class="act-mini" id="actAbrirEnlace" target="_blank" rel="noopener noreferrer" title="Abrir enlace">' +
+              '<a class="act-mini" id="actAbrirEnlace"  rel="noopener noreferrer" title="Abrir enlace">' +
                 '<i class="fas fa-arrow-up-right-from-square"></i></a></div></div>' +
           '<div class="act-campo"><label>Lugar (opcional)</label>' +
             '<input type="text" id="actLugar" placeholder="Ej: Sala 2 / Virtual" maxlength="60"></div>' +

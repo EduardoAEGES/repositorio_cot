@@ -33,7 +33,7 @@
           '<div class="ib-n"><i class="fas fa-file-excel"></i>' + esc(f.nombre) +
             (f.hoja ? '<span class="ib-tag">' + esc(f.hoja) + '</span>' : '') + '</div>' +
           (f.detalle ? '<div class="ib-d">' + esc(f.detalle) + '</div>' : '') +
-          '<a class="ib-go" href="' + esc(f.url) + '" target="_blank" rel="noopener">' +
+          '<a class="ib-go" href="' + esc(f.url) + '"  rel="noopener">' +
             '<i class="fas fa-up-right-from-square"></i> Abrir archivo</a>' +
         '</div>').join('') +
     '</div>' +
