@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Base de Datos Docentes - EQUIPO-COT-PLN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="docentes.css">
+</head>
+<body>
+    <header class="nf-nav">
+        <div class="nf-brand">
+            <img src="LOGO_CERTUS22.png" alt="Certus" class="nf-logo">
+            <span class="nf-brand-title">DOCENTES</span>
+        </div>
+        <div class="nf-nav-actions">
+            <a href="https://docs.google.com/spreadsheets/d/1S2mR4JCG9Tr40xCFwB2wCnUgh4Vgo8px/edit?usp=sharing&ouid=106015270126399610138&rtpof=true&sd=true"
+               target="_blank" rel="noopener" class="nf-btn nf-btn-excel">
+                <i class="fas fa-file-excel"></i> <span class="lg">Ver Excel de docentes</span><span class="sm">Excel</span>
+            </a>
+            <a href="index.html" class="nf-btn nf-btn-home">
+                <i class="fas fa-house"></i> <span class="lg">Volver a Inicio</span><span class="sm">Inicio</span>
+            </a>
+        </div>
+    </header>
+
+    <section class="nf-hero">
+        <h1>Base de Datos Docentes</h1>
+        <p>Busca por DNI, nombres o apellidos. Contabilidad 2026-2 y Pensamiento Lógico 2026.</p>
+        <div class="nf-search-wrap">
+            <i class="fas fa-magnifying-glass nf-search-icon"></i>
+            <input type="search" id="buscar" class="nf-search" placeholder="Escribe un DNI, nombre o apellido..." autocomplete="off">
+            <div id="sugerencias" class="nf-suggest" hidden></div>
+        </div>
+        <div class="nf-filters" id="filtros">
+            <button class="nf-chip on" data-f="todos">Todos</button>
+            <button class="nf-chip" data-f="conta">Contabilidad</button>
+            <button class="nf-chip" data-f="pln">Pensamiento Lógico</button>
+            <button class="nf-chip" data-f="observado">Observados</button>
+            <button class="nf-chip" data-f="desvinculado">Desvinculados</button>
+        </div>
+        <div class="nf-stats" id="stats"></div>
+        <div class="nf-status" id="estado"><span class="nf-spinner"></span> Cargando docentes...</div>
+    </section>
+
+    <section class="nf-periodos">
+        <span class="nf-periodos-label"><i class="far fa-clock"></i> Horas asignadas según Horarios:</span>
+        <div id="periodos" class="nf-periodos-list"></div>
+        <span id="estado-horas" class="nf-status-mini"></span>
+    </section>
+
+    <main id="filas"></main>
+
+    <!-- Detalle del docente -->
+    <div id="modal" class="nf-modal" hidden>
+        <div class="nf-modal-box" role="dialog" aria-modal="true">
+            <button class="nf-modal-close" id="modal-cerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+            <div id="modal-contenido"></div>
+        </div>
+    </div>
+
+    <script src="docentes.js"></script>
+</body>
+</html>
