@@ -83,6 +83,45 @@ body {
     text-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
+/* Botón grande "Volver a Inicio" en la esquina superior derecha del header */
+.logo-area-framed {
+    position: relative;
+}
+
+.btn-volver-inicio {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 26px;
+    background: #ffffff;
+    color: #714b67;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-volver-inicio:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 900px) {
+    .btn-volver-inicio {
+        position: static;
+        align-self: flex-start;
+        padding: 10px 18px;
+        font-size: 0.95rem;
+    }
+}
+
 /* ===== Acciones del header (botones compactos) ===== */
 .header-actions {
     display: flex;
@@ -112,9 +151,6 @@ body {
 .hdr-btn i { font-size: 0.8rem; }
 
 .hdr-btn:hover { transform: translateY(-2px); }
-
-.hdr-btn-home { background: #002d72; }
-.hdr-btn-home:hover { box-shadow: 0 8px 20px rgba(0, 45, 114, 0.35); }
 
 .hdr-btn-dashboard { background: #008272; }
 .hdr-btn-dashboard:hover { box-shadow: 0 8px 20px rgba(0, 130, 114, 0.35); }
