@@ -26,21 +26,59 @@
         </section>
 
         <div class="grid-container">
-            <a href="javascript:void(0)" onclick="openProtectedUrl('https://drive.google.com/drive/folders/1h7nq2CzquofPkMQVmeG7jsJUU__xcFe8?usp=drive_link', 'Repositorio CONTA/PLN')" class="card">
-                <img src="assets/repositorio.png" alt="Repositorio CONTA/PLN">
-                <span class="card-title">Repositorio CONTA/PLN</span>
-            </a>
-            <a href="javascript:void(0)" onclick="openProtectedUrl('https://eventoscot.netlify.app/gestor.html', 'Gestor de eventos')" class="card">
-                <img src="assets/eventos.png" alt="Gestor de eventos">
-                <span class="card-title">Gestor de eventos</span>
-            </a>
-            <a href="status.html" class="card">
-                <img src="assets/status_asesorias.png" alt="Status de Asesorías">
-                <span class="card-title">Status de Asesorías</span>
-            </a>
             <a href="horario.html" class="card">
-                <img src="assets/horarios.png" alt="Horario">
-                <span class="card-title">Horario</span>
+                <img src="assets/horarios.png" alt="Horarios docentes">
+                <span class="card-title">Horarios docentes</span>
+            </a>
+            <a href="javascript:void(0)" onclick="openProtectedUrl('https://eventoscot.netlify.app/gestor.html', 'Gestor de eventos y NPS')" class="card">
+                <img src="assets/eventos.png" alt="Gestor de eventos y NPS">
+                <span class="card-title">Gestor de eventos y NPS</span>
+            </a>
+            <a href="buscador.html" class="card">
+                <img src="assets/buscador.png" alt="Base de datos Docentes">
+                <span class="card-title">Base de datos Docentes</span>
+            </a>
+            <a href="javascript:void(0)" onclick="openProtectedUrl('https://drive.google.com/drive/folders/1h7nq2CzquofPkMQVmeG7jsJUU__xcFe8?usp=drive_link', 'Drive de Contabilidad')" class="card">
+                <img src="assets/repositorio.png" alt="Drive de Contabilidad">
+                <span class="card-title">Drive de Contabilidad</span>
+            </a>
+            <a href="estudiantes.html" class="card">
+                <img src="assets/academica.png" alt="Base de datos estudiantes">
+                <span class="card-title">Base de datos estudiantes</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('EFSRT Produce MPE NAF')" class="card card-soon">
+                <img src="assets/emprendimiento.png" alt="EFSRT Produce MPE NAF">
+                <span class="card-title">EFSRT Produce MPE NAF</span>
+                <span class="soon-badge">Próximamente</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('Seguimiento EVALDO')" class="card card-soon">
+                <img src="assets/status_asesorias.png" alt="Seguimiento EVALDO">
+                <span class="card-title">Seguimiento EVALDO</span>
+                <span class="soon-badge">Próximamente</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('Búsqueda de Aulas por DNI Estudiante')" class="card card-soon">
+                <img src="assets/seleccion.png" alt="Búsqueda de Aulas por DNI Estudiante">
+                <span class="card-title">Búsqueda de Aulas por DNI Estudiante</span>
+                <span class="soon-badge">Próximamente</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('Aplicativo 360')" class="card card-soon">
+                <img src="assets/marketing.png" alt="Aplicativo 360">
+                <span class="card-title">Aplicativo 360</span>
+                <span class="soon-badge">Próximamente</span>
+            </a>
+            <a href="dashboard.html" class="card">
+                <img src="assets/curricular.png" alt="Gestor de carga académica">
+                <span class="card-title">Gestor de carga académica</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('Simulador TaxLab 360')" class="card card-soon">
+                <img src="assets/contabilidad.png" alt="Simulador TaxLab 360">
+                <span class="card-title">Simulador TaxLab 360</span>
+                <span class="soon-badge">Próximamente</span>
+            </a>
+            <a href="javascript:void(0)" onclick="showSoon('Recursos de apoyo académico')" class="card card-soon">
+                <img src="assets/programacion.png" alt="Recursos de apoyo académico">
+                <span class="card-title">Recursos de apoyo académico</span>
+                <span class="soon-badge">Próximamente</span>
             </a>
         </div>
     </main>
@@ -80,6 +118,11 @@
         });
 
         let targetUrl = '';
+
+        // Tarjetas cuyo enlace aún no está configurado
+        function showSoon(name) {
+            alert(name + ': próximamente disponible.');
+        }
 
         function openProtectedUrl(url, name) {
             targetUrl = url;
