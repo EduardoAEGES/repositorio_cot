@@ -234,11 +234,11 @@
                         .filter(({ k }) => !HIDDEN_COLUMNS.includes(k))
                         .map(({ i }) => i);
 
-                    // Construir thead con solo columnas visibles
-                    let theadRow = '<tr>' + visibleKeys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+                    // Construir thead con todas las columnas (DataTables ocultará las indicadas en visible:false)
+                    let theadRow = '<tr>' + allColumnKeys.map(k => `<th>${k}</th>`).join('') + '</tr>';
 
-                    // tfoot: un <select multiple> por cada columna visible
-                    let tfootRow = '<tr>' + visibleKeys.map(k =>
+                    // tfoot: un <select multiple> por cada columna
+                    let tfootRow = '<tr>' + allColumnKeys.map(k =>
                         `<th><select class="col-filter" data-col="${k}" multiple="multiple" style="width:100%">
                             <option value="">-- Todos --</option>
                         </select></th>`
