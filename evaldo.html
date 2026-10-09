@@ -16,6 +16,9 @@
             <span class="nf-brand-title">EVALDO</span>
         </div>
         <div class="nf-nav-actions">
+            <button type="button" class="nf-btn nf-btn-master" id="masterBtn" title="Descargar y cargar reportes (pide la clave)">
+                <i class="fas fa-user-shield"></i> <span class="lg" id="masterTxt">Modo master</span><span class="sm">Master</span>
+            </button>
             <a href="https://campusevolution.certus.edu.pe/psp/CS90PRD/?cmd=login&languageCd=ESP"
                 rel="noopener" class="nf-btn nf-btn-campus">
                 <i class="fas fa-graduation-cap"></i> <span class="lg">Campus Evolution</span><span class="sm">Campus</span>
@@ -36,12 +39,12 @@
             <div class="nf-stat"><i class="fas fa-circle-xmark"></i><b id="cRep">0</b><span>Notas reprobadas</span></div>
         </div>
         <div class="nf-status" id="estado"><span class="nf-spinner"></span> Preparando...</div>
-        <p class="nf-privacidad"><i class="fas fa-lock"></i> Los reportes se procesan y guardan solo en este navegador. No se suben a ningún servidor.</p>
+        <p class="nf-privacidad solo-master"><i class="fas fa-lock"></i> Los reportes se procesan y guardan solo en este navegador. No se suben a ningún servidor.</p>
     </section>
 
     <main>
         <!-- ══ 1 · DESCARGA GUIADA ══ -->
-        <details class="ev-card" id="cardDescarga" open>
+        <details class="ev-card solo-master" id="cardDescarga" open>
             <summary class="ev-card-head">
                 <h2><span class="ev-num">1</span> Descargar reportes de Campus Evolution</h2>
                 <span class="ev-muted" id="manualInfo"></span>
@@ -89,7 +92,7 @@
         </details>
 
         <!-- ══ 2 · CARGAR REPORTES ══ -->
-        <section class="ev-card">
+        <section class="ev-card solo-master">
             <div class="ev-card-head">
                 <h2><span class="ev-num">2</span> Cargar reportes</h2>
                 <span class="ev-muted" id="archInfo"></span>
@@ -116,10 +119,11 @@
         <!-- ══ 3 · RESULTADOS ══ -->
         <section class="ev-card" id="cardResultados">
             <div class="ev-card-head">
-                <h2><span class="ev-num">3</span> <span id="tituloTabla">Resultados</span></h2>
+                <h2><span class="ev-num solo-master">3</span> <span id="tituloTabla">Resultados</span></h2>
                 <div class="ev-head-actions">
                     <button class="ev-btn ev-btn-excel" id="exportarBtn"><i class="fas fa-file-excel"></i> Excel por sección</button>
                     <button class="ev-btn ev-btn-excel" id="exportarEstBtn"><i class="fas fa-file-excel"></i> Excel de estudiantes</button>
+                    <button class="ev-btn ev-btn-pdf" id="exportarPdfBtn" title="PDF de la vista actual (Por sección, Sin notas, Por docente o Reprobados)"><i class="fas fa-file-pdf"></i> PDF de esta vista</button>
                 </div>
             </div>
             <div class="ev-card-body">
@@ -137,7 +141,7 @@
                     <div class="ev-fila"><span class="ev-label">Modalidad</span><div class="ev-chips" id="fModalidad"></div></div>
                     <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fCampus"></div></div>
                     <div class="ev-fila"><span class="ev-label">Ccl Lvo</span><div class="ev-chips" id="fCiclo"></div></div>
-                    <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. Los Excel exportan solo lo filtrado.</p>
+                    <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. El Excel y el PDF llevan solo lo filtrado.</p>
                 </div>
                 <div class="ev-vistas" role="tablist">
                     <button class="nf-chip on" data-vista="secciones">Por sección</button>
@@ -145,7 +149,7 @@
                     <button class="nf-chip" data-vista="docentes">Por docente</button>
                     <button class="nf-chip" data-vista="reprobados">Reprobados</button>
                 </div>
-                <div id="tabla"><div class="ev-vacio">Carga los reportes en el paso 2 para ver resultados.</div></div>
+                <div id="tabla"><div class="ev-vacio">Cargando reportes...</div></div>
             </div>
         </section>
     </main>
@@ -172,6 +176,24 @@
                 </form>
                 <p class="ev-bad" id="claveError"></p>
                 <button class="ev-btn ev-btn-ghost" id="claveOmitir" type="button">Continuar sin los datos del equipo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clave para entrar al modo master (descarga y carga de reportes) -->
+    <div id="modalMaster" class="nf-modal" hidden>
+        <div class="nf-modal-box ev-asistente" role="dialog" aria-modal="true" aria-labelledby="masterTitulo">
+            <button class="nf-modal-close" id="masterCerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+            <div class="ev-modal-hero">
+                <h3 id="masterTitulo"><i class="fas fa-user-shield"></i> Modo master</h3>
+                <p>Muestra la descarga desde Campus Evolution, la carga de archivos y la publicación para el equipo.</p>
+            </div>
+            <div class="ev-modal-body">
+                <form id="masterForm" class="ev-clave">
+                    <input type="password" id="masterInput" placeholder="Clave" autocomplete="off" required>
+                    <button class="ev-btn ev-btn-auto" type="submit"><i class="fas fa-unlock"></i> Entrar</button>
+                </form>
+                <p class="ev-bad" id="masterError"></p>
             </div>
         </div>
     </div>

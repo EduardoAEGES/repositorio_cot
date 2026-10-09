@@ -3,7 +3,8 @@
 // 1) Guía para descargar AC_ALUMNOS_GB por Programación de Consultas
 // 2) Importa los .xls (se leen y guardan solo en este navegador, IndexedDB)
 // 3) Cruza con CARGA_HORARIA / Docentes 2026 y muestra secciones, docentes,
-//    reprobados; exporta a Excel lo filtrado.
+//    reprobados; exporta a Excel o PDF (con el logo de CERTUS) lo filtrado.
+// Por defecto solo se ve el paso 3; los pasos 1 y 2 aparecen en modo master (clave).
 // El cálculo vive en evaldo-core.js (mismo resultado que notas.py del panel).
 // ==========================================================================
 
@@ -98,6 +99,9 @@ const PAGINA_WEB = 'https://eduardoaeges.github.io/repositorio_cot/evaldo.html';
 
 async function init() {
     leerPrefs();
+    let master = false;
+    try { master = localStorage.getItem(MASTER_KEY) === '1'; } catch (e) { /* sin almacenamiento */ }
+    ponerMaster(master, true);
     bind();
     pintarDescarga();
     if (!window.XLSX) {
@@ -155,6 +159,11 @@ function bind() {
     });
     $('exportarBtn').onclick = () => exportar('secciones', $('exportarBtn'));
     $('exportarEstBtn').onclick = () => exportar('estudiantes', $('exportarEstBtn'));
+    $('exportarPdfBtn').onclick = () => exportarPdf($('exportarPdfBtn'));
+    $('masterBtn').onclick = pulsarMaster;
+    $('masterForm').onsubmit = enviarMaster;
+    $('masterCerrar').onclick = cerrarMaster;
+    $('modalMaster').onclick = (e) => { if (e.target === $('modalMaster')) cerrarMaster(); };
     $('autoBtn').onclick = abrirAsistente;
     $('publicarBtn').onclick = publicarEquipo;
     $('claveForm').onsubmit = enviarClave;
@@ -168,7 +177,7 @@ function bind() {
     $('incluirCompletas').onchange = pintarManual;
     $('modal-cerrar').onclick = cerrarModal;
     $('modal').onclick = (e) => { if (e.target === $('modal')) cerrarModal(); };
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { cerrarModal(); cerrarAsistente(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { cerrarModal(); cerrarAsistente(); cerrarMaster(); } });
 }
 
 function estado(msg, error) {
@@ -489,6 +498,18 @@ function chipsFiltro(id, valores, seleccion, etiqueta) {
     });
 }
 
+// [clave del filtro, contenedor, nombre, etiqueta del valor]
+const FILTROS_UI = [
+    ['area', 'fArea', 'Área', (v) => v],
+    ['periodo', 'fPeriodo', 'Periodo', titulo],
+    ['modulo', 'fModulo', 'Módulo', (m) => (m === 'REGULAR' ? 'Regular' : 'Módulo ' + m)],
+    ['cicloAcad', 'fCicloAcad', 'Ciclo', (c) => 'Ciclo ' + c],
+    ['turno', 'fTurno', 'Turno', (t) => TURNOS[t] || t],
+    ['modalidad', 'fModalidad', 'Modalidad', titulo],
+    ['campus', 'fCampus', 'Sede', (c) => SEDES[c] || c],
+    ['ciclo', 'fCiclo', 'Ccl Lvo', (c) => `${nombreCiclo(c)} · ${c}`]
+];
+
 function llenarFiltros() {
     const secs = st.datos ? st.datos.secciones : [];
     const valores = (campo) => [...new Set(secs.map((s) => s[campo]).filter(Boolean))];
@@ -508,14 +529,17 @@ function llenarFiltros() {
     };
     // Sin datos se conserva la selección guardada; con datos se quitan valores que ya no existen.
     if (secs.length) Object.keys(filtro).forEach((k) => [...filtro[k]].forEach((v) => { if (!opciones[k].includes(v)) filtro[k].delete(v); }));
-    chipsFiltro('fArea', opciones.area, filtro.area, (v) => v);
-    chipsFiltro('fPeriodo', opciones.periodo, filtro.periodo, titulo);
-    chipsFiltro('fModulo', opciones.modulo, filtro.modulo, (m) => (m === 'REGULAR' ? 'Regular' : 'Módulo ' + m));
-    chipsFiltro('fCicloAcad', opciones.cicloAcad, filtro.cicloAcad, (c) => 'Ciclo ' + c);
-    chipsFiltro('fTurno', opciones.turno, filtro.turno, (t) => TURNOS[t] || t);
-    chipsFiltro('fModalidad', opciones.modalidad, filtro.modalidad, titulo);
-    chipsFiltro('fCampus', opciones.campus, filtro.campus, (c) => sedes[c]);
-    chipsFiltro('fCiclo', opciones.ciclo, filtro.ciclo, (c) => `${nombreCiclo(c)} · ${c}`);
+    FILTROS_UI.forEach(([k, id, , etiqueta]) =>
+        chipsFiltro(id, opciones[k], filtro[k], k === 'campus' ? (c) => sedes[c] : etiqueta));
+}
+
+// "Filtros · Área: COT · Sede: Sede Ate · Búsqueda: "perez"" para el Excel y el PDF.
+function resumenFiltros() {
+    const partes = FILTROS_UI.filter(([k]) => filtro[k].size)
+        .map(([k, , nombre, etiqueta]) => `${nombre}: ${[...filtro[k]].map(etiqueta).join(', ')}`);
+    const q = ($('buscar').value || '').trim();
+    if (q) partes.push(`Búsqueda: "${q}"`);
+    return partes.length ? 'Filtros · ' + partes.join(' · ') : 'Sin filtros: todas las secciones';
 }
 
 const textoBusqueda = () => ($('buscar').value || '').trim().toLowerCase();
@@ -526,20 +550,33 @@ function seccionesVisibles() {
     return st.datos.secciones.filter((s) => C.pasaFiltros(s, filtro) && (!q || st.datos.texto.get(claveSec(s)).includes(q)));
 }
 
-function pintarStats(secs) {
+function statsDe(secs) {
     const ids = new Set();
     for (const s of secs) for (const r of st.datos.porSeccion.get(claveSec(s)) || []) if (r.ID) ids.add(r.ID);
-    $('cSec').textContent = fmt(secs.length);
-    $('cEst').textContent = fmt(ids.size);
-    $('cSin').textContent = fmt(secs.filter((s) => s.sin_notas).length);
-    $('cRep').textContent = fmt(secs.reduce((a, s) => a + s.reprobados_total, 0));
+    return {
+        sec: secs.length, est: ids.size,
+        sin: secs.filter((s) => s.sin_notas).length,
+        rep: secs.reduce((a, s) => a + s.reprobados_total, 0)
+    };
+}
+function pintarStats(secs) {
+    const n = statsDe(secs);
+    $('cSec').textContent = fmt(n.sec);
+    $('cEst').textContent = fmt(n.est);
+    $('cSin').textContent = fmt(n.sin);
+    $('cRep').textContent = fmt(n.rep);
 }
 
 function pintarResultados() {
     if (!st.datos) {
         ['cSec', 'cEst', 'cSin', 'cRep'].forEach((id) => { $(id).textContent = '0'; });
         $('tituloTabla').textContent = 'Resultados';
-        $('tabla').innerHTML = '<div class="ev-vacio">Carga los reportes en el paso 2 para ver resultados.</div>';
+        // Sin datos: lo que toca hacer depende de si es el equipo (master) o quien solo consulta.
+        $('tabla').innerHTML = `<div class="ev-vacio">${esMaster() ? 'Carga los reportes en el paso 2 para ver resultados.'
+            : st.reportes.size ? 'No se pudieron calcular los resultados: revisa el aviso de arriba.'
+                : st.bufEquipo && !st.equipo ? 'Escribe la contraseña del equipo para ver los reportes publicados.<br><br><button class="ev-btn ev-btn-auto" id="vacioClave"><i class="fas fa-unlock"></i> Escribir contraseña</button>'
+                    : 'Aún no hay reportes publicados por el equipo.'}</div>`;
+        if ($('vacioClave')) $('vacioClave').onclick = abrirClave;
         return;
     }
     const secs = seccionesVisibles();
@@ -554,24 +591,27 @@ const avance = (s) => {
     const cls = sub === 0 ? 'ev-bad' : (sub < esp ? 'ev-warn' : 'ev-ok');
     return `<span class="${cls}">${sub} de ${esp}</span><span class="ev-sub">${esc(s.TipoEval || '')}</span>`;
 };
-const detalleSeccion = (s) => [
-    `NRC ${esc(s.NRC)}`, esc(s.Sede || s.Campus),
-    s.Modulo ? (s.Modulo === 'REGULAR' ? 'Regular' : 'M' + esc(s.Modulo)) : '',
-    s.CicloAcad ? 'Ciclo ' + esc(s.CicloAcad) : '', s.Turno ? esc(TURNOS[s.Turno] || s.Turno) : '',
-    s.Modalidad ? esc(titulo(s.Modalidad)) : ''
+const detalleTexto = (s) => [
+    `NRC ${s.NRC}`, s.Sede || s.Campus,
+    s.Modulo ? (s.Modulo === 'REGULAR' ? 'Regular' : 'M' + s.Modulo) : '',
+    s.CicloAcad ? 'Ciclo ' + s.CicloAcad : '', s.Turno ? TURNOS[s.Turno] || s.Turno : '',
+    s.Modalidad ? titulo(s.Modalidad) : ''
 ].filter(Boolean).join(' · ');
+const detalleSeccion = (s) => esc(detalleTexto(s));
 const notaHtml = (n) => (n == null ? '—' : `<span class="${n < C.NOTA_APROBATORIA ? 'ev-bad' : 'ev-ok'}">${n}</span>`);
 const evCorta = (ev) => ev.replace(/EVALUACI[OÓ]N/i, 'EV');
 
 function sinFilas(msg) { $('tabla').innerHTML = `<div class="ev-vacio">${msg}</div>`; }
 const avisoMas = (n) => (n > MAX_FILAS ? `<div class="ev-mas">Mostrando ${fmt(MAX_FILAS)} de ${fmt(n)}. Usa los filtros o descarga el Excel.</div>` : '');
 
+// Solo las evaluaciones que existen en lo filtrado (ciclo I no muestra EV4).
+const evalsDe = (secs) => st.datos.evaluaciones.filter((ev) => secs.some((s) => s.evals[ev]));
+
 function pintarSecciones(secs) {
     $('tituloTabla').textContent = st.vista === 'sinnotas'
         ? `Secciones sin notas (${fmt(secs.length)})` : `Resumen por sección (${fmt(secs.length)})`;
     if (!secs.length) return sinFilas('Sin secciones con estos filtros.');
-    // Solo las evaluaciones que existen en lo filtrado (ciclo I no muestra EV4).
-    const evals = st.datos.evaluaciones.filter((ev) => secs.some((s) => s.evals[ev]));
+    const evals = evalsDe(secs);
     const cab = evals.map((ev) => `<th class="num">${esc(evCorta(ev))}<span class="ev-sub">prom · rep</span></th>`).join('');
     const filas = secs.slice(0, MAX_FILAS).map((s, i) => {
         const celdas = evals.map((ev) => {
@@ -596,7 +636,7 @@ function pintarSecciones(secs) {
     $('tabla').querySelectorAll('tr[data-sec]').forEach((tr) => { tr.onclick = () => abrirSeccion(tr.dataset.sec); });
 }
 
-function pintarDocentes(secs) {
+function porDocente(secs) {
     const por = new Map();
     for (const s of secs) {
         if (!por.has(s.Docente)) por.set(s.Docente, { docente: s.Docente, area: s.Area, secs: 0, est: 0, sin: 0, sub: 0, esp: 0, rep: 0, cursos: new Set() });
@@ -606,7 +646,11 @@ function pintarDocentes(secs) {
         d.cursos.add(s.Curso);
         if (!d.area && s.Area) d.area = s.Area;
     }
-    const lista = [...por.values()].sort((a, b) => (b.sin - a.sin) || a.docente.localeCompare(b.docente));
+    return [...por.values()].sort((a, b) => (b.sin - a.sin) || a.docente.localeCompare(b.docente));
+}
+
+function pintarDocentes(secs) {
+    const lista = porDocente(secs);
     $('tituloTabla').textContent = `Por docente (${fmt(lista.length)})`;
     if (!lista.length) return sinFilas('Sin docentes con estos filtros.');
     const filas = lista.slice(0, MAX_FILAS).map((d, i) => {
@@ -633,7 +677,7 @@ function pintarDocentes(secs) {
     });
 }
 
-function pintarReprobados(secs) {
+function reprobadosDe(secs) {
     const ok = new Set(secs.map(claveSec));
     const q = textoBusqueda();
     // Si la búsqueda nombra a un alumno, solo sus notas; si nombra docente/curso, toda la sección.
@@ -643,7 +687,11 @@ function pintarReprobados(secs) {
         const deSeccion = reps.filter((r) => `${r.Docente} ${r.Curso} ${r.Seccion} ${r.NRC}`.toLowerCase().includes(q));
         reps = deSeccion.length ? deSeccion : deAlumno;
     }
-    reps = reps.slice().sort((a, b) => a.Nota - b.Nota);
+    return reps.slice().sort((a, b) => a.Nota - b.Nota);
+}
+
+function pintarReprobados(secs) {
+    const reps = reprobadosDe(secs);
     $('tituloTabla').textContent = `Reprobados (${fmt(reps.length)})`;
     if (!reps.length) return sinFilas('Sin reprobados con estos filtros.');
     const filas = reps.slice(0, MAX_FILAS).map((r, i) => `<tr class="clic" data-sec="${esc(claveSec(r))}">
@@ -707,60 +755,257 @@ function cerrarModal() {
     document.body.classList.remove('nf-lock');
 }
 
-// ------------------------------------------------------------ exportar a Excel
-const ESTILO_CAB = {
-    font: { bold: true, color: { rgb: 'FFFFFF' } },
-    fill: { patternType: 'solid', fgColor: { rgb: '714B67' } },
-    alignment: { vertical: 'center', wrapText: true }
+// ------------------------------------------------------------ exportar a Excel y PDF (con logo)
+// Las librerías se bajan recién al exportar: la página abre igual de rápido.
+const LIBS = {
+    excel: ['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'],
+    pdf: ['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js']
 };
-
-function hojaExcel(h) {
-    if (!h.filas.length) return XLSX.utils.aoa_to_sheet([['Sin filas con estos filtros']]);
-    const cols = Object.keys(h.filas[0]);
-    const ws = XLSX.utils.json_to_sheet(h.filas, { header: cols });
-    cols.forEach((c, j) => { const cel = ws[XLSX.utils.encode_cell({ r: 0, c: j })]; if (cel) cel.s = ESTILO_CAB; });
-    if (h.color) {
-        h.filas.forEach((f, i) => {
-            const rgb = h.color(f);
-            if (!rgb) return;
-            const s = { fill: { patternType: 'solid', fgColor: { rgb } } };
-            cols.forEach((c, j) => {
-                const ref = XLSX.utils.encode_cell({ r: i + 1, c: j });
-                if (!ws[ref]) ws[ref] = { t: 's', v: '' };
-                ws[ref].s = s;
-            });
+const scripts = {};
+function cargarScript(url) {
+    if (!scripts[url]) {
+        scripts[url] = new Promise((ok, mal) => {
+            const el = document.createElement('script');
+            el.src = url;
+            el.onload = ok;
+            el.onerror = () => { delete scripts[url]; el.remove(); mal(new Error('sin conexión con ' + url.split('/npm/')[1].split('/')[0])); };
+            document.head.appendChild(el);
         });
     }
-    const muestra = h.filas.slice(0, 3000);
-    ws['!cols'] = cols.map((c) => ({ wch: Math.min(45, Math.max(c.length, ...muestra.map((f) => String(f[c] == null ? '' : f[c]).length)) + 2) }));
-    ws['!autofilter'] = { ref: ws['!ref'] };
-    return ws;
+    return scripts[url];
+}
+const cargarLibs = async (lista) => { for (const url of lista) await cargarScript(url); };   // en orden: autotable necesita jsPDF
+
+// Logo reducido a 480 px como data URL PNG (el original pesa demasiado dentro de un PDF).
+// null si no se puede leer, p. ej. página abierta como archivo.
+const LOGO = { url: 'LOGO_CERTUS.png', ancho: 480, alto: 134, dato: null };
+async function logoCertus() {
+    if (LOGO.dato) return LOGO.dato;
+    try {
+        const r = await fetch(LOGO.url);
+        if (!r.ok) return null;
+        const img = await createImageBitmap(await r.blob());
+        const lienzo = document.createElement('canvas');
+        lienzo.width = LOGO.ancho;
+        lienzo.height = LOGO.alto = Math.round(LOGO.ancho * img.height / img.width);
+        lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+        LOGO.dato = lienzo.toDataURL('image/png');
+        return LOGO.dato;
+    } catch (e) { return null; }
 }
 
-async function exportar(tipo, btn) {
-    if (!st.datos) { alert('Primero carga los reportes (paso 2).'); return; }
-    const filtrados = C.filtrar(st.datos.registros, filtro, textoBusqueda());
-    if (!filtrados.length) { alert('Ningún registro coincide con los filtros.'); return; }
+const marcaTiempo = () => {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
+};
+const textoGenerado = () => 'Generado el ' + new Date().toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' });
+
+function bajarArchivo(blob, nombre) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// Pone el botón en "Generando..." mientras corre fn.
+async function conBoton(btn, fn) {
     const prev = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="nf-spinner"></span> Generando...';
     await pausa();
-    try {
+    try { await fn(); } catch (e) { alert('No se pudo generar el archivo: ' + (e.message || e)); }
+    btn.disabled = false;
+    btn.innerHTML = prev;
+}
+
+const FILA_CAB = 7;   // filas 1-3 logo, 4 título, 5 filtros, 6 resumen; 7 encabezados
+const COLOR_CAB = '714B67';
+
+function hojaExcel(wb, h, idLogo, info) {
+    const ws = wb.addWorksheet(h.nombre, { views: [{ state: 'frozen', ySplit: FILA_CAB }] });
+    if (idLogo !== null) ws.addImage(idLogo, { tl: { col: 0, row: 0 }, ext: { width: 180, height: Math.round(180 * LOGO.alto / LOGO.ancho) } });
+    ws.getCell('A4').value = `Seguimiento EVALDO · ${h.nombre}`;
+    ws.getCell('A4').font = { bold: true, size: 14, color: { argb: 'FF' + COLOR_CAB } };
+    ws.getCell('A5').value = info.filtros;
+    ws.getCell('A5').font = { size: 9, color: { argb: 'FF4B5563' } };
+    ws.getCell('A6').value = `${fmt(h.filas.length)} fila(s) · ${info.generado}`;
+    ws.getCell('A6').font = { size: 9, italic: true, color: { argb: 'FF4B5563' } };
+    if (!h.filas.length) { ws.getCell(`A${FILA_CAB}`).value = 'Sin filas con estos filtros'; return; }
+
+    const cols = Object.keys(h.filas[0]);
+    const cab = ws.getRow(FILA_CAB);
+    cab.values = cols;
+    cab.height = 30;
+    cab.eachCell((c) => {
+        c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + COLOR_CAB } };
+        c.alignment = { vertical: 'middle', wrapText: true };
+    });
+    for (const f of h.filas) {
+        const fila = ws.addRow(cols.map((c) => (f[c] == null ? '' : f[c])));
+        const rgb = h.color && h.color(f);
+        if (rgb) {
+            const relleno = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + rgb } };
+            for (let j = 1; j <= cols.length; j++) fila.getCell(j).fill = relleno;
+        }
+    }
+    const muestra = h.filas.slice(0, 3000);
+    cols.forEach((c, j) => {
+        ws.getColumn(j + 1).width = Math.min(45, Math.max(c.length, ...muestra.map((f) => String(f[c] == null ? '' : f[c]).length)) + 2);
+    });
+    ws.autoFilter = { from: { row: FILA_CAB, column: 1 }, to: { row: FILA_CAB + h.filas.length, column: cols.length } };
+}
+
+async function exportar(tipo, btn) {
+    if (!st.datos) { alert('Todavía no hay reportes para exportar.'); return; }
+    const filtrados = C.filtrar(st.datos.registros, filtro, textoBusqueda());
+    if (!filtrados.length) { alert('Ningún registro coincide con los filtros.'); return; }
+    await conBoton(btn, async () => {
+        const [, logo] = await Promise.all([cargarLibs(LIBS.excel), logoCertus()]);
         // Solo las evaluaciones que existen en lo exportado (ciclo I no lleva columnas de EV4).
         const evals = C.evaluacionesDe(filtrados);
         const hojas = tipo === 'estudiantes'
             ? C.hojasEstudiantes(filtrados, evals)
             : C.hojasConsolidado(filtrados, evals, C.resumenSecciones(filtrados, evals));
-        const wb = XLSX.utils.book_new();
-        hojas.forEach((h) => XLSX.utils.book_append_sheet(wb, hojaExcel(h), h.nombre));
-        const d = new Date(), p = (n) => String(n).padStart(2, '0');
-        const marca = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
-        XLSX.writeFile(wb, `${tipo === 'estudiantes' ? 'Estudiantes_Docentes' : 'Notas_Filtrado'}_${marca}.xlsx`, { compression: true });
-    } catch (e) {
-        alert('No se pudo generar el Excel: ' + (e.message || e));
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'Seguimiento EVALDO - CERTUS';
+        const idLogo = logo ? wb.addImage({ base64: logo, extension: 'png' }) : null;
+        const info = { filtros: resumenFiltros(), generado: textoGenerado() };
+        hojas.forEach((h) => hojaExcel(wb, h, idLogo, info));
+        const buf = await wb.xlsx.writeBuffer();
+        bajarArchivo(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `${tipo === 'estudiantes' ? 'Estudiantes_Docentes' : 'Notas_Filtrado'}_${marcaTiempo()}.xlsx`);
+    });
+}
+
+// La vista actual como tabla de texto para el PDF: {titulo, cols: [{t, num}], filas: [[...]], alarma: Set(índices)}.
+const NOMBRE_VISTA = { secciones: 'Resumen por sección', sinnotas: 'Secciones sin notas', docentes: 'Por docente', reprobados: 'Reprobados' };
+function tablaVista(secs) {
+    const t = (txt, num) => ({ t: txt, num: !!num });
+    if (st.vista === 'docentes') {
+        const lista = porDocente(secs);
+        return {
+            cols: [t('#', 1), t('Docente'), t('Cursos'), t('Secciones', 1), t('Estudiantes', 1), t('Sin notas', 1), t('Avance', 1), t('Reprob.', 1)],
+            filas: lista.map((d, i) => [i + 1, d.docente + (d.area ? ` (${d.area})` : ''), [...d.cursos].join(' · '), d.secs, fmt(d.est), d.sin,
+                `${d.esp ? Math.round((d.sub / d.esp) * 100) : 0}%\n${d.sub} de ${d.esp}`, fmt(d.rep)]),
+            alarma: new Set(lista.map((d, i) => (d.sin ? i : -1)))
+        };
     }
-    btn.disabled = false;
-    btn.innerHTML = prev;
+    if (st.vista === 'reprobados') {
+        const reps = reprobadosDe(secs);
+        return {
+            cols: [t('#', 1), t('Estudiante'), t('ID'), t('Sección'), t('Curso'), t('Docente'), t('Evaluación'), t('Nota', 1)],
+            filas: reps.map((r, i) => [i + 1, r.Estudiante, r.ID, `${r.Seccion}\nNRC ${r.NRC} · ${r.Sede || r.Campus}`, r.Curso, r.Docente, r.Evaluacion, r.Nota]),
+            alarma: new Set()
+        };
+    }
+    const lista = st.vista === 'sinnotas' ? secs.filter((s) => s.sin_notas) : secs;
+    const evals = evalsDe(lista);
+    return {
+        cols: [t('#', 1), t('Sección'), t('Curso'), t('Docente'), t('Est.', 1), t('Notas subidas', 1),
+            ...evals.map((ev) => t(`${evCorta(ev)}\nprom · rep`, 1)), t('Reprob.', 1)],
+        filas: lista.map((s, i) => [i + 1, `${s.Seccion}\n${detalleTexto(s)}`, s.Curso, s.Docente + (s.Area ? ` (${s.Area})` : ''),
+            s.Estudiantes, `${s.Subidas || 0} de ${s.Esperadas || 0}`,
+            ...evals.map((ev) => {
+                const e = s.evals[ev];
+                if (!e) return '·';
+                return `${e.promedio == null ? '-' : e.promedio}${e.reprobados ? ` · ${e.reprobados}` : ''}`;
+            }),
+            s.sin_notas ? 'SIN NOTAS' : s.reprobados_total]),
+        alarma: new Set(lista.map((s, i) => (s.sin_notas ? i : -1)))
+    };
+}
+
+async function exportarPdf(btn) {
+    if (!st.datos) { alert('Todavía no hay reportes para exportar.'); return; }
+    const secs = seccionesVisibles();
+    const v = tablaVista(secs);
+    if (!v.filas.length) { alert('No hay filas con estos filtros.'); return; }
+    await conBoton(btn, async () => {
+        const [, logo] = await Promise.all([cargarLibs(LIBS.pdf), logoCertus()]);
+        const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+        const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 12;
+        const logoAlto = 10, logoAncho = logoAlto * LOGO.ancho / LOGO.alto;
+        const x = logo ? M + logoAncho + 6 : M;
+        const n = statsDe(secs);
+        const resumen = `${fmt(n.sec)} secciones · ${fmt(n.est)} estudiantes · ${fmt(n.sin)} secciones sin notas · ${fmt(n.rep)} notas reprobadas`;
+        const filtros = doc.setFontSize(8).splitTextToSize(resumenFiltros(), W - x - M).slice(0, 2);
+        const generado = textoGenerado();
+        const encabezado = () => {
+            if (logo) doc.addImage(logo, 'PNG', M, 8, logoAncho, logoAlto, 'logo', 'FAST');   // alias: se guarda una sola vez
+            doc.setFont('helvetica', 'bold').setFontSize(14).setTextColor(17, 17, 17);
+            doc.text(`Seguimiento EVALDO · ${NOMBRE_VISTA[st.vista]}`, x, 12);
+            doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(75, 85, 99);
+            doc.text(resumen, x, 16.5);
+            doc.text(filtros, x, 20.5);
+            doc.setDrawColor(229, 9, 20).setLineWidth(0.6).line(M, 26, W - M, 26);
+        };
+        doc.autoTable({
+            head: [v.cols.map((c) => c.t)],
+            body: v.filas,
+            startY: 30,
+            margin: { top: 30, left: M, right: M, bottom: 14 },
+            styles: { fontSize: 7, cellPadding: 1.4, overflow: 'linebreak', valign: 'top', lineColor: [229, 231, 235], lineWidth: 0.1 },
+            headStyles: { fillColor: [113, 75, 103], textColor: 255, fontStyle: 'bold', valign: 'middle' },
+            alternateRowStyles: { fillColor: [248, 249, 250] },
+            columnStyles: Object.fromEntries(v.cols.map((c, i) => [i, c.num ? { halign: 'right' } : {}])),
+            didParseCell: (d) => {
+                if (d.section === 'head' && v.cols[d.column.index].num) d.cell.styles.halign = 'right';
+                if (d.section === 'body' && v.alarma.has(d.row.index)) d.cell.styles.fillColor = [253, 226, 225];
+                if (d.section === 'body' && d.cell.raw === 'SIN NOTAS') Object.assign(d.cell.styles, { textColor: [200, 30, 30], fontStyle: 'bold' });
+            },
+            didDrawPage: encabezado
+        });
+        const paginas = doc.getNumberOfPages();
+        for (let i = 1; i <= paginas; i++) {
+            doc.setPage(i);
+            doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(120, 120, 120);
+            doc.text(`${generado} · Reprobado = nota de 1 a 11`, M, H - 6);
+            doc.text(`Página ${i} de ${paginas}`, W - M, H - 6, { align: 'right' });
+        }
+        doc.save(`EVALDO_${NOMBRE_VISTA[st.vista].normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_')}_${marcaTiempo()}.pdf`);
+    });
+}
+
+// ------------------------------------------------------------ modo master (pasos 1 y 2)
+// Quien solo consulta ve los resultados; descargar, cargar y publicar piden la clave.
+// Es un candado de comodidad (la página es pública), no protege los datos: eso lo hace la contraseña del equipo.
+const MASTER_KEY = 'evaldo_master';
+const CLAVE_MASTER = 'CONTA';
+const esMaster = () => document.body.classList.contains('modo-master');
+
+function ponerMaster(on, inicio) {
+    document.body.classList.toggle('modo-master', on);
+    $('masterTxt').textContent = on ? 'Salir de master' : 'Modo master';
+    try { on ? localStorage.setItem(MASTER_KEY, '1') : localStorage.removeItem(MASTER_KEY); } catch (e) { /* sin almacenamiento */ }
+    if (!inicio) pintarResultados();
+}
+function pulsarMaster() {
+    if (esMaster()) { ponerMaster(false); return; }
+    $('masterError').textContent = '';
+    $('masterInput').value = '';
+    $('modalMaster').hidden = false;
+    document.body.classList.add('nf-lock');
+    setTimeout(() => $('masterInput').focus(), 50);
+}
+function enviarMaster(ev) {
+    ev.preventDefault();
+    if ($('masterInput').value.trim().toUpperCase() !== CLAVE_MASTER) {
+        $('masterError').textContent = 'Clave incorrecta.';
+        $('masterInput').select();
+        return;
+    }
+    cerrarMaster();
+    ponerMaster(true);
+}
+function cerrarMaster() {
+    if ($('modalMaster').hidden) return;
+    $('modalMaster').hidden = true;
+    document.body.classList.remove('nf-lock');
 }
 
 // ------------------------------------------------------------ descarga automática (agente local)
@@ -981,6 +1226,10 @@ async function cargarEquipo() {
     let clave = null;
     try { clave = localStorage.getItem(CLAVE_KEY); } catch (e) { /* sin almacenamiento */ }
     if (clave && await aplicarEquipo(clave)) return;
+    abrirClave();
+}
+function abrirClave() {
+    $('claveError').textContent = '';
     $('modalClave').hidden = false;
     document.body.classList.add('nf-lock');
     setTimeout(() => $('claveInput').focus(), 50);
