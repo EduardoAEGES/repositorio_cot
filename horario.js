@@ -888,6 +888,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // CORRECCIÓN CONTRATO FERNANDO (30H PTC)
+            const fernandoKeys = Object.keys(contractData).filter(k => k === '41768946' || k.includes('FIGUEROA YNCA FERNANDO') || k === 'FERNANDO');
+            fernandoKeys.forEach(k => {
+                if (contractData[k]) {
+                    contractData[k].contractType = 'PTC';
+                    contractData[k].contractHours = 30;
+                }
+            });
+
             console.log("Datos de contratos cargados exitosamente. Total registros:", Object.keys(contractData).length / 2);
             // Se expone para el modulo de Reporte por dia (reporte_dia.js)
             window.contractData = contractData;
