@@ -7,11 +7,9 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="dashboard.css?v=6">
     <link rel="stylesheet" href="dashboard_primer_ciclo.css?v=3">
-    <link rel="stylesheet" href="estudiantes.css?v=3">
+    <link rel="stylesheet" href="estudiantes.css?v=4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
     <header>
@@ -19,28 +17,24 @@
             <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
             <div class="site-title">EQUIPO-COT-PLN</div>
         </div>
-        <nav class="nav-menu">
-            <a href="index.html" class="nav-link">Página principal</a>
-            <a href="horario.html" class="nav-link">Horarios</a>
-            <a href="dashboard_primer_ciclo.html" class="nav-link">Cursos y docentes</a>
-        </nav>
+        <a href="index.html" class="btn-inicio" title="Volver a la página principal">
+            <i class="fas fa-house"></i> <span class="lg">Volver a Inicio</span><span class="sm">Inicio</span>
+        </a>
     </header>
 
     <main class="dash-main">
         <div class="dash-head">
-            <h1><i class="fas fa-address-book"></i> Datos de estudiantes <span id="hSub"></span></h1>
+            <h1><i class="fas fa-address-book"></i> Datos de estudiantes</h1>
             <div class="dash-actions">
                 <div class="search-box search-dark">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="q" placeholder="Buscar alumno, DNI, correo, NRC...">
+                    <input type="text" id="q" placeholder="DNI, nombre, correo, NRC, sección..." autocomplete="off">
                 </div>
                 <button id="btnClear" class="btn btn-ghost" title="Quitar todos los filtros"><i class="fas fa-eraser"></i> Limpiar</button>
-                <button id="btnDni" class="btn btn-ghost" title="Copiar los DNI filtrados"><i class="fas fa-copy"></i> Copiar DNIs</button>
-                <button id="btnMail" class="btn btn-ghost" title="Copiar los correos filtrados"><i class="fas fa-envelope"></i> Copiar correos</button>
+                <button id="btnDni" class="btn btn-ghost" title="Copiar los DNI del filtro"><i class="fas fa-copy"></i> Copiar DNIs</button>
+                <button id="btnMail" class="btn btn-ghost" title="Generar listas y bloques de correos"><i class="fas fa-envelope"></i> Correos</button>
                 <button id="btnXls" class="btn btn-ghost" title="Descargar en Excel"><i class="fas fa-file-excel"></i> Excel</button>
-                <button id="btnPdf" class="btn btn-ghost" title="Descargar en PDF"><i class="fas fa-file-pdf"></i> PDF</button>
-                <button id="btnReload" class="btn btn-solid"><i class="fas fa-rotate"></i> Actualizar</button>
-                <a href="estudiantes_sql.html" target="_blank" rel="noopener" class="btn btn-sql" title="Abre en una ventana nueva la búsqueda rápida sobre la base SQL"><i class="fas fa-bolt"></i> Consulta rápida</a>
+                <button id="btnSync" class="btn btn-solid" title="Volver a copiar la hoja BBDD a la base de datos"><i class="fas fa-rotate"></i> Sincronizar</button>
             </div>
         </div>
 
@@ -50,24 +44,35 @@
         <section class="filters">
             <div class="f-row">
                 <div class="f-group g-wide">
-                    <span class="f-label">Docentes</span>
-                    <div class="ms" id="msDocente"></div>
+                    <span class="f-label">Periodo</span>
+                    <div class="ms" id="msCiclo"></div>
                 </div>
                 <div class="f-sep"></div>
-                <div class="f-group g-wide">
-                    <span class="f-label">Cursos</span>
-                    <div class="ms" id="msCurso"></div>
-                </div>
-            </div>
-            <div class="f-row">
                 <div class="f-group g-wide">
                     <span class="f-label">Programa</span>
                     <div class="ms" id="msPrograma"></div>
                 </div>
+            </div>
+            <div class="f-row">
+                <div class="f-group g-wide">
+                    <span class="f-label">Curso</span>
+                    <div class="ms" id="msCurso"></div>
+                </div>
                 <div class="f-sep"></div>
-                <div class="f-group g-nar">
-                    <span class="f-label">Ciclo lectivo</span>
-                    <div class="chips" id="fCiclo"></div>
+                <div class="f-group g-wide">
+                    <span class="f-label">Sección</span>
+                    <div class="ms" id="msSeccion"></div>
+                </div>
+            </div>
+            <div class="f-row">
+                <div class="f-group g-wide">
+                    <span class="f-label">Docente</span>
+                    <div class="ms" id="msDocente"></div>
+                </div>
+                <div class="f-sep"></div>
+                <div class="f-group g-wide">
+                    <span class="f-label">Coordinador</span>
+                    <div class="ms" id="msCoord"></div>
                 </div>
             </div>
             <div class="f-row">
@@ -76,9 +81,9 @@
                     <div class="chips" id="fTurno"></div>
                 </div>
                 <div class="f-sep"></div>
-                <div class="f-group g-wide">
-                    <span class="f-label">Sede</span>
-                    <div class="chips" id="fSede"></div>
+                <div class="f-group g-nar">
+                    <span class="f-label">Módulo</span>
+                    <div class="chips" id="fModulo"></div>
                 </div>
                 <div class="f-sep"></div>
                 <div class="f-group g-nar">
@@ -87,8 +92,8 @@
                 </div>
                 <div class="f-sep"></div>
                 <div class="f-group g-wide">
-                    <span class="f-label">Coordinador</span>
-                    <div class="chips" id="fCoord"></div>
+                    <span class="f-label">Sede</span>
+                    <div class="chips" id="fSede"></div>
                 </div>
             </div>
         </section>
@@ -96,64 +101,89 @@
         <!-- ============ KPIs ============ -->
         <section class="kpis" id="kpis"></section>
 
-        <!-- ============ BLOQUES DE ESTUDIANTES ============ -->
+        <!-- ============ RESULTADOS ============ -->
         <section class="panel">
             <div class="panel-h">
-                <h3><i class="fas fa-layer-group"></i> Bloques de estudiantes</h3>
+                <h3><i class="fas fa-table-list"></i> Resultados</h3>
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-                    <span class="f-label" style="min-width:auto">Agrupar por</span>
-                    <div class="chips" id="grpBy">
-                        <button class="chip on" data-v="seccion">Sección / NRC</button>
-                        <button class="chip" data-v="docente">Docente</button>
-                        <button class="chip" data-v="programa">Programa</button>
-                        <button class="chip" data-v="curso">Curso</button>
-                        <button class="chip" data-v="none">Sin agrupar</button>
+                    <span class="f-label" style="min-width:auto">Ver</span>
+                    <div class="chips" id="vista">
+                        <button class="chip on" data-v="alumnos">Estudiantes (1 fila por DNI)</button>
+                        <button class="chip" data-v="matriculas">Matrículas (1 fila por curso)</button>
                     </div>
-                    <span class="hint" id="grpCount">—</span>
                 </div>
-            </div>
-            <div class="tbl-scroll" id="grpWrap">
-                <div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando estudiantes...</div>
-            </div>
-        </section>
-
-        <!-- ============ DETALLE ============ -->
-        <section class="panel">
-            <div class="panel-h">
-                <h3><i class="fas fa-table-list"></i> Detalle de estudiantes</h3>
-                <span class="hint">clic en los encabezados para ordenar</span>
             </div>
             <div class="tbl-scroll">
                 <table class="dash-tbl" id="tbl">
-                    <thead>
-                        <tr class="g1">
-                            <th data-k="alumno">Alumno</th>
-                            <th data-k="dni">DNI</th>
-                            <th data-k="telefono">Teléfono</th>
-                            <th data-k="correo">Correo Certus</th>
-                            <th data-k="programa">Programa</th>
-                            <th data-k="seccion">Sección</th>
-                            <th data-k="nrc">NRC</th>
-                            <th data-k="curso">Curso</th>
-                            <th data-k="turno">Turno</th>
-                            <th data-k="sede">Sede</th>
-                            <th data-k="modalidad">Modalidad</th>
-                            <th data-k="docente">Docente</th>
-                            <th data-k="ciclo">Ciclo lect.</th>
-                        </tr>
-                    </thead>
+                    <thead id="tblHead"></thead>
                     <tbody id="tblBody">
-                        <tr><td colspan="13"><div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</div></td></tr>
+                        <tr><td><div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</div></td></tr>
                     </tbody>
                 </table>
             </div>
             <div class="tbl-foot">
                 <span id="tblCount">—</span>
-                <span>Fuente: pestaña <b>BBDD</b> (hoja publicada) · teléfonos desde base histórica (parcial)</span>
+                <span class="pager">
+                    <button class="btn-mini" id="pgPrev"><i class="fas fa-chevron-left"></i> Anterior</button>
+                    <span id="pgInfo">—</span>
+                    <button class="btn-mini" id="pgNext">Siguiente <i class="fas fa-chevron-right"></i></button>
+                </span>
+                <span id="syncInfo">—</span>
             </div>
         </section>
     </main>
 
-    <script src="estudiantes.js?v=2"></script>
+    <!-- ============ FICHA DEL ESTUDIANTE ============ -->
+    <div class="modal-bg" id="mdAlumno">
+        <div class="modal">
+            <div class="modal-h">
+                <h3 id="alTitulo">Estudiante</h3>
+                <button class="modal-x" data-close title="Cerrar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-b" id="alCuerpo"></div>
+        </div>
+    </div>
+
+    <!-- ============ CORREOS ============ -->
+    <div class="modal-bg" id="mdCorreos">
+        <div class="modal modal-wide">
+            <div class="modal-h">
+                <h3><i class="fas fa-envelope"></i> Correos del filtro actual <span class="hint" id="mcResumen"></span></h3>
+                <button class="modal-x" data-close title="Cerrar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-b">
+                <div class="mc-opts">
+                    <div class="f-group g-nar">
+                        <span class="f-label">Separador</span>
+                        <div class="chips" id="mcSep">
+                            <button class="chip on" data-v="; ">Punto y coma (Outlook)</button>
+                            <button class="chip" data-v=", ">Coma (Gmail)</button>
+                            <button class="chip" data-v="&#10;">Uno por línea</button>
+                        </div>
+                    </div>
+                    <div class="f-group g-nar">
+                        <span class="f-label">Bloques de</span>
+                        <div class="chips" id="mcTam">
+                            <button class="chip" data-v="0">Todos juntos</button>
+                            <button class="chip" data-v="50">50</button>
+                            <button class="chip on" data-v="100">100</button>
+                            <button class="chip" data-v="250">250</button>
+                            <button class="chip" data-v="500">500</button>
+                        </div>
+                    </div>
+                    <div class="f-group g-nar">
+                        <span class="f-label">Agrupar</span>
+                        <div class="chips" id="mcGrupo">
+                            <button class="chip on" data-v="no">Lista única</button>
+                            <button class="chip" data-v="si">Por curso y sección</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="mcBloques"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="estudiantes.js?v=3"></script>
 </body>
 </html>

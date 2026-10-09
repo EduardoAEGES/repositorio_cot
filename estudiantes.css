@@ -25,8 +25,7 @@ td.tel, td.mail { font-variant-numeric:tabular-nums; }
 td.mail { text-transform:lowercase; }
 .no-dato { color:var(--od-muted); }
 
-/* ===== Consulta rápida (estudiantes_sql.html) ===== */
-.sql-badge { background:#fbbf24; color:#1e1b4b; font-size:.6rem; font-weight:800; padding:1px 6px; border-radius:8px; letter-spacing:.4px; }
+/* ===== Consulta sobre la base SQL ===== */
 #tblBody.cargando { opacity:.45; transition:opacity .15s; }
 #tblBody tr.clic { cursor:pointer; }
 #tblHead th.sortable { cursor:pointer; }
@@ -61,6 +60,16 @@ td.secs { white-space:normal; min-width:180px; font-size:.68rem; color:var(--od-
 .mc-bloque textarea { display:block; width:100%; box-sizing:border-box; border:none; resize:vertical; padding:6px 8px;
     font-family:ui-monospace, Consolas, monospace; font-size:.7rem; color:var(--od-text); background:#fff; }
 
-/* Acceso a la consulta rápida desde la vista completa */
-.btn-sql { color:#1e1b4b; background:#fbbf24; border-color:#fbbf24; font-weight:700; }
-.btn-sql:hover { background:#f59e0b; }
+/* Botón "Volver a Inicio" (mismo estilo que Docentes y EVALDO) */
+.btn-inicio {
+    display:inline-flex; align-items:center; gap:8px; padding:10px 18px; border-radius:8px;
+    background:#714b67; color:#fff; font-weight:800; font-size:.9rem; text-decoration:none;
+    text-transform:uppercase; letter-spacing:.4px; transition:transform .15s, filter .15s; white-space:nowrap;
+}
+.btn-inicio:hover { transform:translateY(-2px); filter:brightness(1.1); }
+.btn-inicio .sm { display:none; }
+@media (max-width: 700px) {
+    .btn-inicio { padding:8px 10px; font-size:.75rem; }
+    .btn-inicio .lg { display:none; }
+    .btn-inicio .sm { display:inline; }
+}
