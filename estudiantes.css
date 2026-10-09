@@ -3,14 +3,14 @@
 
 /* Botón de copiar dentro de cada bloque */
 .grp-h .copybtns { display:flex; gap:4px; flex-shrink:0; }
-.grp-h .cbtn {
+.grp-h .cbtn, .mc-bh .cbtn, .al-dato .cbtn {
     border:1px solid var(--od-border); background:#fff; color:var(--od-text);
     border-radius:3px; padding:2px 7px; font-size:.66rem; font-weight:600;
     font-family:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:4px;
     white-space:nowrap;
 }
-.grp-h .cbtn:hover { border-color:var(--od-purple); color:var(--od-purple); }
-.grp-h .cbtn.ok { border-color:var(--od-green); color:var(--od-green); }
+.grp-h .cbtn:hover, .mc-bh .cbtn:hover, .al-dato .cbtn:hover { border-color:var(--od-purple); color:var(--od-purple); }
+.grp-h .cbtn.ok, .mc-bh .cbtn.ok, .al-dato .cbtn.ok { border-color:var(--od-green); color:var(--od-green); }
 
 /* Aviso flotante al copiar */
 .toast {
@@ -24,3 +24,43 @@
 td.tel, td.mail { font-variant-numeric:tabular-nums; }
 td.mail { text-transform:lowercase; }
 .no-dato { color:var(--od-muted); }
+
+/* ===== Consulta rápida (estudiantes_sql.html) ===== */
+.sql-badge { background:#fbbf24; color:#1e1b4b; font-size:.6rem; font-weight:800; padding:1px 6px; border-radius:8px; letter-spacing:.4px; }
+#tblBody.cargando { opacity:.45; transition:opacity .15s; }
+#tblBody tr.clic { cursor:pointer; }
+#tblHead th.sortable { cursor:pointer; }
+td.secs { white-space:normal; min-width:180px; font-size:.68rem; color:var(--od-muted); }
+.pager { display:inline-flex; align-items:center; gap:8px; }
+.pager .btn-mini:disabled { opacity:.4; cursor:default; }
+
+.modal-bg { position:fixed; inset:0; background:rgba(17,24,39,.45); display:none; align-items:flex-start;
+    justify-content:center; padding:5vh 16px; z-index:200; overflow:auto; }
+.modal-bg.open { display:flex; }
+.modal { background:#fff; border-radius:6px; width:min(980px, 100%); box-shadow:0 18px 50px rgba(0,0,0,.3); font-size:13px; color:var(--od-text); }
+.modal-wide { width:min(1100px, 100%); }
+.modal-h { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px;
+    background:var(--od-purple); color:#fff; border-radius:6px 6px 0 0; }
+.modal-h h3 { margin:0; font-size:.9rem; font-weight:600; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.modal-h .hint { color:rgba(255,255,255,.8); }
+.modal-x { background:rgba(255,255,255,.18); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; }
+.modal-b { padding:12px 14px; max-height:78vh; overflow:auto; }
+
+.al-datos { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:6px 14px; margin-bottom:10px; }
+.al-dato { display:flex; align-items:center; gap:8px; min-width:0; }
+.al-dato .f-label { min-width:70px; }
+.al-dato > span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.al-tbl { display:block; overflow:auto; }
+
+.mc-opts { display:flex; flex-wrap:wrap; gap:8px 18px; margin-bottom:10px; }
+.mc-todo { margin-bottom:8px; }
+.mc-bloque { border:1px solid var(--od-border); border-radius:4px; margin-bottom:8px; }
+.mc-bloque.hecho { border-color:var(--od-green); }
+.mc-bh { display:flex; align-items:center; gap:8px; padding:5px 8px; background:var(--od-head); border-bottom:1px solid var(--od-border-s); }
+.mc-bh .nm { flex:1 1 auto; font-weight:600; font-size:.74rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mc-bloque textarea { display:block; width:100%; box-sizing:border-box; border:none; resize:vertical; padding:6px 8px;
+    font-family:ui-monospace, Consolas, monospace; font-size:.7rem; color:var(--od-text); background:#fff; }
+
+/* Acceso a la consulta rápida desde la vista completa */
+.btn-sql { color:#1e1b4b; background:#fbbf24; border-color:#fbbf24; font-weight:700; }
+.btn-sql:hover { background:#f59e0b; }
