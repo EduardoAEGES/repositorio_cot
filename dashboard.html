@@ -66,34 +66,51 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
-        /* ───────── Filtros en el tfoot ───────── */
-        tfoot th {
+        /* ───────── Fila de filtros (encima de los títulos) ───────── */
+        table.dataTable thead tr.filtros th {
             padding: 4px 6px !important;
             background-color: #eaf0fb !important;
+            vertical-align: top;
         }
-
-        /* Select2 dentro del tfoot: ancho completo */
-        tfoot .select2-container {
+        thead tr.filtros .select2-container {
             width: 100% !important;
             min-width: 100px;
         }
-        tfoot .select2-container--default .select2-selection--multiple {
+        thead tr.filtros .select2-container--default .select2-selection--multiple {
             border: 1px solid #ccc;
             border-radius: 3px;
             min-height: 28px;
             font-size: 12px;
         }
-        tfoot .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        thead tr.filtros .select2-container--default .select2-selection--multiple .select2-selection__choice {
             background-color: #002d72;
             color: #fff;
             border: none;
             border-radius: 3px;
             padding: 1px 5px;
             font-size: 11px;
+            white-space: normal;
         }
-        tfoot .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        thead tr.filtros .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
             color: #fff;
         }
+        thead tr.filtros th.activo { background-color: #fff3c4 !important; }
+        .select2-results__option .n { float: right; color: #888; font-size: 11px; margin-left: 12px; }
+
+        /* ───────── Edición manual (localStorage) ───────── */
+        table.dataTable tbody td { cursor: cell; }
+        table.dataTable tbody td.editado { background: #fff3c4 !important; box-shadow: inset 3px 0 0 #e0a800; }
+        table.dataTable tbody td.editando { padding: 0 !important; }
+        td.editando input {
+            width: 100%; box-sizing: border-box; border: 2px solid #002d72; padding: 5px 8px;
+            font: inherit; outline: none; min-width: 80px;
+        }
+        .ediciones-info { font-size: 12px; color: #7a5b00; background: #fff3c4; border: 1px solid #f0d77a;
+            border-radius: 4px; padding: 6px 10px; display: none; align-items: center; gap: 8px; }
+        .ediciones-info.ver { display: inline-flex; }
+        .ediciones-info button { background: #fff; border: 1px solid #c9a227; color: #7a5b00; border-radius: 3px;
+            padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+        .ayuda-edicion { font-size: 12px; color: #777; }
 
         /* DataTables overrides */
         table.dataTable {
@@ -196,6 +213,11 @@
                     <i class="fas fa-times-circle"></i> Limpiar filtros
                 </button>
                 <span id="filteredCount" style="font-size:13px; color:#555;"></span>
+                <span class="ayuda-edicion"><i class="fas fa-pen"></i> Doble clic en una celda para editarla</span>
+                <span class="ediciones-info" id="edicionesInfo">
+                    <i class="fas fa-floppy-disk"></i> <span id="edicionesTxt"></span>
+                    <button id="btnDeshacerTodo" title="Volver a los datos originales de la hoja">Deshacer todo</button>
+                </span>
             </div>
             <div id="loadingMsg" style="text-align: center; padding: 40px; font-size: 1.2rem; color: #666;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando datos de Carga Horaria...
@@ -221,8 +243,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     
     <script>
-        // Columnas que se desean OCULTAR del CSV (columnas técnicas)
+        // Columnas técnicas que nunca se muestran
         const HIDDEN_COLUMNS = ['Key 1', 'Key 2'];
+        // Columnas casi vacías (restos de la hoja: días sueltos, celdas perdidas) se ocultan solas
+        const MIN_LLENO = 0.01;
+        // Ediciones manuales: { claveFila: { columna: { v: nuevo, o: original } } }
+        const LS_EDICIONES = 'carga_academica_ediciones_v1';
 
         $(document).ready(function() {
             const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSbJ9v-qxajK2K221OqEeBbUEWNJRnmwNl8TLeAJsqfncUuiaBsRHs_gjzB7DMgJTQAKHLPHoMjJhR_/pub?gid=1470879596&single=true&output=csv';
@@ -241,45 +267,70 @@
                         return;
                     }
 
-                    // Todas las columnas del CSV
-                    let allColumnKeys = Object.keys(data[0]);
+                    const allColumnKeys = results.meta.fields || Object.keys(data[0]);
+                    const txt = v => (v == null ? '' : String(v)).trim();
 
-                    // Filtrar columnas ocultas
-                    let visibleKeys = allColumnKeys.filter(k => !HIDDEN_COLUMNS.includes(k));
+                    // Ocultas: técnicas, sin título o con datos en menos del 1% de filas
+                    const oculta = {};
+                    allColumnKeys.forEach(k => {
+                        const llenas = data.reduce((n, r) => n + (txt(r[k]) ? 1 : 0), 0);
+                        oculta[k] = HIDDEN_COLUMNS.includes(k) || !txt(k) || /^_\d*$/.test(k) || llenas < data.length * MIN_LLENO;
+                    });
+                    const visibleKeys = allColumnKeys.filter(k => !oculta[k]);
+                    const visibleIndices = allColumnKeys.map((k, i) => i).filter(i => !oculta[allColumnKeys[i]]);
 
-                    // Construir definición de columnas para DataTables
-                    // (incluimos las ocultas para que los índices coincidan con los datos,
-                    //  pero las marcamos como visible:false)
+                    // ---------- ediciones guardadas en este navegador ----------
+                    let ediciones = {};
+                    try { ediciones = JSON.parse(localStorage.getItem(LS_EDICIONES) || '{}') || {}; } catch (e) { ediciones = {}; }
+                    const guardarEdiciones = () => {
+                        try { localStorage.setItem(LS_EDICIONES, JSON.stringify(ediciones)); }
+                        catch (e) { alert('No se pudo guardar el cambio en este navegador.'); }
+                        pintarAvisoEdiciones();
+                    };
+                    // Clave estable por fila: Key 2 (carga+sección+módulo+NRC) + Key 1 (DNI); si se repite, #n
+                    const vistas = {};
+                    data.forEach(r => {
+                        const base = [txt(r['Key 2']), txt(r['Key 1'])].join('|') || [txt(r['Carga']), txt(r['NRC']), txt(r['DNI'])].join('|');
+                        vistas[base] = (vistas[base] || 0) + 1;
+                        r.__clave = vistas[base] > 1 ? base + '#' + vistas[base] : base;
+                        const ed = ediciones[r.__clave];
+                        if (ed) Object.keys(ed).forEach(k => { if (k in r) r[k] = ed[k].v; });
+                    });
+
                     const columns = allColumnKeys.map(k => ({
                         title: k,
                         data: k,
-                        defaultContent: "",
-                        visible: !HIDDEN_COLUMNS.includes(k)
+                        defaultContent: '',
+                        visible: !oculta[k],
+                        render: { display: v => escapeHtml(v == null ? '' : v) }
                     }));
 
-                    // Índices de columnas VISIBLES
-                    const visibleIndices = allColumnKeys
-                        .map((k, i) => ({ k, i }))
-                        .filter(({ k }) => !HIDDEN_COLUMNS.includes(k))
-                        .map(({ i }) => i);
-
-                    // Construir thead con todas las columnas (DataTables ocultará las indicadas en visible:false)
-                    let theadRow = '<tr>' + allColumnKeys.map(k => `<th>${k}</th>`).join('') + '</tr>';
-
-                    // tfoot: un <select multiple> por cada columna
-                    let tfootRow = '<tr>' + allColumnKeys.map(k =>
-                        `<th><select class="col-filter" data-col="${k}" multiple="multiple" style="width:100%">
-                            <option value="">-- Todos --</option>
-                        </select></th>`
+                    // Fila 1: filtros · Fila 2: títulos (el orden se hace con clic en el título)
+                    const filtroRow = '<tr class="filtros">' + allColumnKeys.map(k =>
+                        `<th><select class="col-filter" data-col="${escapeHtml(k)}" multiple="multiple" style="width:100%"></select></th>`
                     ).join('') + '</tr>';
+                    const tituloRow = '<tr>' + allColumnKeys.map(k => `<th>${escapeHtml(k)}</th>`).join('') + '</tr>';
+                    $('#gridTable').html(`<thead>${filtroRow}${tituloRow}</thead>`);
 
-                    $('#gridTable').html(`<thead>${theadRow}</thead><tfoot>${tfootRow}</tfoot>`);
+                    // ---------- filtros dependientes ----------
+                    const filtros = {};   // columna -> Set de valores elegidos
+                    function pasa(r, excepto) {
+                        for (const k in filtros) {
+                            if (k === excepto || !filtros[k].size) continue;
+                            if (!filtros[k].has(txt(r[k]))) return false;
+                        }
+                        return true;
+                    }
+                    const selects = {};   // columna -> <select> real del encabezado
+                    $.fn.dataTable.ext.search.push(function (settings, searchData, dataIndex, rowData) {
+                        return settings.nTable.id !== 'gridTable' || pasa(rowData);
+                    });
 
-                    // Inicializar DataTables
                     var table = $('#gridTable').DataTable({
                         data: data,
                         columns: columns,
                         dom: '<"top"Bf>rt<"bottom"lip><"clear">',
+                        orderCellsTop: false,
                         buttons: [
                             {
                                 extend: 'excelHtml5',
@@ -287,12 +338,13 @@
                                 title: 'Gestor_Carga_Academica',
                                 exportOptions: {
                                     columns: visibleIndices,
-                                    modifier: { search: 'applied' }
+                                    modifier: { search: 'applied' },
+                                    format: { header: (html, i) => allColumnKeys[i] }
                                 }
                             }
                         ],
                         scrollX: true,
-                        scrollY: 'calc(100vh - 340px)',
+                        scrollY: 'calc(100vh - 380px)',
                         scrollCollapse: true,
                         pageLength: 50,
                         language: {
@@ -300,70 +352,137 @@
                         },
                         initComplete: function () {
                             var api = this.api();
+                            // El encabezado real (con scrollX DataTables guarda copias ocultas para medir)
+                            const $head = $(api.table().header());
 
-                            // Poblar los select con los valores únicos de cada columna visible
-                            api.columns().every(function () {
-                                var colIndex = this.index();
-                                var colKey = allColumnKeys[colIndex];
-                                if (HIDDEN_COLUMNS.includes(colKey)) return;
-
-                                var $select = $(`select.col-filter[data-col="${colKey}"]`);
-
-                                // Recoger valores únicos y ordenarlos
-                                var uniqueVals = [];
-                                this.data().unique().sort().each(function (val) {
-                                    if (val !== null && val !== undefined && val !== '') {
-                                        uniqueVals.push(val);
-                                    }
-                                });
-
-                                uniqueVals.forEach(function (val) {
-                                    $select.append(`<option value="${escapeHtml(val)}">${val}</option>`);
-                                });
-
-                                // Inicializar Select2
-                                $select.select2({
+                            visibleKeys.forEach(function (k) {
+                                const $sel = $head.find('select.col-filter').filter(function () { return this.dataset.col === k; });
+                                selects[k] = $sel;
+                                $sel.select2({
                                     placeholder: 'Todos',
                                     allowClear: true,
                                     width: '100%',
-                                    dropdownAutoWidth: true
+                                    dropdownAutoWidth: true,
+                                    templateResult: o => o.id ? $('<span>').text(o.text).append($('<span class="n">').text(o.element.dataset.n)) : o.text
                                 });
-
-                                // Evento de filtrado multi-valor
-                                $select.on('change', function () {
-                                    var selected = $(this).val(); // array de valores seleccionados
-
-                                    if (!selected || selected.length === 0 || (selected.length === 1 && selected[0] === '')) {
-                                        // Sin filtro
-                                        api.column(colIndex).search('').draw();
-                                    } else {
-                                        // Filtrar usando regex OR con valores exactos
-                                        var escaped = selected.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-                                        var regex = '^(' + escaped.join('|') + ')$';
-                                        api.column(colIndex).search(regex, true, false).draw();
-                                    }
-
-                                    updateCount(api);
+                                $sel.on('change', function () {
+                                    const elegidos = ($(this).val() || []).filter(v => v !== '');
+                                    if (elegidos.length) filtros[k] = new Set(elegidos); else delete filtros[k];
+                                    $(this).closest('th').toggleClass('activo', elegidos.length > 0);
+                                    refrescar();
                                 });
                             });
 
+                            actualizarOpciones();
                             updateCount(api);
+                            pintarAvisoEdiciones();
 
                             // Limpiar filtros y el conteo van en la misma barra que Exportar
                             $('.top-bar').prependTo('#gridTable_wrapper .top');
-                            // Los Select2 del pie cambian el ancho de las columnas: re-alinear encabezados
                             api.columns.adjust();
                         }
                     });
 
-                    $(window).on('resize', function () { table.columns.adjust(); });
+                    // Opciones de cada filtro = valores presentes con los DEMÁS filtros aplicados
+                    function actualizarOpciones() {
+                        visibleKeys.forEach(function (k) {
+                            const $sel = selects[k];
+                            if (!$sel) return;
+                            const cuenta = new Map();
+                            data.forEach(r => { if (pasa(r, k)) { const v = txt(r[k]); if (v) cuenta.set(v, (cuenta.get(v) || 0) + 1); } });
+                            const elegidos = filtros[k] ? [...filtros[k]] : [];
+                            elegidos.forEach(v => { if (!cuenta.has(v)) cuenta.set(v, 0); });
+                            const vals = [...cuenta.keys()].sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
+                            $sel.html(vals.map(v => `<option value="${escapeHtml(v)}" data-n="${cuenta.get(v)}">${escapeHtml(v)}</option>`).join(''));
+                            $sel.val(elegidos).trigger('change.select2');
+                        });
+                    }
+                    function refrescar() {
+                        table.draw();
+                        actualizarOpciones();
+                        updateCount(table);
+                    }
 
                     // Botón limpiar todos los filtros
                     $('#btnClearFilters').on('click', function () {
-                        $('select.col-filter').val(null).trigger('change.select2');
-                        table.columns().search('').draw();
-                        updateCount(table);
+                        Object.keys(filtros).forEach(k => delete filtros[k]);
+                        $('#gridTable_wrapper thead tr.filtros th').removeClass('activo');
+                        table.search('');
+                        $('#gridTable_wrapper .dataTables_filter input').val('');
+                        refrescar();
                     });
+
+                    // ---------- edición con doble clic ----------
+                    $('#gridTable tbody').on('dblclick', 'td', function () {
+                        const td = this;
+                        if ($(td).hasClass('editando') || $(td).find('.dataTables_empty').length || $(td).hasClass('dataTables_empty')) return;
+                        const cell = table.cell(td);
+                        const fila = table.row(td.parentNode).data();
+                        const k = allColumnKeys[cell.index().column];
+                        const actual = txt(fila[k]);
+                        $(td).addClass('editando').html('<input type="text">');
+                        const $in = $(td).find('input').val(actual).trigger('focus').select();
+                        let hecho = false;
+                        const terminar = guardar => {
+                            if (hecho) return; hecho = true;
+                            const nuevo = txt($in.val());
+                            $(td).removeClass('editando');
+                            if (guardar && nuevo !== actual) {
+                                const ed = ediciones[fila.__clave] = ediciones[fila.__clave] || {};
+                                const original = ed[k] ? ed[k].o : actual;
+                                if (nuevo === original) delete ed[k]; else ed[k] = { v: nuevo, o: original };
+                                if (!Object.keys(ed).length) delete ediciones[fila.__clave];
+                                fila[k] = nuevo;
+                                guardarEdiciones();
+                                table.row(td.parentNode).invalidate();
+                                refrescar();
+                            } else {
+                                cell.invalidate();
+                                marcarEditadas();
+                            }
+                        };
+                        $in.on('keydown', e => {
+                            if (e.key === 'Enter') { e.preventDefault(); terminar(true); }
+                            else if (e.key === 'Escape') { e.preventDefault(); terminar(false); }
+                        }).on('blur', () => terminar(true));
+                    });
+
+                    // Resalta las celdas editadas y muestra el valor original al pasar el mouse
+                    function marcarEditadas() {
+                        table.rows({ page: 'current' }).every(function () {
+                            const r = this.data(), ed = ediciones[r.__clave] || {};
+                            const tr = this.node();
+                            allColumnKeys.forEach((k, i) => {
+                                if (oculta[k]) return;
+                                const td = table.cell(tr, i).node();
+                                if (!td) return;
+                                if (ed[k]) { td.classList.add('editado'); td.title = 'Editado a mano · original: ' + (ed[k].o || '(vacío)'); }
+                                else if (td.classList.contains('editado')) { td.classList.remove('editado'); td.removeAttribute('title'); }
+                            });
+                        });
+                    }
+                    table.on('draw', marcarEditadas);
+                    marcarEditadas();
+
+                    function pintarAvisoEdiciones() {
+                        let n = 0;
+                        Object.values(ediciones).forEach(ed => { n += Object.keys(ed).length; });
+                        $('#edicionesTxt').text(n + (n === 1 ? ' celda editada' : ' celdas editadas') + ' (guardado solo en este navegador)');
+                        $('#edicionesInfo').toggleClass('ver', n > 0);
+                    }
+                    $('#btnDeshacerTodo').on('click', function () {
+                        if (!confirm('¿Deshacer todas las ediciones manuales y volver a los datos de la hoja?')) return;
+                        data.forEach(r => {
+                            const ed = ediciones[r.__clave];
+                            if (ed) Object.keys(ed).forEach(k => { r[k] = ed[k].o; });
+                        });
+                        ediciones = {};
+                        guardarEdiciones();
+                        table.rows().invalidate();
+                        refrescar();
+                    });
+
+                    $(window).on('resize', function () { table.columns.adjust(); });
 
                     function updateCount(api) {
                         var total = api.rows().count();
@@ -374,19 +493,19 @@
                             $('#filteredCount').text(`${total.toLocaleString()} registros totales`);
                         }
                     }
-
-                    function escapeHtml(str) {
-                        return String(str)
-                            .replace(/&/g, '&amp;')
-                            .replace(/"/g, '&quot;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;');
-                    }
                 },
                 error: function() {
                     $('#loadingMsg').html('<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Error cargando los datos. Verifica tu conexión a internet o el enlace público.</span>');
                 }
             });
+
+            function escapeHtml(str) {
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
         });
     </script>
 </body>
