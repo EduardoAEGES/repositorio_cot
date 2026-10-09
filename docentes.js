@@ -598,6 +598,15 @@ async function cargarBasicos() {
             leer(hConta, leerConta), leer(hPln, leerPln), leer(hObs, leerSimple), leer(hDesv, leerSimple)
         ]);
         DOCENTES = unificar(conta, pln, obs, desv);
+        
+        // CORRECCIÓN CONTRATO FERNANDO (30H PTC)
+        DOCENTES.forEach(d => {
+            if (d.dni === '41768946' || d.nombre.includes('FIGUEROA YNCA FERNANDO')) {
+                d.tipo = 'PTC';
+                d.horasContrato = 30;
+            }
+        });
+
         try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), docentes: DOCENTES })); } catch (e) { /* lleno */ }
         $('estado').textContent = `${DOCENTES.length} docentes · actualizado ${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
         render();
