@@ -10,6 +10,9 @@
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+
+    <!-- Select2 CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
     
     <style>
         body {
@@ -61,16 +64,37 @@
             height: 100%;
             overflow: auto;
         }
-        
-        /* DataTables overrides for Excel-like feel */
-        tfoot input {
-            width: 100%;
-            padding: 5px;
-            box-sizing: border-box;
+
+        /* ───────── Filtros en el tfoot ───────── */
+        tfoot th {
+            padding: 4px 6px !important;
+            background-color: #eaf0fb !important;
+        }
+
+        /* Select2 dentro del tfoot: ancho completo */
+        tfoot .select2-container {
+            width: 100% !important;
+            min-width: 100px;
+        }
+        tfoot .select2-container--default .select2-selection--multiple {
             border: 1px solid #ccc;
             border-radius: 3px;
-            font-size: 13px;
+            min-height: 28px;
+            font-size: 12px;
         }
+        tfoot .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #002d72;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 11px;
+        }
+        tfoot .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #fff;
+        }
+
+        /* DataTables overrides */
         table.dataTable {
             font-size: 13px;
             border-collapse: collapse;
@@ -86,8 +110,8 @@
             border: 1px solid #ddd;
             padding: 6px 10px;
         }
-        
-        /* Adjust DT buttons */
+
+        /* Botones de exportación */
         .dt-buttons .dt-button {
             background: #107c41 !important;
             color: white !important;
@@ -97,6 +121,30 @@
         }
         .dt-buttons .dt-button:hover {
             background: #0c5e31 !important;
+        }
+
+        /* Botón limpiar filtros */
+        #btnClearFilters {
+            background: #c0392b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #btnClearFilters:hover { background: #922b21; }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
         }
     </style>
 </head>
@@ -114,6 +162,12 @@
 
     <main class="main-content">
         <div class="grid-container">
+            <div class="top-bar">
+                <button id="btnClearFilters" title="Limpiar todos los filtros">
+                    <i class="fas fa-times-circle"></i> Limpiar filtros
+                </button>
+                <span id="filteredCount" style="font-size:13px; color:#555;"></span>
+            </div>
             <div id="loadingMsg" style="text-align: center; padding: 40px; font-size: 1.2rem; color: #666;">
                 <i class="fas fa-spinner fa-spin"></i> Cargando datos de Carga Horaria...
             </div>
@@ -133,10 +187,15 @@
     
     <!-- PapaParse for CSV reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Select2 JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     
     <script>
+        // Columnas que se desean OCULTAR del CSV (columnas técnicas)
+        const HIDDEN_COLUMNS = ['Key 1', 'Key 2'];
+
         $(document).ready(function() {
-            // URL de la hoja publicada como CSV (usando el GID de CARGA_HORARIA)
             const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSbJ9v-qxajK2K221OqEeBbUEWNJRnmwNl8TLeAJsqfncUuiaBsRHs_gjzB7DMgJTQAKHLPHoMjJhR_/pub?gid=1470879596&single=true&output=csv';
 
             Papa.parse(csvUrl, {
@@ -146,22 +205,46 @@
                 complete: function(results) {
                     $('#loadingMsg').hide();
                     $('#gridTable').show();
-                    
+
                     const data = results.data;
-                    if(data.length === 0) {
+                    if (data.length === 0) {
                         $('#gridTable').html('<p>No se encontraron datos.</p>');
                         return;
                     }
-                    
-                    // Extraer columnas únicas
-                    let allColumns = Object.keys(data[0]);
-                    const columns = allColumns.map(k => ({ title: k, data: k, defaultContent: "" }));
-                    
-                    // Construir cabecera (thead) y pie (tfoot) para los filtros por columna
-                    let thead = '<tr>' + columns.map(c => `<th>${c.title}</th>`).join('') + '</tr>';
-                    let tfoot = '<tr>' + columns.map(c => `<th><input type="text" placeholder="Filtrar ${c.title}" /></th>`).join('') + '</tr>';
-                    
-                    $('#gridTable').html(`<thead>${thead}</thead><tfoot>${tfoot}</tfoot>`);
+
+                    // Todas las columnas del CSV
+                    let allColumnKeys = Object.keys(data[0]);
+
+                    // Filtrar columnas ocultas
+                    let visibleKeys = allColumnKeys.filter(k => !HIDDEN_COLUMNS.includes(k));
+
+                    // Construir definición de columnas para DataTables
+                    // (incluimos las ocultas para que los índices coincidan con los datos,
+                    //  pero las marcamos como visible:false)
+                    const columns = allColumnKeys.map(k => ({
+                        title: k,
+                        data: k,
+                        defaultContent: "",
+                        visible: !HIDDEN_COLUMNS.includes(k)
+                    }));
+
+                    // Índices de columnas VISIBLES
+                    const visibleIndices = allColumnKeys
+                        .map((k, i) => ({ k, i }))
+                        .filter(({ k }) => !HIDDEN_COLUMNS.includes(k))
+                        .map(({ i }) => i);
+
+                    // Construir thead con solo columnas visibles
+                    let theadRow = '<tr>' + visibleKeys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+
+                    // tfoot: un <select multiple> por cada columna visible
+                    let tfootRow = '<tr>' + visibleKeys.map(k =>
+                        `<th><select class="col-filter" data-col="${k}" multiple="multiple" style="width:100%">
+                            <option value="">-- Todos --</option>
+                        </select></th>`
+                    ).join('') + '</tr>';
+
+                    $('#gridTable').html(`<thead>${theadRow}</thead><tfoot>${tfootRow}</tfoot>`);
 
                     // Inicializar DataTables
                     var table = $('#gridTable').DataTable({
@@ -174,33 +257,97 @@
                                 text: '<i class="fas fa-file-excel"></i> Exportar a Excel',
                                 title: 'Gestor_Carga_Academica',
                                 exportOptions: {
-                                    modifier: {
-                                        search: 'applied' // Exporta solo lo filtrado
-                                    }
+                                    columns: visibleIndices,
+                                    modifier: { search: 'applied' }
                                 }
                             }
                         ],
                         scrollX: true,
-                        scrollY: 'calc(100vh - 280px)',
+                        scrollY: 'calc(100vh - 310px)',
                         scrollCollapse: true,
                         pageLength: 50,
                         language: {
                             url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
                         },
                         initComplete: function () {
-                            // Aplicar la lógica de filtro por cada columna
-                            this.api().columns().every(function () {
-                                var that = this;
-                                $('input', this.footer()).on('keyup change clear', function () {
-                                    if (that.search() !== this.value) {
-                                        that.search(this.value).draw();
+                            var api = this.api();
+
+                            // Poblar los select con los valores únicos de cada columna visible
+                            api.columns().every(function () {
+                                var colIndex = this.index();
+                                var colKey = allColumnKeys[colIndex];
+                                if (HIDDEN_COLUMNS.includes(colKey)) return;
+
+                                var $select = $(`select.col-filter[data-col="${colKey}"]`);
+
+                                // Recoger valores únicos y ordenarlos
+                                var uniqueVals = [];
+                                this.data().unique().sort().each(function (val) {
+                                    if (val !== null && val !== undefined && val !== '') {
+                                        uniqueVals.push(val);
                                     }
                                 });
+
+                                uniqueVals.forEach(function (val) {
+                                    $select.append(`<option value="${escapeHtml(val)}">${val}</option>`);
+                                });
+
+                                // Inicializar Select2
+                                $select.select2({
+                                    placeholder: 'Todos',
+                                    allowClear: true,
+                                    width: '100%',
+                                    dropdownAutoWidth: true
+                                });
+
+                                // Evento de filtrado multi-valor
+                                $select.on('change', function () {
+                                    var selected = $(this).val(); // array de valores seleccionados
+
+                                    if (!selected || selected.length === 0 || (selected.length === 1 && selected[0] === '')) {
+                                        // Sin filtro
+                                        api.column(colIndex).search('').draw();
+                                    } else {
+                                        // Filtrar usando regex OR con valores exactos
+                                        var escaped = selected.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                                        var regex = '^(' + escaped.join('|') + ')$';
+                                        api.column(colIndex).search(regex, true, false).draw();
+                                    }
+
+                                    updateCount(api);
+                                });
                             });
+
+                            updateCount(api);
                         }
                     });
+
+                    // Botón limpiar todos los filtros
+                    $('#btnClearFilters').on('click', function () {
+                        $('select.col-filter').val(null).trigger('change.select2');
+                        table.columns().search('').draw();
+                        updateCount(table);
+                    });
+
+                    function updateCount(api) {
+                        var total = api.rows().count();
+                        var filtered = api.rows({ search: 'applied' }).count();
+                        if (filtered < total) {
+                            $('#filteredCount').text(`Mostrando ${filtered.toLocaleString()} de ${total.toLocaleString()} registros`);
+                        } else {
+                            $('#filteredCount').text(`${total.toLocaleString()} registros totales`);
+                        }
+                    }
+
+                    function escapeHtml(str) {
+                        return String(str)
+                            .replace(/&/g, '&amp;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+                    }
                 },
-                error: function(err) {
+                error: function() {
                     $('#loadingMsg').html('<span style="color:red"><i class="fas fa-exclamation-triangle"></i> Error cargando los datos. Verifica tu conexión a internet o el enlace público.</span>');
                 }
             });
