@@ -95,6 +95,8 @@
             color: #fff;
         }
         thead tr.filtros th.activo { background-color: #fff3c4 !important; }
+        /* Copia oculta del encabezado que DataTables usa para medir: sin relleno (si no, deja una franja vacía) */
+        .dataTables_scrollBody table.dataTable thead tr.filtros th { padding-top: 0 !important; padding-bottom: 0 !important; }
         .select2-results__option .n { float: right; color: #888; font-size: 11px; margin-left: 12px; }
 
         /* ───────── Edición manual (localStorage) ───────── */
