@@ -183,6 +183,35 @@ class Campus:
         except Exception:
             return ''
 
+    def cargar_grabaciones(self, cm, dia, intentos=4):
+        """Abre la pagina de grabaciones y espera la tabla. El campus a veces responde
+        'No hay datos que mostrar' porque el servidor de grabaciones tardo; al recargar si salen.
+        Por eso se sale y se vuelve a entrar hasta `intentos` veces antes de aceptar que no hay grabaciones."""
+        espera = """() => {
+            const filas = [...document.querySelectorAll('table tbody tr')].map(tr => tr.innerText);
+            if (filas.some(t => /\\d{1,2} de \\S+ de \\d{4}/.test(t))) return 'fechas';
+            if (filas.some(t => /no hay (datos|grabaci)|no recordings|nothing to display/i.test(t))) return 'vacio';
+            return '';
+        }"""
+        estado = ''
+        for n in range(intentos):
+            self.goto(f'{BASE}/mod/bigbluebuttonbn/view.php?id={cm}')
+            try:
+                estado = self.page.wait_for_function(espera, timeout=25000).json_value()
+            except Exception:
+                estado = ''
+            if estado == 'fechas':
+                return True
+            # "Salir y volver a entrar": se pasa por otra pagina y se espera cada vez un poco mas,
+            # para darle tiempo al servidor de grabaciones (5 s, 10 s, 15 s).
+            try:
+                self.page.goto(f'{BASE}/my/', wait_until='domcontentloaded')
+            except Exception:
+                pass
+            time.sleep(5 * (n + 1))
+        self.diagnostico(f'grabaciones_{cm}_{dia}')
+        return False
+
     def logs_bbb(self, cid, dia):
         """Filas del Registro de Moodle de ese dia, solo BigBlueButton -> (filas, diagnostico).
         Si no sale ninguna fila de BigBlueButton guarda una captura en virtual_local/diagnostico/."""
@@ -229,16 +258,7 @@ class Campus:
         La misma grabacion sale en las dos actividades BigBlueButton del aula: se cuenta una vez."""
         res, vistos = [], set()
         for cm in cm_ids:
-            self.goto(f'{BASE}/mod/bigbluebuttonbn/view.php?id={cm}')
-            # La tabla de grabaciones llega por AJAX: primero muestra una fila "Cargando...".
-            # Se espera a que aparezca alguna fecha ("10 de octubre de 2026") o el aviso de que no hay.
-            try:
-                self.page.wait_for_function(
-                    """() => [...document.querySelectorAll('table tbody tr')].some(tr =>
-                        /\\d{1,2} de \\S+ de \\d{4}/.test(tr.innerText) || /no hay grabaci|no recordings/i.test(tr.innerText))""",
-                    timeout=20000)
-            except Exception:
-                self.diagnostico(f'grabaciones_{cm}_{dia}')
+            if not self.cargar_grabaciones(cm, dia):
                 continue
             for tabla in self.page.query_selector_all('table'):
                 heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
@@ -268,8 +288,6 @@ class Campus:
                         continue
                     vistos.add(clave)
                     res.append(dict(href=href, minutos=minutos))
-        if not res and cm_ids:
-            self.diagnostico(f'grabaciones_{cm_ids[-1]}_{dia}')
         return res
 
     def resolver_grabacion(self, href):
