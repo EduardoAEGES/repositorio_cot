@@ -173,6 +173,16 @@ class Campus:
                 ids.append(i)
         return ids
 
+    def diagnostico(self, nombre):
+        """Captura de la pagina actual en virtual_local/diagnostico/ (para ver que leyo el script)."""
+        try:
+            carpeta = os.path.join(RAIZ, 'virtual_local', 'diagnostico')
+            os.makedirs(carpeta, exist_ok=True)
+            self.page.screenshot(path=os.path.join(carpeta, nombre + '.png'), full_page=True)
+            return f'virtual_local/diagnostico/{nombre}.png'
+        except Exception:
+            return ''
+
     def logs_bbb(self, cid, dia):
         """Filas del Registro de Moodle de ese dia, solo BigBlueButton -> (filas, diagnostico).
         Si no sale ninguna fila de BigBlueButton guarda una captura en virtual_local/diagnostico/."""
@@ -209,13 +219,9 @@ class Campus:
         diag = f'registros: {total} filas, {len(filas)} de BigBlueButton' + (
             ' (' + '; '.join(f'{k} x{v}' for k, v in eventos.items()) + ')' if eventos else '')
         if not filas:
-            try:
-                carpeta = os.path.join(RAIZ, 'virtual_local', 'diagnostico')
-                os.makedirs(carpeta, exist_ok=True)
-                self.page.screenshot(path=os.path.join(carpeta, f'registros_{cid}_{dia}.png'), full_page=True)
-                diag += f' · captura en virtual_local/diagnostico/registros_{cid}_{dia}.png'
-            except Exception:
-                pass
+            ruta = self.diagnostico(f'registros_{cid}_{dia}')
+            if ruta:
+                diag += f' · captura en {ruta}'
         return filas, diag
 
     def grabaciones(self, cm_ids, dia):
@@ -224,9 +230,15 @@ class Campus:
         res, vistos = [], set()
         for cm in cm_ids:
             self.goto(f'{BASE}/mod/bigbluebuttonbn/view.php?id={cm}')
+            # La tabla de grabaciones llega por AJAX: primero muestra una fila "Cargando...".
+            # Se espera a que aparezca alguna fecha ("10 de octubre de 2026") o el aviso de que no hay.
             try:
-                self.page.wait_for_selector('table tbody tr', timeout=8000)
+                self.page.wait_for_function(
+                    """() => [...document.querySelectorAll('table tbody tr')].some(tr =>
+                        /\\d{1,2} de \\S+ de \\d{4}/.test(tr.innerText) || /no hay grabaci|no recordings/i.test(tr.innerText))""",
+                    timeout=20000)
             except Exception:
+                self.diagnostico(f'grabaciones_{cm}_{dia}')
                 continue
             for tabla in self.page.query_selector_all('table'):
                 heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
@@ -256,6 +268,8 @@ class Campus:
                         continue
                     vistos.add(clave)
                     res.append(dict(href=href, minutos=minutos))
+        if not res and cm_ids:
+            self.diagnostico(f'grabaciones_{cm_ids[-1]}_{dia}')
         return res
 
     def resolver_grabacion(self, href):
@@ -362,7 +376,7 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
         host, rid, inicio = h, r, ini_g
         break
     grabado = sum(g['minutos'] or 0 for g in grabs)
-    avisar(f'   grabaciones: {len(grabs)} ({grabado} min)' + (f', la primera empezo {inicio:%H:%M}' if inicio else ''))
+    avisar(f'   actividades BigBlueButton: {len(cms)} · grabaciones del dia: {len(grabs)} ({grabado} min)' + (f', la primera empezo {inicio:%H:%M}' if inicio else ''))
     fin = datetime.strptime(f'{dia} {b}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
     # Minutos esperados = horas de la sesion x 45 (07:00-08:30 = 2 h = 90 min; 07:00-10:45 = 5 h = 225 min).
     horas = round((fin - ini).total_seconds() / 60 / 45)
