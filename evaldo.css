@@ -49,6 +49,7 @@ code { background: #f1f2f4; border: 1px solid var(--line); border-radius: 4px; p
 .nf-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
 .nf-btn .sm { display: none; }
 .nf-btn-campus { background: #1d4ed8; color: #fff; }
+.nf-btn-virtual { background: #0f766e; color: #fff; }
 .nf-btn-home { background: var(--certus); color: #fff; }
 .nf-btn-master { background: #111; color: #fff; border: 0; cursor: pointer; font-family: inherit; }
 body.modo-master .nf-btn-master { background: var(--red); }
@@ -315,8 +316,9 @@ table.ev-tabla { width: 100%; border-collapse: collapse; font-size: .8rem; }
     .nf-btn { padding: 8px 10px; font-size: .75rem; }
     .nf-btn .lg { display: none; }
     .nf-btn .sm { display: inline; }
-    .nf-nav-actions { gap: 6px; }
-    .nf-btn-campus .sm { display: none; }
+    .nf-nav { flex-wrap: wrap; row-gap: 8px; }
+    .nf-nav-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+    .nf-btn-campus .sm, .nf-btn-virtual .sm { display: none; }
     .nf-hero { padding: 24px 16px 14px; }
     .nf-hero h1 { font-size: 1.7rem; }
     .nf-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
