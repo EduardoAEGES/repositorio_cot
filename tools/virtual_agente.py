@@ -25,6 +25,8 @@ RESULTADOS = os.path.join(LOCAL, 'resultados.json')
 PUBLICADO = os.path.join(AV.RAIZ, 'datos', 'virtual.bin')
 PERFIL = os.path.join(os.path.expanduser('~'), '.virtual_agente')
 ITERACIONES = 250000
+# Estados que se vuelven a auditar solos (pueden haber sido un fallo del script, no del docente).
+REINTENTAR = ('', None, 'ERROR', 'SIN ACTIVIDAD', 'AULA NO ENCONTRADA')
 
 trabajos = queue.Queue()
 candado = threading.Lock()
@@ -163,7 +165,7 @@ def auditar_lote(campus, pedido):
     hechos = leer_resultados()
     if not pedido.get('rehacer'):
         secs = [s for s in secs if f'{dia}|{s["carga"]}|{s["nrc"]}' not in hechos
-                or hechos[f'{dia}|{s["carga"]}|{s["nrc"]}'].get('estIngreso') in ('', None, 'ERROR')]
+                or hechos[f'{dia}|{s["carga"]}|{s["nrc"]}'].get('estIngreso') in REINTENTAR]
     E.update(total=len(secs), hechos=0, error='', actual='')
     log(f'{len(secs)} sesiones virtuales por auditar el {dia} (carga: {origen}).')
     for s in secs:
@@ -173,7 +175,7 @@ def auditar_lote(campus, pedido):
         E['actual'] = f'{s["docente"]} · NRC {s["nrc"]}'
         try:
             fila = AV.auditar_clase(campus, s, dia, int(pedido.get('tolerancia', 5)),
-                                    int(pedido.get('camaraMin', 20)), bool(pedido.get('camara', True)))
+                                    int(pedido.get('camaraMin', 20)), bool(pedido.get('camara', True)), avisar=log)
         except AV.SinSesion:
             E['error'] = 'sin_sesion'
             log('🔑 Se venció la sesión de Campus Digital. Vuelve a iniciarla y pulsa Auditar: sigue con las que faltan.')

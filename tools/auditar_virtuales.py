@@ -174,32 +174,49 @@ class Campus:
         return ids
 
     def logs_bbb(self, cid, dia):
-        """Filas del Registro de Moodle de ese dia, solo componente BigBlueButton."""
+        """Filas del Registro de Moodle de ese dia, solo BigBlueButton -> (filas, diagnostico).
+        Si no sale ninguna fila de BigBlueButton guarda una captura en virtual_local/diagnostico/."""
         ts = int(datetime(dia.year, dia.month, dia.day, tzinfo=LIMA).timestamp())
         self.goto(f'{BASE}/report/log/index.php?id={cid}&chooselog=1&logreader=logstore_standard'
                   f'&date={ts}&edulevel=-1&user=0&modid=&modaction=&perpage=2000')
         tabla = self.page.query_selector('table.generaltable')
-        if not tabla:
-            return []
-        heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
+        filas, total, eventos = [], 0, {}
+        if tabla:
+            heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
 
-        def col(*claves):
-            for i, h in enumerate(heads):
-                if any(c in h for c in claves):
-                    return i
-            return None
-        iH, iU, iC, iE = (col('HORA', 'TIME'), col('NOMBRE COMPLETO', 'FULL NAME'),
-                          col('COMPONENTE', 'COMPONENT'), col('NOMBRE DEL EVENTO', 'EVENT NAME'))
-        filas = []
-        for tr in tabla.query_selector_all('tbody tr'):
-            td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
-            if iH is None or len(td) <= max(x for x in (iH, iU, iC, iE) if x is not None):
-                continue
-            if iC is not None and 'BIGBLUE' not in norm(td[iC]):
-                continue
-            filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '',
-                              evento=td[iE] if iE is not None else ''))
-        return filas
+            def col(pred):
+                for i, h in enumerate(heads):
+                    if pred(h):
+                        return i
+                return None
+            # Moodle en espanol: "Hora", "Nombre completo del usuario", "Componente", "Nombre evento"
+            # ("Contexto del evento" tambien dice EVENTO: por eso se exige NOMBRE).
+            iH = col(lambda h: h.startswith('HORA') or h.startswith('TIME') or h.startswith('FECHA'))
+            iU = col(lambda h: 'NOMBRE COMPLETO' in h or 'FULL NAME' in h)
+            iC = col(lambda h: 'COMPONENT' in h)
+            iE = col(lambda h: ('NOMBRE' in h and 'EVENTO' in h) or 'EVENT NAME' in h)
+            for tr in tabla.query_selector_all('tbody tr'):
+                td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
+                if iH is None or len(td) <= max(x for x in (iH, iU, iC, iE) if x is not None):
+                    continue
+                total += 1
+                ev = td[iE] if iE is not None else ''
+                comp = td[iC] if iC is not None else ''
+                if 'BIGBLUE' not in norm(comp) and 'BIGBLUE' not in norm(ev):
+                    continue
+                eventos[ev] = eventos.get(ev, 0) + 1
+                filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '', evento=ev))
+        diag = f'registros: {total} filas, {len(filas)} de BigBlueButton' + (
+            ' (' + '; '.join(f'{k} x{v}' for k, v in eventos.items()) + ')' if eventos else '')
+        if not filas:
+            try:
+                carpeta = os.path.join(RAIZ, 'virtual_local', 'diagnostico')
+                os.makedirs(carpeta, exist_ok=True)
+                self.page.screenshot(path=os.path.join(carpeta, f'registros_{cid}_{dia}.png'), full_page=True)
+                diag += f' · captura en virtual_local/diagnostico/registros_{cid}_{dia}.png'
+            except Exception:
+                pass
+        return filas, diag
 
     def grabaciones(self, cm_ids, dia):
         """Links de reproduccion de las grabaciones con fecha == dia."""
@@ -216,8 +233,12 @@ class Campus:
                     continue
                 if datetime(int(m.group(3)), MESES[m.group(2)], int(m.group(1))).date() != dia:
                     continue
-                el = tr.query_selector('[data-action="play"], a[href*="action=play"], a[href*="bbb_view"]')
+                el = (tr.query_selector('[data-action="play"], a[href*="action=play"], a[href*="bbb_view"], a[href*="/playback/"]')
+                      or tr.query_selector('a:has-text("grabaci")'))
                 href = el and (el.get_attribute('data-href') or el.get_attribute('href'))
+                if href and not href.startswith(('http', '/')):     # '#' o javascript: buscar la URL en onclick
+                    m2 = re.search(r"https?://[^'\"\s)]+", el.get_attribute('onclick') or '')
+                    href = m2.group(0) if m2 else None
                 if href:
                     href = BASE + href if href.startswith('/') else href
                     if href not in res:
@@ -285,7 +306,7 @@ def es_ingreso(ev):
     return any(k in e for k in ('UNID', 'UNIO', 'JOINED', 'INGRES')) and not any(k in e for k in ('SALI', 'LEFT'))
 
 
-def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True):
+def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True, avisar=print):
     a, b = sec['horario'][dia.weekday()]
     ini = datetime.strptime(f'{dia} {a}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
     fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'],
@@ -301,41 +322,66 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
     fila['aula'] = f'{BASE}/course/view.php?id={cid}'
     cms = campus.cm_bbb(cid)
 
-    logs = [f for f in campus.logs_bbb(cid, dia) if es_ingreso(f['evento'])]
+    filas_log, diag = campus.logs_bbb(cid, dia)
+    avisar(f'   {diag}')
+    logs = [f for f in filas_log if es_ingreso(f['evento'])]
     entradas = sorted(t for f in logs if mismo_docente(f['usuario'], sec['docente'])
                       for t in [hora_log(f['hora'], dia)] if t)
     # Entradas de horas antes no cuentan (otra sesion del mismo dia en la misma aula).
     entradas = [t for t in entradas if t >= ini - timedelta(minutes=60)]
-    if entradas:
-        d = round((entradas[0] - ini).total_seconds() / 60)
-        fila.update(ingreso=entradas[0].strftime('%H:%M'), retraso=d,
-                    estIngreso='PUNTUAL' if d <= tolerancia else 'TARDE')
-    elif not logs:
-        # Nadie (ni alumnos) entro a la sala: lo mas probable es que ese dia no hubo clase
-        # (modulo terminado o aun no empieza, feriado). Se separa para no culpar al docente.
-        fila.update(estIngreso='SIN ACTIVIDAD', estCamara='—',
-                    nota='nadie entro a la sala ese dia (¿fuera de las fechas del modulo?)')
-        return fila
-    else:
-        fila['estIngreso'] = 'SIN INGRESO'
-        fila['nota'] = f'entraron {len(logs)} participante(s), el docente no'
 
-    if not con_camara:
-        fila['estCamara'] = 'NO EVALUADO'
-        return fila
+    # Grabacion de ese dia (siempre se busca: tambien prueba que hubo clase).
+    host = rid = inicio = None
+    notas = []
     for href in campus.grabaciones(cms, dia):
         info = campus.resolver_grabacion(href)
         if not info:
-            fila['nota'] = 'no se pudo abrir la grabacion'
+            notas.append('no se pudo abrir la grabacion')
             continue
-        host, rid = info
-        inicio = campus.metadata(host, rid)
-        if inicio and abs((inicio - ini).total_seconds()) > 3 * 3600:
+        h, r = info
+        ini_g = campus.metadata(h, r)
+        if ini_g and abs((ini_g - ini).total_seconds()) > 3 * 3600:
             continue                                    # grabacion de otra sesion del dia
-        if inicio:
-            fila['grabacion'] = inicio.strftime('%H:%M')
+        host, rid, inicio = h, r, ini_g
+        break
+    avisar(f'   grabacion: {"si, empezo " + inicio.strftime("%H:%M") if inicio else ("si" if rid else "no encontrada")}')
+    if inicio:
+        fila['grabacion'] = inicio.strftime('%H:%M')
+
+    def marcar(hora, fuente):
+        d = round((hora - ini).total_seconds() / 60)
+        fila.update(ingreso=hora.strftime('%H:%M'), retraso=d,
+                    estIngreso='PUNTUAL' if d <= tolerancia else 'TARDE')
+        if fuente:
+            notas.append(fuente)
+
+    if entradas:
+        marcar(entradas[0], '')
+    elif inicio:
+        # Sin registro del docente pero hay grabacion: la sala la abre el docente (moderador),
+        # asi que el inicio de la grabacion es una buena estimacion de su ingreso.
+        marcar(inicio, 'ingreso estimado por el inicio de la grabacion')
+    elif rid:
+        fila['estIngreso'] = 'SIN INGRESO'
+        notas.append('hay grabacion, pero no se encontro el ingreso del docente')
+    elif not logs:
+        # Nadie entro y no hay grabacion: lo mas probable es que ese dia no hubo clase
+        # (modulo terminado o aun no empieza, feriado). Se separa para no culpar al docente.
+        fila.update(estIngreso='SIN ACTIVIDAD', estCamara='—',
+                    nota='nadie entro a la sala y no hay grabacion ese dia')
+        return fila
+    else:
+        fila['estIngreso'] = 'SIN INGRESO'
+        notas.append(f'entraron {len(logs)} participante(s), el docente no')
+
+    if not rid:
+        fila['estCamara'] = 'SIN GRABACION'
+    elif not con_camara:
+        fila['estCamara'] = 'NO EVALUADO'
+    else:
         minuto, nota = campus.camara(host, rid, camara_min)
-        fila['nota'] = nota
+        if nota:
+            notas.append(nota)
         if minuto is None:
             fila['estCamara'] = 'NO EVALUADO' if nota == 'falta ffmpeg' else 'SIN CAMARA'
         else:
@@ -343,9 +389,7 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
             desde = minuto + ((inicio - ini).total_seconds() / 60 if inicio else 0)
             fila['camara'] = max(0, round(desde))
             fila['estCamara'] = 'CAMARA OK' if desde <= camara_min else 'CAMARA TARDIA'
-        break
-    if not fila['estCamara']:
-        fila['estCamara'] = 'SIN GRABACION'
+    fila['nota'] = '; '.join(notas)
     return fila
 
 
