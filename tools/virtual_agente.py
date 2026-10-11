@@ -163,11 +163,23 @@ def auditar_lote(campus, pedido):
     if f.get('turno'):
         secs = [s for s in secs if s['turno'] in f['turno']]
     hechos = leer_resultados()
+    programadas = len(secs)
+
+    def pendiente(s):
+        h = hechos.get(f'{dia}|{s["carga"]}|{s["nrc"]}')
+        # Se repiten solas las que pudieron fallar por el script y las auditadas con una
+        # version anterior (sin permanencia, o sin grabacion por el error de la tabla que cargaba tarde).
+        return (h is None or h.get('estIngreso') in REINTENTAR or not h.get('estPermanencia')
+                or h.get('estCamara') == 'SIN GRABACION')
     if not pedido.get('rehacer'):
-        secs = [s for s in secs if f'{dia}|{s["carga"]}|{s["nrc"]}' not in hechos
-                or hechos[f'{dia}|{s["carga"]}|{s["nrc"]}'].get('estIngreso') in REINTENTAR]
+        secs = [s for s in secs if pendiente(s)]
     E.update(total=len(secs), hechos=0, error='', actual='')
-    log(f'{len(secs)} sesiones virtuales por auditar el {dia} (carga: {origen}).')
+    saltadas = programadas - len(secs)
+    log(f'{programadas} sesiones virtuales programadas el {dia} con esos filtros (carga: {origen}).'
+        + (f' {saltadas} ya estaban auditadas y se saltan: marca "Volver a auditar las ya hechas" para repetirlas.'
+           if saltadas else ''))
+    if not programadas:
+        log('⚠ Ninguna sesión virtual coincide: revisa la fecha (día de la semana), el periodo y el docente.')
     for s in secs:
         if E['detener']:
             log('Detenido.')
