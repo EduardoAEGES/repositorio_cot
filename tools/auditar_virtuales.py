@@ -1,100 +1,131 @@
 # -*- coding: utf-8 -*-
-"""Audita las clases VIRTUALES del Campus Digital (Moodle + BigBlueButton).
+"""Nucleo del Seguimiento VIRTUAL (Campus Digital = Moodle + BigBlueButton).
 
-Por cada seccion virtual de CARGA_HORARIA_CONVERTIDA.csv responde:
-  1. A que hora entro el docente a la sala (registros de Moodle: "unirse a la reunion")
-     frente a la hora programada -> PUNTUAL / TARDE / SIN INGRESO.
-  2. Si hay grabacion de ese dia: cuando aparece su camara en la grabacion
-     (webcams.webm). Si la camara no aparece antes del minuto --camara-min (20)
-     se marca CAMARA TARDIA / SIN CAMARA.
+Por cada sesion VIRTUAL (bloque "VIR hh:mm-hh:mm" de la hoja CARGA_HORARIA) de un dia:
+  1. Hora en que el docente entro a la sala (Registros de Moodle, evento "unirse a la
+     reunion") frente a la hora programada -> PUNTUAL / TARDE / SIN INGRESO.
+  2. Si hay grabacion de ese dia: minuto en que aparece la camara en webcams.webm
+     (heuristica con ffmpeg). Pasado --camara-min (20) -> CAMARA TARDIA / SIN CAMARA.
 
-Requisitos (en tu PC, no en el repo):
-    pip install playwright
-    playwright install chromium
-    ffmpeg en el PATH (solo para el paso de camara; sin ffmpeg se omite)
+Lo usa virtual_agente.py (la pagina virtual.html lo maneja). Tambien funciona solo:
+    python tools/auditar_virtuales.py --fecha 2026-10-05 --docente GUZMAN --ver
 
-Credenciales: NUNCA van en el codigo. Se leen de las variables de entorno
-CAMPUS_USER / CAMPUS_PASS o se piden por consola.
-
-Ejemplos:
-    python tools/auditar_virtuales.py --fecha 2026-10-05
-    python tools/auditar_virtuales.py --fecha 2026-10-05 --docente GUZMAN
-    python tools/auditar_virtuales.py --fecha 2026-10-05 --nrc 80 --sin-camara
-    python tools/auditar_virtuales.py --fecha 2026-10-05 --ver     # muestra el navegador
-
-Salida: reporte_virtuales_<fecha>.csv (+ registros_bbb_<fecha>.csv con el crudo
-de Moodle, util para afinar). Ambos contienen nombres de docentes: estan en
-.gitignore, no los subas al repo publico.
+Requisitos: pip install playwright cryptography ; playwright install chromium ;
+ffmpeg en el PATH (solo para la camara).
+Credenciales: nunca en el codigo. Se inicia sesion a mano en la ventana que se abre,
+o con las variables de entorno CAMPUS_USER / CAMPUS_PASS.
 """
-import argparse, csv, getpass, os, re, shutil, subprocess, sys, time, unicodedata
+import argparse, csv, io, os, re, shutil, subprocess, sys, time, unicodedata
+import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlparse, parse_qs, quote_plus
+from urllib.parse import urlparse, parse_qs, quote, quote_plus
 
 BASE = 'https://campusdigital.certus.edu.pe'
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARGA_CSV = os.path.join(RAIZ, 'CARGA_HORARIA_CONVERTIDA.csv')
+# Misma hoja que usa EVALDO (evaldo-core.js): CARGA_HORARIA en vivo.
+HOJA_CARGA = ('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w'
+              '/export?format=csv&gid=1470879596')
 LIMA = timezone(timedelta(hours=-5))
 DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
-DIA2 = {'LU': 0, 'MA': 1, 'MI': 2, 'JU': 3, 'VI': 4, 'SA': 5, 'DO': 6}
 MESES = {m: i + 1 for i, m in enumerate(
     'enero febrero marzo abril mayo junio julio agosto setiembre octubre noviembre diciembre'.split())}
 MESES['septiembre'] = 9
 
 
+class SinSesion(Exception):
+    """La sesion de Campus Digital se vencio y no hay credenciales para renovarla."""
+
+
 def norm(s):
-    s = ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn')
+    s = ''.join(c for c in unicodedata.normalize('NFD', str(s or '')) if unicodedata.category(c) != 'Mn')
     return re.sub(r'\s+', ' ', s).upper().strip()
 
 
-# ---------------------------------------------------------------- carga horaria
-def leer_carga(ruta):
-    """Secciones virtuales unicas: una fila por (carga, NRC) con docente y horario."""
-    with open(ruta, encoding='utf-8-sig', newline='') as f:
-        filas = list(csv.DictReader(f))
+# ---------------------------------------------------------------- hoja de carga
+def texto_carga():
+    """CSV de CARGA_HORARIA: la hoja en vivo; si no se puede, la copia del repo."""
+    try:
+        with urllib.request.urlopen(HOJA_CARGA, timeout=30) as r:
+            return r.read().decode('utf-8-sig'), 'hoja en vivo'
+    except Exception:
+        with open(CARGA_CSV, encoding='utf-8-sig') as f:
+            return f.read(), 'copia del repo (CARGA_HORARIA_CONVERTIDA.csv)'
+
+
+def leer_carga(texto):
+    """Secciones con al menos una sesion VIR. horario = {weekday: ('19:00', '22:45')}."""
+    filas = list(csv.reader(io.StringIO(texto)))
+    if not filas:
+        return []
+    cab = [norm(c) for c in filas[0]]
+
+    def col(pred):
+        for i, c in enumerate(cab):
+            if pred(c):
+                return i
+        return None
+    i = dict(carga=col(lambda c: c == 'CARGA'), nrc=col(lambda c: c == 'NRC'), dni=col(lambda c: c == 'DNI'),
+             docente=col(lambda c: 'NOMBRE' in c or 'APELLIDO' in c), curso=col(lambda c: c == 'CURSO'),
+             seccion=col(lambda c: c.startswith('SECCI')), modulo=col(lambda c: 'DULO' in c),
+             periodo=col(lambda c: c == 'PERIODO'), turno=col(lambda c: c == 'TURNO'),
+             sede=col(lambda c: c == 'SEDE'), ciclo=col(lambda c: c == 'CICLO'),
+             modalidad=col(lambda c: c == 'MODALIDAD'),
+             dias=col(lambda c: c.startswith('HORARIO') and '(DIA' in c),
+             horas=col(lambda c: c.startswith('HORARIO') and '(HORA' in c))
+    tx = lambda r, k: r[i[k]].strip() if i[k] is not None and i[k] < len(r) else ''
     out = {}
-    for r in filas:
-        if norm(r.get('MODALIDAD', '')) != 'VIRTUAL':
+    for r in filas[1:]:
+        nrc = re.sub(r'\.0$', '', tx(r, 'nrc'))
+        if not nrc:
             continue
-        dias = [norm(d) for d in re.findall(r'\(([^)]+)\)', r.get('HORARIO (DÍAS)', ''))]
-        horas = re.findall(r'(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})', r.get('HORARIO (HORAS)', ''))
+        dias = [norm(d) for d in re.findall(r'\(([^)]+)\)', tx(r, 'dias'))]
+        bloques = re.findall(r'\(\s*([A-Z]*)\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\)', norm(tx(r, 'horas')))
         horario = {}
-        for i, d in enumerate(dias):
-            if d in DIAS and horas:
-                horario[DIAS.index(d)] = horas[min(i, len(horas) - 1)]
-        k = (r['Carga'].strip(), r['NRC'].strip())
-        out[k] = dict(carga=k[0], nrc=k[1], docente=r['Nombres y Apellidos'].strip(),
-                      curso=r['Curso'].strip(), seccion=r['Sección'].strip(), horario=horario)
+        for j, d in enumerate(dias):
+            if d not in DIAS or not bloques:
+                continue
+            tipo, a, b = bloques[min(j, len(bloques) - 1)]
+            # VIR = sesion virtual. Sin prefijo se usa la modalidad de la fila.
+            if tipo == 'VIR' or (not tipo and norm(tx(r, 'modalidad')) == 'VIRTUAL'):
+                horario[DIAS.index(d)] = (a.zfill(5), b.zfill(5))
+        if not horario:
+            continue
+        k = (tx(r, 'carga'), nrc)
+        if k in out:
+            out[k]['horario'].update(horario)
+            continue
+        out[k] = dict(carga=k[0], nrc=nrc, docente=tx(r, 'docente'), dni=tx(r, 'dni'), curso=tx(r, 'curso'),
+                      seccion=tx(r, 'seccion'), modulo=tx(r, 'modulo'), periodo=norm(tx(r, 'periodo')),
+                      turno=norm(tx(r, 'turno')), sede=norm(tx(r, 'sede')), ciclo=norm(tx(r, 'ciclo')),
+                      horario=horario)
     return list(out.values())
 
 
-def hora_programada(sec, fecha, nombre_curso=''):
-    """datetime de inicio programado para `fecha`; usa el horario de la carga y,
-    si falta, el sufijo del nombre del curso en Moodle ('LU 07:00-10:45')."""
-    h = sec['horario'].get(fecha.weekday())
-    if not h:
-        for dd, a, b in re.findall(r'\b([A-Z]{2})\s+(\d{1,2}:\d{2})-(\d{1,2}:\d{2})', nombre_curso):
-            if DIA2.get(dd) == fecha.weekday():
-                h = (a, b)
-    if not h:
-        return None, None
-    ini = datetime.strptime(f'{fecha:%Y-%m-%d} {h[0]}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
-    fin = datetime.strptime(f'{fecha:%Y-%m-%d} {h[1]}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
-    return ini, fin
+def del_dia(secciones, dia):
+    return [s for s in secciones if dia.weekday() in s['horario']]
 
 
 def mismo_docente(nombre_log, docente):
-    """Compara 'WILLY CESAR GUZMAN ESPINOZA' (Moodle) con 'GUZMAN ESPINOZA WILLY CESAR' (carga)."""
+    """'WILLY CESAR GUZMAN ESPINOZA' (Moodle) vs 'GUZMAN ESPINOZA WILLY CESAR' (carga)."""
     a, b = set(norm(nombre_log).split()), set(norm(docente).split())
-    return bool(a and b) and len(a & b) >= min(len(a), len(b)) - (1 if min(len(a), len(b)) > 3 else 0)
+    if not a or not b:
+        return False
+    m = min(len(a), len(b))
+    return len(a & b) >= (m - 1 if m > 3 else m)
 
 
 # ---------------------------------------------------------------- navegador
 class Campus:
-    def __init__(self, page, ctx, user, pw):
-        self.page, self.ctx, self.user, self.pw = page, ctx, user, pw
+    def __init__(self, ctx, user=None, pw=None):
+        self.ctx = ctx
+        self.page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        self.user, self.pw = user, pw
 
-    def login(self):
+    def login_auto(self):
+        if not (self.user and self.pw):
+            raise SinSesion()
         p = self.page
         p.goto(f'{BASE}/login/index.php', wait_until='domcontentloaded')
         p.fill('#username', self.user)
@@ -102,25 +133,35 @@ class Campus:
         p.click('#loginbtn')
         p.wait_for_load_state('domcontentloaded')
         if '/login/' in p.url:
-            sys.exit('Login rechazado: revisa usuario/contrasena (o hay captcha/MFA).')
+            raise SinSesion()
+
+    def sesion_ok(self):
+        r = self.ctx.request.get(f'{BASE}/my/', max_redirects=5)
+        return r.ok and '/login/' not in r.url
 
     def goto(self, url):
-        """goto que se vuelve a loguear si la sesion expiro."""
         self.page.goto(url, wait_until='domcontentloaded')
         if '/login/index.php' in self.page.url:
-            self.login()
+            self.login_auto()
             self.page.goto(url, wait_until='domcontentloaded')
 
     def buscar_curso(self, sec):
-        """-> (course_id, nombre) del aula 'CARGA || NRC || ...' o None."""
+        """-> (course_id, nombre). Entra directo por el shortname 'SECCION|NRC CARGA'
+        (como horario.js); si no, usa el buscador de cursos."""
+        corto = f'{sec["seccion"]}|{sec["nrc"]} {sec["carga"]}'.strip()
+        self.goto(f'{BASE}/course/view.php?name={quote(corto)}')
+        m = re.search(r'/course/view\.php\?id=(\d+)', self.page.url)
+        cid = m.group(1) if m else self.page.evaluate(
+            "() => (document.body.className.match(/course-(\\d+)/) || [])[1] || null")
+        if cid and cid != '1':
+            return cid, (self.page.title() or '')
         q = quote_plus(f'"{sec["carga"]} || {sec["nrc"]} ||"')
         self.goto(f'{BASE}/course/search.php?search={q}&perpage=50')
         pat = re.compile(rf'^\s*{re.escape(sec["carga"])}\s*\|\|\s*{re.escape(sec["nrc"])}\s*\|\|')
         for a in self.page.query_selector_all('a[href*="/course/view.php?id="]'):
             t = (a.inner_text() or '').strip()
             if pat.match(t):
-                cid = parse_qs(urlparse(a.get_attribute('href')).query)['id'][0]
-                return cid, t
+                return parse_qs(urlparse(a.get_attribute('href')).query)['id'][0], t
         return None
 
     def cm_bbb(self, cid):
@@ -135,43 +176,33 @@ class Campus:
     def logs_bbb(self, cid, dia):
         """Filas del Registro de Moodle de ese dia, solo componente BigBlueButton."""
         ts = int(datetime(dia.year, dia.month, dia.day, tzinfo=LIMA).timestamp())
-        filas, pagina = [], 0
-        while True:
-            self.goto(f'{BASE}/report/log/index.php?id={cid}&chooselog=1&logreader=logstore_standard'
-                      f'&date={ts}&edulevel=-1&user=0&modid=&modaction=&perpage=500&page={pagina}')
-            tabla = self.page.query_selector('table.generaltable')
-            if not tabla:
-                break
-            heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
+        self.goto(f'{BASE}/report/log/index.php?id={cid}&chooselog=1&logreader=logstore_standard'
+                  f'&date={ts}&edulevel=-1&user=0&modid=&modaction=&perpage=2000')
+        tabla = self.page.query_selector('table.generaltable')
+        if not tabla:
+            return []
+        heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
 
-            def col(*claves):
-                for i, h in enumerate(heads):
-                    if any(c in h for c in claves):
-                        return i
-                return None
-            iH, iU, iC, iE, iD = (col('HORA', 'TIME'), col('NOMBRE COMPLETO', 'FULL NAME'),
-                                  col('COMPONENTE', 'COMPONENT'), col('NOMBRE DEL EVENTO', 'EVENT NAME'),
-                                  col('DESCRIP'))
-            n = 0
-            for tr in tabla.query_selector_all('tbody tr'):
-                td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
-                if len(td) < 4 or iH is None:
-                    continue
-                n += 1
-                comp = td[iC] if iC is not None else ''
-                if 'BIGBLUE' not in norm(comp):
-                    continue
-                filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '',
-                                  evento=td[iE] if iE is not None else '',
-                                  descripcion=td[iD] if iD is not None else ''))
-            sig = self.page.query_selector('.paging a.next, li.page-item.next a, a[rel="next"]')
-            if not n or not sig or pagina > 20:
-                break
-            pagina += 1
+        def col(*claves):
+            for i, h in enumerate(heads):
+                if any(c in h for c in claves):
+                    return i
+            return None
+        iH, iU, iC, iE = (col('HORA', 'TIME'), col('NOMBRE COMPLETO', 'FULL NAME'),
+                          col('COMPONENTE', 'COMPONENT'), col('NOMBRE DEL EVENTO', 'EVENT NAME'))
+        filas = []
+        for tr in tabla.query_selector_all('tbody tr'):
+            td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
+            if iH is None or len(td) <= max(x for x in (iH, iU, iC, iE) if x is not None):
+                continue
+            if iC is not None and 'BIGBLUE' not in norm(td[iC]):
+                continue
+            filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '',
+                              evento=td[iE] if iE is not None else ''))
         return filas
 
     def grabaciones(self, cm_ids, dia):
-        """Links de reproduccion de grabaciones cuya fecha == dia."""
+        """Links de reproduccion de las grabaciones con fecha == dia."""
         res = []
         for cm in cm_ids:
             self.goto(f'{BASE}/mod/bigbluebuttonbn/view.php?id={cm}')
@@ -186,206 +217,184 @@ class Campus:
                 if datetime(int(m.group(3)), MESES[m.group(2)], int(m.group(1))).date() != dia:
                     continue
                 el = tr.query_selector('[data-action="play"], a[href*="action=play"], a[href*="bbb_view"]')
-                if not el:
-                    continue
-                href = el.get_attribute('data-href') or el.get_attribute('href')
-                if href and href.startswith('/'):
-                    href = BASE + href
-                res.append(href)
+                href = el and (el.get_attribute('data-href') or el.get_attribute('href'))
+                if href:
+                    href = BASE + href if href.startswith('/') else href
+                    if href not in res:
+                        res.append(href)
         return res
 
+    def resolver_grabacion(self, href):
+        """Sigue el link de reproduccion -> (host_bbb, record_id) o None."""
+        self.page.goto(href, wait_until='domcontentloaded')
+        try:
+            self.page.wait_for_url(re.compile(r'/playback/|meetingId=|/presentation/'), timeout=10000)
+        except Exception:
+            pass
+        m = re.search(r'([0-9a-f]{40}-\d{13})', self.page.url)
+        if not m or 'certus.edu.pe/mod/' in self.page.url:
+            return None
+        u = urlparse(self.page.url)
+        return f'{u.scheme}://{u.netloc}', m.group(1)
 
-def resolver_grabacion(campus, href):
-    """Sigue el link de reproduccion y devuelve (host_bbb, record_id)."""
-    destino = None
-    if href and href.startswith('http'):
-        campus.page.goto(href, wait_until='domcontentloaded')
-        time.sleep(2)
-        destino = campus.page.url
-        if '/mod/bigbluebuttonbn/' in destino:      # redirige por JS: esperar el cambio
-            try:
-                campus.page.wait_for_url(re.compile(r'/playback/|meetingId='), timeout=8000)
-            except Exception:
-                pass
-            destino = campus.page.url
-    m = re.search(r'([0-9a-f]{40}-\d{13})', destino or '')
-    if not m:
-        return None
-    u = urlparse(destino)
-    return f'{u.scheme}://{u.netloc}', m.group(1)
+    def metadata(self, host, rid):
+        r = self.ctx.request.get(f'{host}/presentation/{rid}/metadata.xml')
+        if not r.ok:
+            return None
+        try:
+            ini = ET.fromstring(r.text()).findtext('.//start_time')
+        except ET.ParseError:
+            return None
+        return datetime.fromtimestamp(int(ini) / 1000, LIMA) if ini else None
 
-
-def metadata(campus, host, rid):
-    r = campus.ctx.request.get(f'{host}/presentation/{rid}/metadata.xml')
-    if not r.ok:
-        return None
-    raiz = ET.fromstring(r.text())
-    ini, fin = raiz.findtext('.//start_time'), raiz.findtext('.//end_time')
-    if not ini:
-        return None
-    return dict(inicio=datetime.fromtimestamp(int(ini) / 1000, LIMA),
-                fin=datetime.fromtimestamp(int(fin) / 1000, LIMA) if fin else None)
-
-
-def camara(campus, host, rid, max_min):
-    """Heuristica: busca el primer tramo no-negro de webcams.webm (primeros max_min+10 min).
-    Devuelve (minuto_primera_camara | None, nota). Requiere ffmpeg."""
-    if not shutil.which('ffmpeg'):
-        return None, 'sin ffmpeg'
-    url = None
-    for ext in ('webm', 'mp4'):
-        u = f'{host}/presentation/{rid}/video/webcams.{ext}'
-        if campus.ctx.request.head(u).ok:
-            url = u
-            break
-    if not url:
-        return None, 'sin webcams (nadie compartio camara)'
-    limite = (max_min + 10) * 60
-    p = subprocess.run(['ffmpeg', '-hide_banner', '-t', str(limite), '-i', url, '-an',
-                        '-vf', 'blackdetect=d=3:pix_th=0.10', '-f', 'null', '-'],
-                       capture_output=True, text=True, timeout=900)
-    err = p.stderr
-    tiempos = re.findall(r'time=(\d+):(\d+):([\d.]+)', err)
-    visto = (lambda h, m, s: int(h) * 3600 + int(m) * 60 + float(s))(*tiempos[-1]) if tiempos else 0
-    negros = [(float(a), float(b)) for a, b in
-              re.findall(r'black_start:([\d.]+) black_end:([\d.]+)', err)]
-    if negros and negros[0][0] <= 2:
-        if negros[0][1] >= visto - 2:
-            return None, f'camara apagada en los primeros {visto/60:.0f} min'
-        return negros[0][1] / 60, 'ok'
-    return 0.0, 'ok'
+    def camara(self, host, rid, max_min):
+        """Heuristica: primer tramo no-negro de webcams.webm en los primeros max_min+10 min.
+        -> (minuto desde inicio de la grabacion | None, nota)."""
+        url = None
+        for ext in ('webm', 'mp4'):
+            u = f'{host}/presentation/{rid}/video/webcams.{ext}'
+            if self.ctx.request.head(u).ok:
+                url = u
+                break
+        if not url:
+            return None, 'sin video de camaras'
+        if not shutil.which('ffmpeg'):
+            return None, 'falta ffmpeg'
+        p = subprocess.run(['ffmpeg', '-hide_banner', '-t', str((max_min + 10) * 60), '-i', url, '-an',
+                            '-vf', 'blackdetect=d=3:pix_th=0.10', '-f', 'null', '-'],
+                           capture_output=True, text=True, timeout=900)
+        err = p.stderr
+        t = re.findall(r'time=(\d+):(\d+):([\d.]+)', err)
+        visto = int(t[-1][0]) * 3600 + int(t[-1][1]) * 60 + float(t[-1][2]) if t else 0
+        negros = [(float(a), float(b)) for a, b in re.findall(r'black_start:([\d.]+) black_end:([\d.]+)', err)]
+        if negros and negros[0][0] <= 2:
+            if negros[0][1] >= visto - 2:
+                return None, f'camara apagada los primeros {visto / 60:.0f} min'
+            return negros[0][1] / 60, ''
+        return 0.0, ''
 
 
 # ---------------------------------------------------------------- auditoria
-def parse_hora_log(txt, dia):
-    m = re.search(r'(\d{1,2}):(\d{2})(?::(\d{2}))?', txt)
-    if not m:
-        return None
-    return datetime(dia.year, dia.month, dia.day, int(m.group(1)), int(m.group(2)), tzinfo=LIMA)
+def hora_log(txt, dia):
+    m = re.search(r'(\d{1,2}):(\d{2})', txt)
+    return datetime(dia.year, dia.month, dia.day, int(m.group(1)), int(m.group(2)), tzinfo=LIMA) if m else None
 
 
 def es_ingreso(ev):
     e = norm(ev)
-    return any(k in e for k in ('UNID', 'UNIO', 'JOINED', 'INGRES')) and 'SALI' not in e and 'LEFT' not in e
+    return any(k in e for k in ('UNID', 'UNIO', 'JOINED', 'INGRES')) and not any(k in e for k in ('SALI', 'LEFT'))
 
 
-def auditar(campus, sec, dia, args, volcado):
-    ini, fin = hora_programada(sec, dia)
-    base = dict(fecha=dia.isoformat(), docente=sec['docente'], curso=sec['curso'], seccion=sec['seccion'],
-                nrc=sec['nrc'], carga=sec['carga'], programado=ini.strftime('%H:%M') if ini else '',
-                primer_ingreso='', retraso_min='', estado_ingreso='', grabacion_inicio='',
-                camara_min='', estado_camara='', nota='', aula='')
-    if not ini:
-        base['nota'] = 'no tiene clase ese dia segun la carga'
-        return None
+def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True):
+    a, b = sec['horario'][dia.weekday()]
+    ini = datetime.strptime(f'{dia} {a}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
+    fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'],
+                docente=sec['docente'], curso=sec['curso'], sede=sec['sede'], turno=sec['turno'],
+                periodo=sec['periodo'], modulo=sec['modulo'], ciclo=sec['ciclo'], horario=f'{a}-{b}',
+                ingreso='', retraso=None, estIngreso='', grabacion='', camara=None, estCamara='',
+                nota='', aula='', auditado=datetime.now(LIMA).isoformat(timespec='minutes'))
     hallado = campus.buscar_curso(sec)
     if not hallado:
-        base.update(estado_ingreso='AULA NO ENCONTRADA')
-        return base
-    cid, nombre = hallado
-    base['aula'] = f'{BASE}/course/view.php?id={cid}'
-    if not ini:
-        ini, fin = hora_programada(sec, dia, nombre)
+        fila.update(estIngreso='AULA NO ENCONTRADA', estCamara='—')
+        return fila
+    cid, _ = hallado
+    fila['aula'] = f'{BASE}/course/view.php?id={cid}'
     cms = campus.cm_bbb(cid)
 
-    logs = campus.logs_bbb(cid, dia)
-    for f in logs:
-        volcado.append({**f, 'nrc': sec['nrc'], 'docente': sec['docente'], 'fecha': dia.isoformat()})
-    entradas = sorted(t for f in logs if es_ingreso(f['evento']) and mismo_docente(f['usuario'], sec['docente'])
-                      for t in [parse_hora_log(f['hora'], dia)] if t)
+    logs = [f for f in campus.logs_bbb(cid, dia) if es_ingreso(f['evento'])]
+    entradas = sorted(t for f in logs if mismo_docente(f['usuario'], sec['docente'])
+                      for t in [hora_log(f['hora'], dia)] if t)
+    # Entradas de horas antes no cuentan (otra sesion del mismo dia en la misma aula).
+    entradas = [t for t in entradas if t >= ini - timedelta(minutes=60)]
     if entradas:
         d = round((entradas[0] - ini).total_seconds() / 60)
-        base.update(primer_ingreso=entradas[0].strftime('%H:%M'), retraso_min=d,
-                    estado_ingreso='PUNTUAL' if d <= args.tolerancia else f'TARDE (+{d} min)')
+        fila.update(ingreso=entradas[0].strftime('%H:%M'), retraso=d,
+                    estIngreso='PUNTUAL' if d <= tolerancia else 'TARDE')
+    elif not logs:
+        # Nadie (ni alumnos) entro a la sala: lo mas probable es que ese dia no hubo clase
+        # (modulo terminado o aun no empieza, feriado). Se separa para no culpar al docente.
+        fila.update(estIngreso='SIN ACTIVIDAD', estCamara='—',
+                    nota='nadie entro a la sala ese dia (¿fuera de las fechas del modulo?)')
+        return fila
     else:
-        base['estado_ingreso'] = 'SIN INGRESO REGISTRADO'
+        fila['estIngreso'] = 'SIN INGRESO'
+        fila['nota'] = f'entraron {len(logs)} participante(s), el docente no'
 
-    if args.sin_camara:
-        return base
-    for href in campus.grabaciones(cms, dia)[:1]:
-        info = resolver_grabacion(campus, href)
+    if not con_camara:
+        fila['estCamara'] = 'NO EVALUADO'
+        return fila
+    for href in campus.grabaciones(cms, dia):
+        info = campus.resolver_grabacion(href)
         if not info:
-            base['nota'] = 'no pude resolver la grabacion'
+            fila['nota'] = 'no se pudo abrir la grabacion'
             continue
         host, rid = info
-        meta = metadata(campus, host, rid)
-        if meta:
-            base['grabacion_inicio'] = meta['inicio'].strftime('%H:%M')
-        minuto, nota = camara(campus, host, rid, args.camara_min)
-        base['nota'] = nota
+        inicio = campus.metadata(host, rid)
+        if inicio and abs((inicio - ini).total_seconds()) > 3 * 3600:
+            continue                                    # grabacion de otra sesion del dia
+        if inicio:
+            fila['grabacion'] = inicio.strftime('%H:%M')
+        minuto, nota = campus.camara(host, rid, camara_min)
+        fila['nota'] = nota
         if minuto is None:
-            base['estado_camara'] = 'SIN CAMARA' if 'sin webcams' in nota or 'apagada' in nota else 'NO EVALUADO'
+            fila['estCamara'] = 'NO EVALUADO' if nota == 'falta ffmpeg' else 'SIN CAMARA'
         else:
-            # la camara se mide desde el inicio de la grabacion; se suma al desfase vs. hora programada
-            desde_prog = minuto + ((meta['inicio'] - ini).total_seconds() / 60 if meta else 0)
-            base['camara_min'] = round(desde_prog)
-            base['estado_camara'] = ('CAMARA OK' if desde_prog <= args.camara_min
-                                     else f'CAMARA TARDIA (min {round(desde_prog)})')
-    if not base['estado_camara']:
-        base['estado_camara'] = 'SIN GRABACION'
-    return base
+            # minuto desde la hora programada (no desde que empezo a grabar)
+            desde = minuto + ((inicio - ini).total_seconds() / 60 if inicio else 0)
+            fila['camara'] = max(0, round(desde))
+            fila['estCamara'] = 'CAMARA OK' if desde <= camara_min else 'CAMARA TARDIA'
+        break
+    if not fila['estCamara']:
+        fila['estCamara'] = 'SIN GRABACION'
+    return fila
 
 
+# ---------------------------------------------------------------- uso directo (sin la pagina)
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--fecha', default=datetime.now(LIMA).date().isoformat(), help='AAAA-MM-DD (default hoy)')
-    ap.add_argument('--docente', help='filtro por texto en el nombre del docente')
-    ap.add_argument('--nrc', help='solo este NRC')
-    ap.add_argument('--tolerancia', type=int, default=5, help='minutos de gracia para PUNTUAL (5)')
-    ap.add_argument('--camara-min', type=int, default=20, help='limite para encender camara (20)')
-    ap.add_argument('--sin-camara', action='store_true', help='omite grabaciones/ffmpeg (solo hora de ingreso)')
-    ap.add_argument('--csv', default=CARGA_CSV)
+    ap.add_argument('--fecha', default=datetime.now(LIMA).date().isoformat(), help='AAAA-MM-DD')
+    ap.add_argument('--docente')
+    ap.add_argument('--nrc')
+    ap.add_argument('--tolerancia', type=int, default=5)
+    ap.add_argument('--camara-min', type=int, default=20)
+    ap.add_argument('--sin-camara', action='store_true')
     ap.add_argument('--ver', action='store_true', help='mostrar el navegador')
     args = ap.parse_args()
     dia = datetime.strptime(args.fecha, '%Y-%m-%d').date()
-
-    secs = leer_carga(args.csv)
+    texto, origen = texto_carga()
+    secs = del_dia(leer_carga(texto), dia)
     if args.docente:
         secs = [s for s in secs if norm(args.docente) in norm(s['docente'])]
     if args.nrc:
         secs = [s for s in secs if s['nrc'] == args.nrc]
-    secs = [s for s in secs if dia.weekday() in s['horario']]
     if not secs:
-        sys.exit('Ninguna seccion virtual coincide con esos filtros y ese dia de la semana.')
-
+        sys.exit('Ninguna sesion virtual coincide ese dia.')
+    print(f'{len(secs)} sesiones virtuales el {dia} (carga: {origen})')
     user = os.environ.get('CAMPUS_USER') or input('Usuario campus: ')
+    import getpass
     pw = os.environ.get('CAMPUS_PASS') or getpass.getpass('Contrasena campus: ')
 
     from playwright.sync_api import sync_playwright
-    reporte, volcado = [], []
-    with sync_playwright() as pw_:
-        br = pw_.chromium.launch(headless=not args.ver)
-        ctx = br.new_context(locale='es-PE', timezone_id='America/Lima')
-        campus = Campus(ctx.new_page(), ctx, user, pw)
-        campus.login()
-        print(f'{len(secs)} secciones virtuales el {dia} ...')
-        for i, s in enumerate(secs, 1):
+    filas = []
+    with sync_playwright() as p:
+        br = p.chromium.launch(headless=not args.ver)
+        campus = Campus(br.new_context(locale='es-PE', timezone_id='America/Lima'), user, pw)
+        campus.login_auto()
+        for n, s in enumerate(secs, 1):
             try:
-                fila = auditar(campus, s, dia, args, volcado)
-            except Exception as e:                      # una seccion rota no tumba el lote
-                fila = dict(fecha=dia.isoformat(), docente=s['docente'], curso=s['curso'],
-                            seccion=s['seccion'], nrc=s['nrc'], nota=f'ERROR: {e}')
-            if fila:
-                reporte.append(fila)
-                print(f'[{i}/{len(secs)}] {s["docente"][:32]:32} NRC {s["nrc"]:>5}  '
-                      f'{fila.get("estado_ingreso", "")}  {fila.get("estado_camara", "")}')
-            time.sleep(1)                               # no cargar el campus
+                f = auditar_clase(campus, s, dia, args.tolerancia, args.camara_min, not args.sin_camara)
+            except Exception as e:
+                f = dict(fecha=str(dia), docente=s['docente'], nrc=s['nrc'], nota=f'ERROR: {e}')
+            filas.append(f)
+            print(f'[{n}/{len(secs)}] {s["docente"][:32]:32} {s["nrc"]:>5} {f.get("estIngreso", "")} {f.get("estCamara", "")}')
+            time.sleep(1)
         br.close()
-
-    campos = ['fecha', 'docente', 'curso', 'seccion', 'nrc', 'carga', 'programado', 'primer_ingreso',
-              'retraso_min', 'estado_ingreso', 'grabacion_inicio', 'camara_min', 'estado_camara',
-              'nota', 'aula']
     out = os.path.join(RAIZ, f'reporte_virtuales_{dia}.csv')
-    with open(out, 'w', encoding='utf-8-sig', newline='') as f:
-        w = csv.DictWriter(f, campos, extrasaction='ignore')
+    with open(out, 'w', encoding='utf-8-sig', newline='') as fh:
+        w = csv.DictWriter(fh, list(filas[0].keys()), extrasaction='ignore')
         w.writeheader()
-        w.writerows(reporte)
-    if volcado:
-        with open(os.path.join(RAIZ, f'registros_bbb_{dia}.csv'), 'w', encoding='utf-8-sig', newline='') as f:
-            w = csv.DictWriter(f, list(volcado[0].keys()))
-            w.writeheader()
-            w.writerows(volcado)
-    print(f'\nListo: {out}')
+        w.writerows(filas)
+    print('Listo:', out)
 
 
 if __name__ == '__main__':

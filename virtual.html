@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento VIRTUAL - EQUIPO-COT-PLN</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="evaldo.css">
+    <link rel="stylesheet" href="virtual.css">
+</head>
+<body>
+    <header class="nf-nav">
+        <div class="nf-brand">
+            <img src="LOGO_CERTUS.png" alt="Certus" class="nf-logo">
+            <span class="nf-brand-title">VIRTUAL</span>
+        </div>
+        <div class="nf-nav-actions">
+            <button type="button" class="nf-btn nf-btn-master" id="masterBtn" title="Auditar y publicar (pide la clave)">
+                <i class="fas fa-user-shield"></i> <span class="lg" id="masterTxt">Modo master</span><span class="sm">Master</span>
+            </button>
+            <a href="https://campusdigital.certus.edu.pe/my/" rel="noopener" target="_blank" class="nf-btn nf-btn-campus">
+                <i class="fas fa-laptop"></i> <span class="lg">Campus Digital</span><span class="sm">Campus</span>
+            </a>
+            <a href="index.html" class="nf-btn nf-btn-home">
+                <i class="fas fa-house"></i> <span class="lg">Volver a Inicio</span><span class="sm">Inicio</span>
+            </a>
+        </div>
+    </header>
+
+    <section class="nf-hero">
+        <h1>Seguimiento VIRTUAL</h1>
+        <p>Clases virtuales (BigBlueButton): a qué hora ingresó el docente y si encendió la cámara en los primeros <span id="limCam">20</span> minutos.</p>
+        <div class="nf-stats vr-stats" id="stats">
+            <div class="nf-stat"><i class="fas fa-video"></i><b id="cTot">0</b><span>Clases auditadas</span></div>
+            <div class="nf-stat ok"><i class="fas fa-circle-check"></i><b id="cPun">0</b><span>Ingresos puntuales</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-clock"></i><b id="cTar">0</b><span>Tardanzas</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-user-slash"></i><b id="cSin">0</b><span>Sin ingreso</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-video-slash"></i><b id="cCam">0</b><span>Cámara tardía / sin cámara</span></div>
+        </div>
+        <div class="nf-status" id="estado"><span class="nf-spinner"></span> Preparando...</div>
+    </section>
+
+    <main>
+        <!-- ══ 1 · AUDITAR (modo master) ══ -->
+        <section class="ev-card solo-master">
+            <div class="ev-card-head">
+                <h2><span class="ev-num">1</span> Auditar clases virtuales</h2>
+                <span class="ev-muted" id="agenteInfo"></span>
+                <div class="ev-head-actions">
+                    <button class="ev-btn ev-btn-auto" id="publicarBtn" title="Cifra y sube los resultados para que el equipo los vea con la contraseña"><i class="fas fa-cloud-arrow-up"></i> Publicar para el equipo</button>
+                </div>
+            </div>
+            <div class="ev-card-body">
+                <div class="ev-paso" id="paso1">
+                    <span class="ev-paso-icono">1</span>
+                    <div class="ev-paso-txt"><b>Abrir el agente</b><small id="paso1Txt"></small></div>
+                </div>
+                <div class="ev-paso" id="paso2">
+                    <span class="ev-paso-icono">2</span>
+                    <div class="ev-paso-txt"><b>Iniciar sesión en Campus Digital</b><small id="paso2Txt"></small></div>
+                    <button class="ev-btn ev-btn-auto" id="paso2Btn"><i class="fas fa-right-to-bracket"></i> Abrir Campus</button>
+                </div>
+                <div class="ev-paso" id="paso3">
+                    <span class="ev-paso-icono">3</span>
+                    <div class="ev-paso-txt"><b>Auditar un día</b><small id="paso3Txt"></small></div>
+                    <button class="ev-btn ev-btn-auto" id="auditarBtn"><i class="fas fa-magnifying-glass-chart"></i> Auditar</button>
+                    <button class="ev-btn ev-btn-ghost" id="detenerBtn" hidden><i class="fas fa-stop"></i> Detener</button>
+                </div>
+                <div class="vr-form">
+                    <label>Fecha <input type="date" id="aFecha"></label>
+                    <label>Periodo <input type="search" id="aPeriodo" placeholder="OCTUBRE o AGOSTO 2" title="Periodo de la carga y, opcional, el módulo. Vacío = todos los periodos de la hoja."></label>
+                    <label>Turno <select id="aTurno"><option value="">Todos</option><option value="M">Mañana</option><option value="T">Tarde</option><option value="N">Noche</option></select></label>
+                    <label>Docente <input type="search" id="aDocente" placeholder="Apellido (opcional)"></label>
+                    <label>Tolerancia ingreso <input type="number" id="aTol" value="5" min="0" max="60"> min</label>
+                    <label>Cámara antes de <input type="number" id="aCam" value="20" min="1" max="120"> min</label>
+                    <label class="ev-check"><input type="checkbox" id="aCamara" checked> Revisar cámara en la grabación (más lento, necesita ffmpeg)</label>
+                    <label class="ev-check"><input type="checkbox" id="aRehacer"> Volver a auditar las ya hechas</label>
+                </div>
+                <div class="ev-progreso" id="progreso" hidden><i id="barra"></i></div>
+                <div class="ev-agente" id="publicarEstado"></div>
+                <details class="ev-asis-detalle" open>
+                    <summary>Detalle</summary>
+                    <div id="autoLog" class="ev-log"></div>
+                </details>
+                <p class="ev-nota"><i class="fas fa-circle-info"></i>
+                    "Sin actividad" = nadie entró a la sala ese día (no tocaba clase); no cuenta como alerta. Ingreso = primer evento "unirse a la reunión" del docente en los <b>Registros</b> del aula.
+                    Cámara = primer momento en que el video de cámaras de la <b>grabación</b> deja de estar en negro (estimado).
+                    Sin grabación no se puede evaluar la cámara.</p>
+            </div>
+        </section>
+
+        <!-- ══ 2 · RESULTADOS ══ -->
+        <section class="ev-card">
+            <div class="ev-card-head">
+                <h2><span class="ev-num solo-master">2</span> <span id="tituloTabla">Resultados</span></h2>
+                <div class="ev-head-actions">
+                    <button class="ev-btn ev-btn-excel" id="exportarBtn"><i class="fas fa-file-excel"></i> Excel de esta vista</button>
+                </div>
+            </div>
+            <div class="ev-card-body">
+                <div class="ev-buscar">
+                    <i class="fas fa-magnifying-glass"></i>
+                    <input type="search" id="buscar" placeholder="Docente, curso, sección o NRC..." autocomplete="off">
+                    <button class="ev-btn ev-btn-ghost" id="limpiarFiltros"><i class="fas fa-filter-circle-xmark"></i> Limpiar filtros</button>
+                </div>
+                <div class="ev-filtros">
+                    <div class="ev-fila"><span class="ev-label">Fecha</span><div class="ev-chips" id="fFecha"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Periodo</span><div class="ev-chips" id="fPeriodo"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Turno</span><div class="ev-chips" id="fTurno"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fSede"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Ingreso</span><div class="ev-chips" id="fIngreso"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Cámara</span><div class="ev-chips" id="fCamara"></div></div>
+                    <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. El Excel lleva solo lo filtrado.</p>
+                </div>
+                <div class="ev-vistas" role="tablist">
+                    <button class="nf-chip on" data-vista="clases">Por clase</button>
+                    <button class="nf-chip" data-vista="alertas">Solo alertas</button>
+                    <button class="nf-chip" data-vista="docentes">Por docente</button>
+                </div>
+                <div id="tabla"><div class="ev-vacio">Cargando...</div></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Contraseña del equipo -->
+    <div id="modalClave" class="nf-modal" hidden>
+        <div class="nf-modal-box ev-asistente" role="dialog" aria-modal="true" aria-labelledby="claveTitulo">
+            <div class="ev-modal-hero">
+                <h3 id="claveTitulo"><i class="fas fa-lock"></i> Datos del equipo</h3>
+                <p id="claveSub">Escribe la contraseña del equipo para ver los resultados publicados. Se recuerda en este navegador.</p>
+            </div>
+            <div class="ev-modal-body">
+                <form id="claveForm" class="ev-clave">
+                    <input type="password" id="claveInput" placeholder="Contraseña" autocomplete="current-password" required>
+                    <button class="ev-btn ev-btn-auto" type="submit"><i class="fas fa-unlock"></i> <span id="claveBtnTxt">Ver datos</span></button>
+                </form>
+                <p class="ev-bad" id="claveError"></p>
+                <button class="ev-btn ev-btn-ghost" id="claveOmitir" type="button">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clave del modo master -->
+    <div id="modalMaster" class="nf-modal" hidden>
+        <div class="nf-modal-box ev-asistente" role="dialog" aria-modal="true" aria-labelledby="masterTitulo">
+            <button class="nf-modal-close" id="masterCerrar" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
+            <div class="ev-modal-hero">
+                <h3 id="masterTitulo"><i class="fas fa-user-shield"></i> Modo master</h3>
+                <p>Muestra la auditoría con el agente y la publicación para el equipo.</p>
+            </div>
+            <div class="ev-modal-body">
+                <form id="masterForm" class="ev-clave">
+                    <input type="password" id="masterInput" placeholder="Clave" autocomplete="off" required>
+                    <button class="ev-btn ev-btn-auto" type="submit"><i class="fas fa-unlock"></i> Entrar</button>
+                </form>
+                <p class="ev-bad" id="masterError"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <script src="virtual.js"></script>
+</body>
+</html>
