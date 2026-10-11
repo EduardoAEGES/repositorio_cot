@@ -617,7 +617,8 @@ function pintarSecciones(secs) {
         const celdas = evals.map((ev) => {
             const e = s.evals[ev];
             if (!e) return '<td class="num ev-muted" title="No corresponde a este curso">·</td>';
-            return `<td class="num">${notaHtml(e.promedio)}${e.reprobados ? ` · <span class="ev-bad">${e.reprobados}</span>` : ''}</td>`;
+            const titulo = e.abandonos ? ` title="${e.abandonos} con nota 1 (abandono): no entran al promedio"` : '';
+            return `<td class="num"${titulo}>${notaHtml(e.promedio)}${e.reprobados ? ` · <span class="ev-bad">${e.reprobados}</span>` : ''}</td>`;
         }).join('');
         return `<tr class="clic ${s.sin_notas ? 'alarma' : ''}" data-sec="${esc(claveSec(s))}">
             <td class="num">${i + 1}</td>
@@ -745,7 +746,7 @@ function abrirSeccion(k) {
             <div class="ev-tabla-wrap"><table class="ev-tabla">
                 <thead><tr><th class="num">#</th><th>Estudiante</th>${resumen}<th class="num">Promedio</th><th>Situación</th></tr></thead>
                 <tbody>${filas}</tbody></table></div>
-            <p class="ev-nota" style="margin-top:8px">— = sin calificar (0 o vacío). Reprobado = nota de 1 a 11.</p>
+            <p class="ev-nota" style="margin-top:8px">— = sin calificar (0 o vacío). Reprobado = nota de 1 a 11. El promedio no cuenta las notas 1 (abandono).</p>
         </div>`;
     $('modal').hidden = false;
     document.body.classList.add('nf-lock');
@@ -964,7 +965,7 @@ async function exportarPdf(btn) {
         for (let i = 1; i <= paginas; i++) {
             doc.setPage(i);
             doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(120, 120, 120);
-            doc.text(`${generado} · Reprobado = nota de 1 a 11`, M, H - 6);
+            doc.text(`${generado} · Reprobado = nota de 1 a 11 · El promedio no cuenta las notas 1 (abandono)`, M, H - 6);
             doc.text(`Página ${i} de ${paginas}`, W - M, H - 6, { align: 'right' });
         }
         doc.save(`EVALDO_${NOMBRE_VISTA[st.vista].normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_')}_${marcaTiempo()}.pdf`);

@@ -17,6 +17,8 @@
     const GID_DOCENTES = '204310163';   // Docentes 2026: DNI -> área (COT/PLN)
     const urlHoja = (gid) => `https://docs.google.com/spreadsheets/d/${LIBRO}/export?format=csv&gid=${gid}`;
     const NOTA_APROBATORIA = 12;
+    // Nota 1 = el alumno abandonó: cuenta como reprobado, pero no entra al promedio de la sección.
+    const NOTA_ABANDONO = 1;
 
     // Cuántas evaluaciones tiene cada tipo de curso. El reporte a veces lista más
     // (EV3/EV4 vacías en Experiencias Formativas, EV4 en ciclo I); las que sobran se ignoran.
@@ -385,11 +387,13 @@
                 if (!notas.length) continue;   // esta evaluación no existe para esta sección
                 const calificados = notas.filter((n) => n > 0);
                 const reprobados = calificados.filter((n) => n < NOTA_APROBATORIA);
+                const paraPromedio = calificados.filter((n) => n !== NOTA_ABANDONO);
                 if (calificados.length) algunaNota = true;
                 fila.evals[ev] = {
                     total: notas.length, calificados: calificados.length,
                     sin_nota: notas.length - calificados.length, reprobados: reprobados.length,
-                    promedio: calificados.length ? redondear(calificados.reduce((a, b) => a + b, 0) / calificados.length) : null
+                    abandonos: calificados.length - paraPromedio.length,
+                    promedio: paraPromedio.length ? redondear(paraPromedio.reduce((a, b) => a + b, 0) / paraPromedio.length) : null
                 };
             }
             fila.sin_notas = !algunaNota;   // el docente no ha subido ninguna nota
@@ -532,7 +536,9 @@
             const d = porDoc.get(f.Docente);
             d.secciones.add(`${f['Ccl Lvo']}|${f.NRC}|${f['Sección']}`);
             d.estudiantes += 1;
-            if (f['Promedio (lo calificado)'] !== '') d.notas.push(f['Promedio (lo calificado)']);
+            // Quien solo tiene 1 (abandonó) no baja el promedio del docente.
+            const prom = f['Promedio (lo calificado)'];
+            if (prom !== '' && prom !== NOTA_ABANDONO) d.notas.push(prom);
             if (f['Situación'] === 'Desaprobando') d.desaprobando += 1;
             if (f['Situación'] === 'Sin notas') d.sinNotas += 1;
         }
@@ -556,7 +562,7 @@
     }
 
     return {
-        LIBRO, GID_CARGA, GID_DOCENTES, urlHoja, NOTA_APROBATORIA, GRADOS, CICLOS, CAMPUS,
+        LIBRO, GID_CARGA, GID_DOCENTES, urlHoja, NOTA_APROBATORIA, NOTA_ABANDONO, GRADOS, CICLOS, CAMPUS,
         norm, dni, sinTildes, area, modulo, aNota, parseCSV,
         areasPorDocente, indiceCarga, ubicarClase,
         origenReporte, leerReporte,
