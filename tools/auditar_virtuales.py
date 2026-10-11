@@ -27,6 +27,9 @@ CARGA_CSV = os.path.join(RAIZ, 'CARGA_HORARIA_CONVERTIDA.csv')
 # Misma hoja que usa EVALDO (evaldo-core.js): CARGA_HORARIA en vivo.
 HOJA_CARGA = ('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w'
               '/export?format=csv&gid=1470879596')
+# Docentes 2026: DNI -> area (COT/PLN). Misma hoja y mismas reglas que EVALDO (evaldo-core.js).
+HOJA_DOCENTES = ('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w'
+                 '/export?format=csv&gid=204310163')
 LIMA = timezone(timedelta(hours=-5))
 DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
 MESES = {m: i + 1 for i, m in enumerate(
@@ -54,7 +57,49 @@ def texto_carga():
             return f.read(), 'copia del repo (CARGA_HORARIA_CONVERTIDA.csv)'
 
 
-def leer_carga(texto):
+def area(texto):
+    """'PLN' / 'COT' a partir de un texto (igual que area() de evaldo-core.js)."""
+    a = norm(texto)
+    return 'PLN' if 'PLN' in a else ('COT' if ('COT' in a or 'CONTA' in a) else '')
+
+
+def solo_dni(s):
+    return re.sub(r'\D', '', str(s or '')).lstrip('0')
+
+
+def areas_docentes():
+    """Hoja Docentes 2026 -> ({dni: area}, {nombre: area}). Vacios si no se pudo leer."""
+    try:
+        with urllib.request.urlopen(HOJA_DOCENTES, timeout=30) as r:
+            filas = list(csv.reader(io.StringIO(r.read().decode('utf-8-sig'))))
+    except Exception:
+        return {}, {}
+    cab = next((i for i, r in enumerate(filas) if any(norm(c) == 'DNI' for c in r)
+                and any('APELLIDO' in norm(c) or 'NOMBRE' in norm(c) for c in r)), None)
+    if cab is None:
+        return {}, {}
+    h = [norm(c) for c in filas[cab]]
+    iDni = h.index('DNI')
+    iNom = next(i for i, c in enumerate(h) if 'APELLIDO' in c or 'NOMBRE' in c)
+    iArea = next((i for i, c in enumerate(h) if 'AREA' in c), None)
+    por_dni, por_nombre = {}, {}
+    if iArea is None:
+        return por_dni, por_nombre
+    for r in filas[cab + 1:]:
+        a = area(r[iArea]) if iArea < len(r) else ''
+        if not a:
+            continue
+        d = solo_dni(r[iDni]) if iDni < len(r) else ''
+        n = norm(r[iNom]).replace(',', ' ') if iNom < len(r) else ''
+        n = re.sub(r'\s+', ' ', n).strip()
+        if d:
+            por_dni.setdefault(d, a)
+        if n and 'APELLIDO' not in n:
+            por_nombre.setdefault(n, a)
+    return por_dni, por_nombre
+
+
+def leer_carga(texto, areas=None):
     """Secciones con al menos una sesion VIR. horario = {weekday: ('19:00', '22:45')}."""
     filas = list(csv.reader(io.StringIO(texto)))
     if not filas:
@@ -71,7 +116,7 @@ def leer_carga(texto):
              seccion=col(lambda c: c.startswith('SECCI')), modulo=col(lambda c: 'DULO' in c),
              periodo=col(lambda c: c == 'PERIODO'), turno=col(lambda c: c == 'TURNO'),
              sede=col(lambda c: c == 'SEDE'), ciclo=col(lambda c: c == 'CICLO'),
-             modalidad=col(lambda c: c == 'MODALIDAD'),
+             modalidad=col(lambda c: c == 'MODALIDAD'), tipo=col(lambda c: c == 'TIPO'),
              dias=col(lambda c: c.startswith('HORARIO') and '(DIA' in c),
              horas=col(lambda c: c.startswith('HORARIO') and '(HORA' in c))
     tx = lambda r, k: r[i[k]].strip() if i[k] is not None and i[k] < len(r) else ''
@@ -96,7 +141,11 @@ def leer_carga(texto):
         if k in out:
             out[k]['horario'].update(horario)
             continue
+        por_dni, por_nombre = areas or ({}, {})
+        programa = (por_dni.get(solo_dni(tx(r, 'dni'))) or por_nombre.get(norm(tx(r, 'docente')))
+                    or area(tx(r, 'tipo')))
         out[k] = dict(carga=k[0], nrc=nrc, docente=tx(r, 'docente'), dni=tx(r, 'dni'), curso=tx(r, 'curso'),
+                      area=programa,
                       seccion=tx(r, 'seccion'), modulo=tx(r, 'modulo'), periodo=norm(tx(r, 'periodo')),
                       turno=norm(tx(r, 'turno')), sede=norm(tx(r, 'sede')), ciclo=norm(tx(r, 'ciclo')),
                       horario=horario)
@@ -212,41 +261,59 @@ class Campus:
         self.diagnostico(f'grabaciones_{cm}_{dia}')
         return False
 
-    def logs_bbb(self, cid, dia):
-        """Filas del Registro de Moodle de ese dia, solo BigBlueButton -> (filas, diagnostico).
+    def logs_bbb(self, cid, dia, cms=None, por_pagina=1000, max_paginas=15):
+        """Registros de Moodle de ese dia, solo BigBlueButton -> (filas, diagnostico).
+        Se piden por actividad BigBlueButton (modid) y pagina por pagina: un aula puede tener
+        miles de registros al dia y Moodle los lista del mas nuevo al mas viejo, asi que con una
+        sola pagina se perdian los ingresos de primera hora. Ademas se descarta toda fila cuya
+        fecha no sea `dia` (por si Moodle no aplica el filtro de fecha).
         Si no sale ninguna fila de BigBlueButton guarda una captura en virtual_local/diagnostico/."""
         ts = int(datetime(dia.year, dia.month, dia.day, tzinfo=LIMA).timestamp())
-        self.goto(f'{BASE}/report/log/index.php?id={cid}&chooselog=1&logreader=logstore_standard'
-                  f'&date={ts}&edulevel=-1&user=0&modid=&modaction=&perpage=2000')
-        tabla = self.page.query_selector('table.generaltable')
-        filas, total, eventos = [], 0, {}
-        if tabla:
-            heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
+        filas, total, otro_dia, paginas, eventos = [], 0, 0, 0, {}
+        for modid in (cms or ['']):
+            for pagina in range(max_paginas):
+                self.goto(f'{BASE}/report/log/index.php?id={cid}&chooselog=1&logreader=logstore_standard'
+                          f'&date={ts}&edulevel=-1&user=0&modid={modid}&modaction=&perpage={por_pagina}&page={pagina}')
+                paginas += 1
+                tabla = self.page.query_selector('table.generaltable')
+                if not tabla:
+                    break
+                heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
 
-            def col(pred):
-                for i, h in enumerate(heads):
-                    if pred(h):
-                        return i
-                return None
-            # Moodle en espanol: "Hora", "Nombre completo del usuario", "Componente", "Nombre evento"
-            # ("Contexto del evento" tambien dice EVENTO: por eso se exige NOMBRE).
-            iH = col(lambda h: h.startswith('HORA') or h.startswith('TIME') or h.startswith('FECHA'))
-            iU = col(lambda h: 'NOMBRE COMPLETO' in h or 'FULL NAME' in h)
-            iC = col(lambda h: 'COMPONENT' in h)
-            iE = col(lambda h: ('NOMBRE' in h and 'EVENTO' in h) or 'EVENT NAME' in h)
-            for tr in tabla.query_selector_all('tbody tr'):
-                td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
-                if iH is None or len(td) <= max(x for x in (iH, iU, iC, iE) if x is not None):
-                    continue
-                total += 1
-                ev = td[iE] if iE is not None else ''
-                comp = td[iC] if iC is not None else ''
-                if 'BIGBLUE' not in norm(comp) and 'BIGBLUE' not in norm(ev):
-                    continue
-                eventos[ev] = eventos.get(ev, 0) + 1
-                filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '', evento=ev))
-        diag = f'registros: {total} filas, {len(filas)} de BigBlueButton' + (
-            ' (' + '; '.join(f'{k} x{v}' for k, v in eventos.items()) + ')' if eventos else '')
+                def col(pred):
+                    for i, h in enumerate(heads):
+                        if pred(h):
+                            return i
+                    return None
+                # Moodle en espanol: "Hora", "Nombre completo del usuario", "Componente", "Nombre evento"
+                # ("Contexto del evento" tambien dice EVENTO: por eso se exige NOMBRE).
+                iH = col(lambda h: h.startswith('HORA') or h.startswith('TIME') or h.startswith('FECHA'))
+                iU = col(lambda h: 'NOMBRE COMPLETO' in h or 'FULL NAME' in h)
+                iC = col(lambda h: 'COMPONENT' in h)
+                iE = col(lambda h: ('NOMBRE' in h and 'EVENTO' in h) or 'EVENT NAME' in h)
+                en_pagina = 0
+                for tr in tabla.query_selector_all('tbody tr'):
+                    td = [c.inner_text().strip() for c in tr.query_selector_all('td')]
+                    if iH is None or len(td) <= max(x for x in (iH, iU, iC, iE) if x is not None):
+                        continue
+                    en_pagina += 1
+                    total += 1
+                    f = fecha_es(td[iH])
+                    if f and f != dia:
+                        otro_dia += 1
+                        continue
+                    ev = td[iE] if iE is not None else ''
+                    comp = td[iC] if iC is not None else ''
+                    if 'BIGBLUE' not in norm(comp) and 'BIGBLUE' not in norm(ev):
+                        continue
+                    eventos[ev] = eventos.get(ev, 0) + 1
+                    filas.append(dict(hora=td[iH], usuario=td[iU] if iU is not None else '', evento=ev))
+                if en_pagina < por_pagina:
+                    break
+        diag = (f'registros: {total} filas en {paginas} pagina(s)'
+                + (f', {otro_dia} de otros dias descartadas' if otro_dia else '')
+                + f', {len(filas)} de BigBlueButton'
+                + (' (' + '; '.join(f'{k} x{v}' for k, v in eventos.items()) + ')' if eventos else ''))
         if not filas:
             ruta = self.diagnostico(f'registros_{cid}_{dia}')
             if ruta:
@@ -341,8 +408,26 @@ class Campus:
 
 
 # ---------------------------------------------------------------- auditoria
+def fecha_es(txt):
+    """'sabado, 10 de octubre de 2026, 06:54' -> date(2026, 10, 10) (None si no se entiende)."""
+    m = re.search(r'(\d{1,2}) de (\w+) de (\d{4})', (txt or '').lower())
+    if m and MESES.get(m.group(2)):
+        try:
+            return datetime(int(m.group(3)), MESES[m.group(2)], int(m.group(1))).date()
+        except ValueError:
+            return None
+    m = re.search(r'(\d{1,2})/(\d{1,2})/(\d{2,4})', txt or '')
+    if m:
+        a = int(m.group(3))
+        try:
+            return datetime(a + 2000 if a < 100 else a, int(m.group(2)), int(m.group(1))).date()
+        except ValueError:
+            return None
+    return None
+
+
 def hora_log(txt, dia):
-    m = re.search(r'(\d{1,2}):(\d{2})', txt)
+    m = re.search(r'(\d{1,2}):(\d{2})(?!.*\d{1,2}:\d{2})', txt)
     return datetime(dia.year, dia.month, dia.day, int(m.group(1)), int(m.group(2)), tzinfo=LIMA) if m else None
 
 
@@ -354,7 +439,7 @@ def es_ingreso(ev):
 def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True, avisar=print):
     a, b = sec['horario'][dia.weekday()]
     ini = datetime.strptime(f'{dia} {a}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
-    fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'],
+    fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'], area=sec.get('area', ''),
                 docente=sec['docente'], curso=sec['curso'], sede=sec['sede'], turno=sec['turno'],
                 periodo=sec['periodo'], modulo=sec['modulo'], ciclo=sec['ciclo'], horario=f'{a}-{b}',
                 ingreso='', retraso=None, estIngreso='', grabacion='', horas=None, esperado=None, grabado=None,
@@ -368,7 +453,7 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
     fila['aula'] = f'{BASE}/course/view.php?id={cid}'
     cms = campus.cm_bbb(cid)
 
-    filas_log, diag = campus.logs_bbb(cid, dia)
+    filas_log, diag = campus.logs_bbb(cid, dia, cms)
     avisar(f'   {diag}')
     logs = [f for f in filas_log if es_ingreso(f['evento'])]
     entradas = sorted(t for f in logs if mismo_docente(f['usuario'], sec['docente'])

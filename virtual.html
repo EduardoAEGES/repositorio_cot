@@ -74,6 +74,7 @@
                 </div>
                 <div class="vr-form">
                     <label>Fecha <input type="date" id="aFecha"></label>
+                    <label>Programa <select id="aPrograma"><option value="COT,PLN">COT y PLN</option><option value="COT">Solo COT</option><option value="PLN">Solo PLN</option><option value="">Todos</option></select></label>
                     <label>Periodo <input type="search" id="aPeriodo" placeholder="OCTUBRE o AGOSTO 2" title="Periodo de la carga y, opcional, el módulo. Vacío = todos los periodos de la hoja."></label>
                     <label>Turno <select id="aTurno"><option value="">Todos</option><option value="M">Mañana</option><option value="T">Tarde</option><option value="N">Noche</option></select></label>
                     <label>Docente <input type="search" id="aDocente" placeholder="Apellido (opcional)"></label>
@@ -111,6 +112,7 @@
                 </div>
                 <div class="ev-filtros">
                     <div class="ev-fila"><span class="ev-label">Fecha</span><div class="ev-chips" id="fFecha"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Programa</span><div class="ev-chips" id="fPrograma"></div></div>
                     <div class="ev-fila"><span class="ev-label">Periodo</span><div class="ev-chips" id="fPeriodo"></div></div>
                     <div class="ev-fila"><span class="ev-label">Turno</span><div class="ev-chips" id="fTurno"></div></div>
                     <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fSede"></div></div>

@@ -24,7 +24,7 @@ const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', '
 const st = {
     filas: new Map(),          // fecha|carga|nrc -> fila
     vista: 'clases',
-    filtros: { fecha: new Set(), periodo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set(), permanencia: new Set() },
+    filtros: { programa: new Set(), fecha: new Set(), periodo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set(), permanencia: new Set() },
     texto: '',
     bufEquipo: null, equipo: null,
     agente: null, nlog: 0, timer: null, claveAccion: null
@@ -145,6 +145,7 @@ async function enviarClave(ev) {
 
 // ------------------------------------------------------------ filtros y vistas
 const CAMPOS = {
+    programa: { el: 'fPrograma', val: (f) => f.area || '—' },
     fecha: { el: 'fFecha', val: (f) => f.fecha, txt: fechaCorta, orden: (a, b) => b.localeCompare(a) },
     periodo: { el: 'fPeriodo', val: (f) => f.periodo || '—' },
     turno: { el: 'fTurno', val: (f) => f.turno || '—', txt: (v) => TURNOS[v] || v },
@@ -198,7 +199,7 @@ function tablaClases(filas) {
     const cuerpo = filas.slice(0, MAX_FILAS).map((f) => `
         <tr class="${esAlerta(f) ? 'alarma' : ''}">
             <td>${esc(fechaCorta(f.fecha))}<br><small>${esc(f.horario)}</small></td>
-            <td class="c-doc">${esc(f.docente)}<br><small>${esc(TURNOS[f.turno] || f.turno)} · ${esc(f.sede)}</small></td>
+            <td class="c-doc">${esc(f.docente)}<br><small>${f.area ? esc(f.area) + ' · ' : ''}${esc(TURNOS[f.turno] || f.turno)} · ${esc(f.sede)}</small></td>
             <td class="c-curso">${esc(f.curso)}<br><small>${esc(f.seccion)} · NRC ${esc(f.nrc)} · ${esc(f.periodo)}</small></td>
             <td>${badge(clsIngreso(f.estIngreso), txtIngreso(f.estIngreso), f.nota)}<br><small>${f.ingreso ? 'entró ' + esc(f.ingreso) : ''}${f.retraso ? ` (${f.retraso > 0 ? '+' : ''}${f.retraso} min)` : ''}</small></td>
             <td>${badge(clsCamara(f.estCamara), txtCamara(f.estCamara), f.nota)}<br><small>${f.camara != null && f.camara !== '' ? 'min ' + esc(f.camara) : esc(f.nota || '')}</small></td>
@@ -279,9 +280,9 @@ function exportar() {
             ...porDocente(filas).map((d) => [d.docente, d.clases, d.puntual, d.tarde, d.promRetraso, d.sin, d.camOk, d.camMal, d.perm, d.faltan])];
     } else {
         const lista = (st.vista === 'alertas' ? filas.filter(esAlerta) : filas).sort(ordenClase);
-        aoa = [['Fecha', 'Horario', 'Docente', 'Curso', 'Sección', 'NRC', 'Carga', 'Periodo', 'Turno', 'Sede',
+        aoa = [['Fecha', 'Horario', 'Programa', 'Docente', 'Curso', 'Sección', 'NRC', 'Carga', 'Periodo', 'Turno', 'Sede',
             'Ingreso', 'Retraso (min)', 'Estado ingreso', 'Grabación desde', 'Cámara (min)', 'Estado cámara', 'Horas', 'Min. esperados', 'Min. grabados', 'Min. faltantes', 'Permanencia', 'Nota', 'Aula'],
-        ...lista.map((f) => [f.fecha, f.horario, f.docente, f.curso, f.seccion, f.nrc, f.carga, f.periodo, TURNOS[f.turno] || f.turno, f.sede,
+        ...lista.map((f) => [f.fecha, f.horario, f.area || '', f.docente, f.curso, f.seccion, f.nrc, f.carga, f.periodo, TURNOS[f.turno] || f.turno, f.sede,
             f.ingreso, f.retraso ?? '', txtIngreso(f.estIngreso), f.grabacion, f.camara ?? '', txtCamara(f.estCamara), f.horas ?? '', f.esperado ?? '', f.grabado ?? '', f.faltan ?? '', txtPerm(f.estPermanencia), f.nota || '', f.aula || ''])];
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -376,7 +377,7 @@ async function auditar() {
     const r = await post('/auditar', {
         fecha, rehacer: $('aRehacer').checked, camara: $('aCamara').checked,
         tolerancia: +$('aTol').value || 5, camaraMin: +$('aCam').value || 20,
-        filtros: { docente: $('aDocente').value.trim(), periodo: $('aPeriodo').value.trim(), turno: $('aTurno').value }
+        filtros: { programa: $('aPrograma').value.split(',').filter(Boolean), docente: $('aDocente').value.trim(), periodo: $('aPeriodo').value.trim(), turno: $('aTurno').value }
     }).catch((err) => ({ ok: false, error: err.message }));
     if (!r.ok) {
         paso(3, 'activo', r.error === 'sin_sesion' ? 'Primero inicia sesión en Campus Digital (paso 2).' : esc(r.error || 'El agente no pudo empezar.'));

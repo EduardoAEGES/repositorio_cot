@@ -153,8 +153,17 @@ def auditar_lote(campus, pedido):
         return
     dia = datetime.strptime(pedido['fecha'], '%Y-%m-%d').date()
     texto, origen = AV.texto_carga()
-    secs = AV.del_dia(AV.leer_carga(texto), dia)
     f = pedido.get('filtros') or {}
+    areas = AV.areas_docentes()
+    secs = AV.del_dia(AV.leer_carga(texto, areas), dia)
+    programas = [p for p in (f.get('programa') or []) if p]
+    if programas:
+        if not areas[0] and not areas[1]:
+            log('❌ No se pudo leer la hoja Docentes 2026 (programa COT/PLN de cada docente). '
+                'Revisa tu internet y vuelve a pulsar Auditar, o elige "Todos" en Programa.')
+            E.update(corriendo=False)
+            return
+        secs = [s for s in secs if s['area'] in programas]
     if f.get('docente'):
         secs = [s for s in secs if AV.norm(f['docente']) in AV.norm(s['docente'])]
     if f.get('periodo'):   # "OCTUBRE" o "AGOSTO 2" (periodo + módulo)
@@ -175,7 +184,8 @@ def auditar_lote(campus, pedido):
         secs = [s for s in secs if pendiente(s)]
     E.update(total=len(secs), hechos=0, error='', actual='')
     saltadas = programadas - len(secs)
-    log(f'{programadas} sesiones virtuales programadas el {dia} con esos filtros (carga: {origen}).'
+    log(f'{programadas} sesiones virtuales programadas el {dia} con esos filtros'
+        f'{" (programa: " + "/".join(programas) + ")" if programas else ""} (carga: {origen}).'
         + (f' {saltadas} ya estaban auditadas y se saltan: marca "Volver a auditar las ya hechas" para repetirlas.'
            if saltadas else ''))
     if not programadas:
@@ -193,7 +203,7 @@ def auditar_lote(campus, pedido):
             log('🔑 Se venció la sesión de Campus Digital. Vuelve a iniciarla y pulsa Auditar: sigue con las que faltan.')
             break
         except Exception as e:
-            fila = dict(fecha=str(dia), carga=s['carga'], nrc=s['nrc'], seccion=s['seccion'], docente=s['docente'],
+            fila = dict(fecha=str(dia), carga=s['carga'], nrc=s['nrc'], seccion=s['seccion'], docente=s['docente'], area=s['area'],
                         curso=s['curso'], sede=s['sede'], turno=s['turno'], periodo=s['periodo'],
                         horario='-'.join(s['horario'][dia.weekday()]), estIngreso='ERROR', estCamara='—',
                         nota=str(e)[:200])
