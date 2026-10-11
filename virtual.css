@@ -28,3 +28,11 @@
 @media (max-width: 900px) {
     .vr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.vr-periodos { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vr-periodos > span { min-width: 60px; }
+.vr-excluidos { margin: 10px 0; font-size: .82rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.vr-borrar { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 4px; }
+.vr-borrar:hover { color: var(--bad); }
+body:not(.modo-master) .vr-borrar { display: none; }
+.vr-barra { display: inline-block; height: 6px; border-radius: 3px; background: var(--ok); vertical-align: middle; margin-right: 6px; }

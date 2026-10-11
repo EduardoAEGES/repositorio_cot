@@ -40,6 +40,45 @@ def log(msg):
     print(msg, flush=True)
 
 
+EXCLUIDOS = os.path.join(LOCAL, 'excluidos.json')
+_carga = dict(t=0, secs=None, origen='', areas=({}, {}))
+_carga_lock = threading.Lock()   # aparte de `candado`: bajar las hojas tarda y no debe frenar /estado
+
+
+def carga_actual():
+    """Hoja de carga + programa (Docentes 2026), guardadas 10 minutos para no bajarlas a cada rato."""
+    with _carga_lock:
+        if _carga['secs'] is None or time.time() - _carga['t'] > 600:
+            texto, origen = AV.texto_carga()
+            areas = AV.areas_docentes()
+            _carga.update(t=time.time(), secs=AV.leer_carga(texto, areas), origen=origen, areas=areas)
+        return _carga['secs'], _carga['origen'], _carga['areas']
+
+
+def etiqueta_periodo(s):
+    """'AGOSTO' + modulo '1' -> 'AGOSTO 1' (asi se elige en la pagina)."""
+    return f'{s["periodo"]} {s["modulo"]}'.strip()
+
+
+def orden_periodo(e):
+    p = e.split()
+    return (AV.MESES.get(p[0].lower(), 99) if p else 99, e)
+
+
+def leer_excluidos():
+    try:
+        with open(EXCLUIDOS, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def guardar_excluidos(lista):
+    os.makedirs(LOCAL, exist_ok=True)
+    with open(EXCLUIDOS, 'w', encoding='utf-8') as f:
+        json.dump(sorted(set(lista)), f, ensure_ascii=False)
+
+
 def leer_resultados():
     try:
         with open(RESULTADOS, encoding='utf-8') as f:
@@ -152,10 +191,9 @@ def auditar_lote(campus, pedido):
         E.update(corriendo=False, error='sin_sesion')
         return
     dia = datetime.strptime(pedido['fecha'], '%Y-%m-%d').date()
-    texto, origen = AV.texto_carga()
     f = pedido.get('filtros') or {}
-    areas = AV.areas_docentes()
-    secs = AV.del_dia(AV.leer_carga(texto, areas), dia)
+    todas, origen, areas = carga_actual()
+    secs = AV.del_dia(todas, dia)
     programas = [p for p in (f.get('programa') or []) if p]
     if programas:
         if not areas[0] and not areas[1]:
@@ -166,9 +204,14 @@ def auditar_lote(campus, pedido):
         secs = [s for s in secs if s['area'] in programas]
     if f.get('docente'):
         secs = [s for s in secs if AV.norm(f['docente']) in AV.norm(s['docente'])]
-    if f.get('periodo'):   # "OCTUBRE" o "AGOSTO 2" (periodo + módulo)
-        p = AV.norm(f['periodo']).split()
-        secs = [s for s in secs if s['periodo'].startswith(p[0]) and (len(p) < 2 or s['modulo'] == p[1])]
+    periodos = [AV.norm(p) for p in (f.get('periodos') or []) if p]   # ['AGOSTO 1', 'AGOSTO 2', ...]
+    if periodos:
+        secs = [s for s in secs if AV.norm(etiqueta_periodo(s)) in periodos]
+    excluidos = set(leer_excluidos())
+    sacados = [s for s in secs if AV.norm(s['docente']) in excluidos]
+    if sacados:
+        secs = [s for s in secs if AV.norm(s['docente']) not in excluidos]
+        log(f'{len(sacados)} sesión(es) de docentes excluidos no se auditan.')
     if f.get('turno'):
         secs = [s for s in secs if s['turno'] in f['turno']]
     hechos = leer_resultados()
@@ -185,7 +228,8 @@ def auditar_lote(campus, pedido):
     E.update(total=len(secs), hechos=0, error='', actual='')
     saltadas = programadas - len(secs)
     log(f'{programadas} sesiones virtuales programadas el {dia} con esos filtros'
-        f'{" (programa: " + "/".join(programas) + ")" if programas else ""} (carga: {origen}).'
+        f'{" (programa: " + "/".join(programas) + ")" if programas else ""}'
+        f'{" (periodo: " + ", ".join(periodos) + ")" if periodos else ""} (carga: {origen}).'
         + (f' {saltadas} ya estaban auditadas y se saltan: marca "Volver a auditar las ya hechas" para repetirlas.'
            if saltadas else ''))
     if not programadas:
@@ -252,6 +296,14 @@ class Manejador(SimpleHTTPRequestHandler):
             with candado:
                 return self.json({**{k: v for k, v in E.items() if k != 'log'},
                                   'log': E['log'][desde:], 'nlog': len(E['log'])})
+        if u.path == '/periodos':
+            try:
+                secs, _, _ = carga_actual()
+            except Exception as e:
+                return self.json(dict(periodos=[], error=str(e)))
+            return self.json(dict(periodos=sorted({etiqueta_periodo(s) for s in secs if s['periodo']}, key=orden_periodo)))
+        if u.path == '/excluidos':
+            return self.json(dict(excluidos=leer_excluidos()))
         if u.path == '/resultados':
             return self.json(dict(filas=list(leer_resultados().values())))
         if u.path.startswith('/virtual_local') or u.path.startswith('/.git'):
@@ -273,6 +325,29 @@ class Manejador(SimpleHTTPRequestHandler):
             E.update(corriendo=True, detener=False, error='')
             trabajos.put(('auditar', cuerpo))
             return self.json(dict(ok=True))
+        if ruta == '/eliminar':
+            # Borra clases auditadas (claves 'fecha|carga|nrc') y, si se pide, excluye a sus docentes
+            # de las proximas auditorias. Lo publicado cambia al volver a Publicar.
+            claves = set(cuerpo.get('claves') or [])
+            with candado:
+                datos = leer_resultados()
+                antes = len(datos)
+                for k in claves:
+                    datos.pop(k, None)
+                os.makedirs(LOCAL, exist_ok=True)
+                with open(RESULTADOS, 'w', encoding='utf-8') as fh:
+                    json.dump(datos, fh, ensure_ascii=False)
+            nuevos = [AV.norm(d) for d in (cuerpo.get('excluir') or []) if d]
+            if nuevos:
+                guardar_excluidos(leer_excluidos() + nuevos)
+            log(f'🗑 {antes - len(datos)} clase(s) eliminada(s)' + (f'; {len(nuevos)} docente(s) excluido(s)' if nuevos else '')
+                + '. Pulsa "Publicar para el equipo" para que el cambio llegue al equipo.')
+            return self.json(dict(ok=True, eliminadas=antes - len(datos), excluidos=leer_excluidos()))
+        if ruta == '/incluir':
+            quitar = AV.norm(cuerpo.get('docente') or '')
+            guardar_excluidos([d for d in leer_excluidos() if d != quitar])
+            log(f'↩ {quitar} vuelve a auditarse.')
+            return self.json(dict(ok=True, excluidos=leer_excluidos()))
         if ruta == '/detener':
             E['detener'] = True
             return self.json(dict(ok=True))

@@ -75,9 +75,10 @@
                 <div class="vr-form">
                     <label>Fecha <input type="date" id="aFecha"></label>
                     <label>Programa <select id="aPrograma"><option value="COT,PLN">COT y PLN</option><option value="COT">Solo COT</option><option value="PLN">Solo PLN</option><option value="">Todos</option></select></label>
-                    <label>Periodo <input type="search" id="aPeriodo" placeholder="OCTUBRE o AGOSTO 2" title="Periodo de la carga y, opcional, el módulo. Vacío = todos los periodos de la hoja."></label>
                     <label>Turno <select id="aTurno"><option value="">Todos</option><option value="M">Mañana</option><option value="T">Tarde</option><option value="N">Noche</option></select></label>
                     <label>Docente <input type="search" id="aDocente" placeholder="Apellido (opcional)"></label>
+                    <div class="vr-periodos"><span>Periodo</span><div class="ev-chips" id="aPeriodos"><span class="ev-muted">Abre el agente para ver los periodos.</span></div>
+                        <small class="ev-muted">Marca uno o varios. Sin marcar = todos.</small></div>
                     <label>Tolerancia ingreso <input type="number" id="aTol" value="5" min="0" max="60"> min</label>
                     <label>Cámara antes de <input type="number" id="aCam" value="20" min="1" max="120"> min</label>
                     <label class="ev-check"><input type="checkbox" id="aCamara" checked> Revisar cámara en la grabación (más lento, necesita ffmpeg)</label>
@@ -85,6 +86,7 @@
                 </div>
                 <div class="ev-progreso" id="progreso" hidden><i id="barra"></i></div>
                 <div class="ev-agente" id="publicarEstado"></div>
+                <div class="vr-excluidos" id="excluidos" hidden></div>
                 <details class="ev-asis-detalle" open>
                     <summary>Detalle</summary>
                     <div id="autoLog" class="ev-log"></div>
@@ -101,6 +103,7 @@
             <div class="ev-card-head">
                 <h2><span class="ev-num solo-master">2</span> <span id="tituloTabla">Resultados</span></h2>
                 <div class="ev-head-actions">
+                    <button class="ev-btn ev-btn-ghost solo-master" id="eliminarBtn" title="Elimina del historial las clases que se ven con los filtros actuales"><i class="fas fa-trash-can"></i> Eliminar lo filtrado</button>
                     <button class="ev-btn ev-btn-excel" id="exportarBtn"><i class="fas fa-file-excel"></i> Excel de esta vista</button>
                 </div>
             </div>
@@ -114,6 +117,7 @@
                     <div class="ev-fila"><span class="ev-label">Fecha</span><div class="ev-chips" id="fFecha"></div></div>
                     <div class="ev-fila"><span class="ev-label">Programa</span><div class="ev-chips" id="fPrograma"></div></div>
                     <div class="ev-fila"><span class="ev-label">Periodo</span><div class="ev-chips" id="fPeriodo"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Ciclo</span><div class="ev-chips" id="fCiclo"></div></div>
                     <div class="ev-fila"><span class="ev-label">Turno</span><div class="ev-chips" id="fTurno"></div></div>
                     <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fSede"></div></div>
                     <div class="ev-fila"><span class="ev-label">Ingreso</span><div class="ev-chips" id="fIngreso"></div></div>
@@ -125,6 +129,9 @@
                     <button class="nf-chip on" data-vista="clases">Por clase</button>
                     <button class="nf-chip" data-vista="alertas">Solo alertas</button>
                     <button class="nf-chip" data-vista="docentes">Por docente</button>
+                    <button class="nf-chip" data-vista="cursos">Por curso</button>
+                    <button class="nf-chip" data-vista="ciclos">Por ciclo</button>
+                    <button class="nf-chip" data-vista="fechas">Por fecha</button>
                 </div>
                 <div id="tabla"><div class="ev-vacio">Cargando...</div></div>
             </div>

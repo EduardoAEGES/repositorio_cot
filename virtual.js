@@ -19,15 +19,18 @@ const MASTER_KEY = 'virtual_master';
 const CLAVE_MASTER = 'CONTA';
 const MAX_FILAS = 800;
 const TURNOS = { M: 'Mañana', T: 'Tarde', N: 'Noche', D: 'Diurno' };
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+const romano = (c) => { const i = ROMANOS.indexOf(c); return i < 0 ? 99 : i; };
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
 const st = {
     filas: new Map(),          // fecha|carga|nrc -> fila
     vista: 'clases',
-    filtros: { programa: new Set(), fecha: new Set(), periodo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set(), permanencia: new Set() },
+    filtros: { programa: new Set(), fecha: new Set(), periodo: new Set(), ciclo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set(), permanencia: new Set() },
     texto: '',
     bufEquipo: null, equipo: null,
-    agente: null, nlog: 0, timer: null, claveAccion: null
+    agente: null, nlog: 0, timer: null, claveAccion: null,
+    periodosAudit: new Set(), periodosCargados: false, excluidos: []
 };
 
 // ------------------------------------------------------------ utilidades
@@ -147,7 +150,8 @@ async function enviarClave(ev) {
 const CAMPOS = {
     programa: { el: 'fPrograma', val: (f) => f.area || '—' },
     fecha: { el: 'fFecha', val: (f) => f.fecha, txt: fechaCorta, orden: (a, b) => b.localeCompare(a) },
-    periodo: { el: 'fPeriodo', val: (f) => f.periodo || '—' },
+    periodo: { el: 'fPeriodo', val: (f) => `${f.periodo || ''} ${f.modulo || ''}`.trim() || '—' },
+    ciclo: { el: 'fCiclo', val: (f) => f.ciclo || '—', orden: (a, b) => romano(a) - romano(b) },
     turno: { el: 'fTurno', val: (f) => f.turno || '—', txt: (v) => TURNOS[v] || v },
     sede: { el: 'fSede', val: (f) => f.sede || '—' },
     ingreso: { el: 'fIngreso', val: (f) => f.estIngreso || '—', txt: txtIngreso },
@@ -205,7 +209,8 @@ function tablaClases(filas) {
             <td>${badge(clsCamara(f.estCamara), txtCamara(f.estCamara), f.nota)}<br><small>${f.camara != null && f.camara !== '' ? 'min ' + esc(f.camara) : esc(f.nota || '')}</small></td>
             <td>${badge(clsPerm(f.estPermanencia), txtPerm(f.estPermanencia))}<br><small>${esc(detallePerm(f))}</small></td>
             <td>${f.grabacion ? esc(f.grabacion) : '—'}</td>
-            <td>${f.aula ? `<a href="${esc(f.aula)}" target="_blank" rel="noopener" title="Abrir aula"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}</td>
+            <td>${f.aula ? `<a href="${esc(f.aula)}" target="_blank" rel="noopener" title="Abrir aula"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}
+                <button class="vr-borrar" data-borrar="${esc(clave(f))}" title="Eliminar esta clase del historial"><i class="fas fa-trash-can"></i></button></td>
         </tr>`).join('');
     return `<div class="ev-tabla-wrap"><table class="ev-tabla">
         <thead><tr><th>Fecha</th><th>Docente</th><th>Curso</th><th>Ingreso</th><th>Cámara</th><th>Permanencia</th><th>Grabó desde</th><th>Aula</th></tr></thead>
@@ -213,32 +218,50 @@ function tablaClases(filas) {
         + (filas.length > MAX_FILAS ? `<p class="ev-mas">Se muestran ${fmt(MAX_FILAS)} de ${fmt(filas.length)}. El Excel lleva todas.</p>` : '');
 }
 
-function porDocente(filas) {
+const clave = (f) => `${f.fecha}|${f.carga}|${f.nrc}`;
+
+// Agrupaciones del dashboard. "Sin actividad" (no tocaba clase) no cuenta como clase dictada.
+const GRUPOS = {
+    docentes: { titulo: 'Por docente', col: 'Docente', clave: (f) => f.docente, filtro: 'docente' },
+    cursos: { titulo: 'Por curso', col: 'Curso', clave: (f) => f.curso },
+    ciclos: { titulo: 'Por ciclo', col: 'Ciclo', clave: (f) => f.ciclo || '—', orden: (a, b) => romano(a.nombre) - romano(b.nombre) },
+    fechas: { titulo: 'Por fecha', col: 'Fecha', clave: (f) => f.fecha, txt: fechaLarga, orden: (a, b) => b.nombre.localeCompare(a.nombre) }
+};
+
+function agrupar(filas, g) {
     const m = new Map();
     for (const f of filas) {
-        const d = m.get(f.docente) || { docente: f.docente, clases: 0, puntual: 0, tarde: 0, sin: 0, retrasos: [], camOk: 0, camMal: 0, perm: 0, faltan: 0 };
+        const k = g.clave(f);
+        const d = m.get(k) || { nombre: k, clases: 0, sinAct: 0, puntual: 0, tarde: 0, sin: 0, retrasos: [], camOk: 0, camMal: 0, perm: 0, faltan: 0, docentes: new Set() };
+        m.set(k, d);
+        if (f.estIngreso === 'SIN ACTIVIDAD') { d.sinAct++; continue; }
         d.clases++;
+        d.docentes.add(f.docente);
         if (f.estIngreso === 'PUNTUAL') d.puntual++;
         if (f.estIngreso === 'TARDE') { d.tarde++; d.retrasos.push(f.retraso); }
         if (f.estIngreso === 'SIN INGRESO') d.sin++;
         if (f.estCamara === 'CAMARA OK') d.camOk++;
         if (['CAMARA TARDIA', 'SIN CAMARA'].includes(f.estCamara)) d.camMal++;
         if (f.estPermanencia === 'ALARMA') { d.perm++; d.faltan += f.faltan || 0; }
-        m.set(f.docente, d);
     }
+    const alertas = (d) => d.tarde + d.sin + d.camMal + d.perm;
     return [...m.values()].map((d) => Object.assign(d, {
-        promRetraso: d.retrasos.length ? Math.round(d.retrasos.reduce((a, b) => a + b, 0) / d.retrasos.length) : ''
-    })).sort((a, b) => (b.tarde + b.sin + b.camMal + b.perm) - (a.tarde + a.sin + a.camMal + a.perm) || a.docente.localeCompare(b.docente));
+        promRetraso: d.retrasos.length ? Math.round(d.retrasos.reduce((a, b) => a + b, 0) / d.retrasos.length) : '',
+        pctPuntual: d.clases ? Math.round((d.puntual / d.clases) * 100) : null,
+        nDocentes: d.docentes.size
+    })).sort(g.orden || ((a, b) => alertas(b) - alertas(a) || String(a.nombre).localeCompare(String(b.nombre))));
 }
 
-function tablaDocentes(filas) {
-    const lista = porDocente(filas);
+function tablaGrupos(filas, g) {
+    const lista = agrupar(filas, g);
+    const extra = g.filtro ? '' : '<th class="num">Docentes</th>';
     return `<div class="ev-tabla-wrap"><table class="ev-tabla">
-        <thead><tr><th>Docente</th><th class="num">Clases</th><th class="num">Puntual</th><th class="num">Tarde</th><th class="num">Retraso prom.</th><th class="num">Sin ingreso</th><th class="num">Cámara OK</th><th class="num">Cámara tardía / sin</th><th class="num">Permanencia incompleta</th><th class="num">Min. faltantes</th></tr></thead>
-        <tbody>${lista.map((d) => `<tr class="clic${d.tarde + d.sin + d.camMal + d.perm ? ' alarma' : ''}" data-docente="${esc(d.docente)}">
-            <td class="c-doc">${esc(d.docente)}</td><td class="num">${d.clases}</td><td class="num">${d.puntual}</td>
+        <thead><tr><th>${g.col}</th>${extra}<th class="num">Clases</th><th>% puntual</th><th class="num">Tarde</th><th class="num">Retraso prom.</th><th class="num">Sin ingreso</th><th class="num">Cámara OK</th><th class="num">Cámara tardía / sin</th><th class="num">Permanencia incompleta</th><th class="num">Min. faltantes</th><th class="num">Sin actividad</th></tr></thead>
+        <tbody>${lista.map((d) => `<tr class="clic${d.tarde + d.sin + d.camMal + d.perm ? ' alarma' : ''}" data-grupo="${esc(st.vista)}" data-nombre="${esc(d.nombre)}">
+            <td class="c-doc">${esc(g.txt ? g.txt(d.nombre) : d.nombre)}</td>${g.filtro ? '' : `<td class="num">${d.nDocentes}</td>`}<td class="num">${d.clases}</td>
+            <td>${d.pctPuntual == null ? '' : `<span class="vr-barra" style="width:${Math.round(d.pctPuntual * 0.6)}px"></span>${d.pctPuntual}%`}</td>
             <td class="num">${d.tarde || ''}</td><td class="num">${d.promRetraso !== '' ? '+' + d.promRetraso + ' min' : ''}</td>
-            <td class="num">${d.sin || ''}</td><td class="num">${d.camOk || ''}</td><td class="num">${d.camMal || ''}</td><td class="num">${d.perm || ''}</td><td class="num">${d.faltan || ''}</td></tr>`).join('')}</tbody>
+            <td class="num">${d.sin || ''}</td><td class="num">${d.camOk || ''}</td><td class="num">${d.camMal || ''}</td><td class="num">${d.perm || ''}</td><td class="num">${d.faltan || ''}</td><td class="num">${d.sinAct || ''}</td></tr>`).join('')}</tbody>
         </table></div>`;
 }
 
@@ -246,7 +269,8 @@ function pintarTabla() {
     const filas = filtradas();
     pintarStats(filas);
     const lista = st.vista === 'alertas' ? filas.filter(esAlerta) : filas;
-    $('tituloTabla').textContent = { clases: 'Por clase', alertas: 'Solo alertas', docentes: 'Por docente' }[st.vista] + ` (${fmt(st.vista === 'docentes' ? porDocente(lista).length : lista.length)})`;
+    const g = GRUPOS[st.vista];
+    $('tituloTabla').textContent = (g ? g.titulo : { clases: 'Por clase', alertas: 'Solo alertas' }[st.vista]) + ` (${fmt(g ? agrupar(lista, g).length : lista.length)})`;
     if (!st.filas.size) {
         $('tabla').innerHTML = `<div class="ev-vacio">${esMaster() ? 'Audita un día en el paso 1 para ver resultados.'
             : st.bufEquipo && !st.equipo ? 'Escribe la contraseña del equipo para ver los resultados publicados.<br><br><button class="ev-btn ev-btn-auto" id="vacioClave"><i class="fas fa-unlock"></i> Escribir contraseña</button>'
@@ -256,7 +280,7 @@ function pintarTabla() {
         return;
     }
     if (!lista.length) { $('tabla').innerHTML = '<div class="ev-vacio">Nada coincide con los filtros.</div>'; return; }
-    $('tabla').innerHTML = st.vista === 'docentes' ? tablaDocentes(lista) : tablaClases(lista);
+    $('tabla').innerHTML = g ? tablaGrupos(lista, g) : tablaClases(lista);
 }
 
 function pintarTodo() {
@@ -275,14 +299,15 @@ function exportar() {
     if (!filas.length) { alert('No hay datos para exportar.'); return; }
     const negrita = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '111111' } } };
     let aoa;
-    if (st.vista === 'docentes') {
-        aoa = [['Docente', 'Clases', 'Puntual', 'Tarde', 'Retraso promedio (min)', 'Sin ingreso', 'Cámara OK', 'Cámara tardía / sin cámara', 'Permanencia incompleta', 'Minutos faltantes'],
-            ...porDocente(filas).map((d) => [d.docente, d.clases, d.puntual, d.tarde, d.promRetraso, d.sin, d.camOk, d.camMal, d.perm, d.faltan])];
+    const g = GRUPOS[st.vista];
+    if (g) {
+        aoa = [[g.col, 'Docentes', 'Clases', 'Puntual', '% puntual', 'Tarde', 'Retraso promedio (min)', 'Sin ingreso', 'Cámara OK', 'Cámara tardía / sin cámara', 'Permanencia incompleta', 'Minutos faltantes', 'Sin actividad'],
+            ...agrupar(filas, g).map((d) => [g.txt ? g.txt(d.nombre) : d.nombre, d.nDocentes, d.clases, d.puntual, d.pctPuntual ?? '', d.tarde, d.promRetraso, d.sin, d.camOk, d.camMal, d.perm, d.faltan, d.sinAct])];
     } else {
         const lista = (st.vista === 'alertas' ? filas.filter(esAlerta) : filas).sort(ordenClase);
-        aoa = [['Fecha', 'Horario', 'Programa', 'Docente', 'Curso', 'Sección', 'NRC', 'Carga', 'Periodo', 'Turno', 'Sede',
+        aoa = [['Fecha', 'Horario', 'Programa', 'Docente', 'Curso', 'Ciclo', 'Sección', 'NRC', 'Carga', 'Periodo', 'Turno', 'Sede',
             'Ingreso', 'Retraso (min)', 'Estado ingreso', 'Grabación desde', 'Cámara (min)', 'Estado cámara', 'Horas', 'Min. esperados', 'Min. grabados', 'Min. faltantes', 'Permanencia', 'Nota', 'Aula'],
-        ...lista.map((f) => [f.fecha, f.horario, f.area || '', f.docente, f.curso, f.seccion, f.nrc, f.carga, f.periodo, TURNOS[f.turno] || f.turno, f.sede,
+        ...lista.map((f) => [f.fecha, f.horario, f.area || '', f.docente, f.curso, f.ciclo || '', f.seccion, f.nrc, f.carga, `${f.periodo || ''} ${f.modulo || ''}`.trim(), TURNOS[f.turno] || f.turno, f.sede,
             f.ingreso, f.retraso ?? '', txtIngreso(f.estIngreso), f.grabacion, f.camara ?? '', txtCamara(f.estCamara), f.horas ?? '', f.esperado ?? '', f.grabado ?? '', f.faltan ?? '', txtPerm(f.estPermanencia), f.nota || '', f.aula || ''])];
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -347,6 +372,7 @@ async function refrescarAgente() {
     (e.log || []).forEach(logAgente);
     st.nlog = e.nlog;
     paso(1, 'ok', 'Conectado.');
+    if (!st.periodosCargados) cargarPeriodos();
     paso(2, e.sesion ? 'ok' : 'activo', e.sesion ? 'Sesión iniciada.' : 'Pulsa el botón e <b>inicia sesión</b> en la ventana que abre el agente.');
     $('auditarBtn').hidden = e.corriendo;
     $('detenerBtn').hidden = !e.corriendo;
@@ -377,7 +403,7 @@ async function auditar() {
     const r = await post('/auditar', {
         fecha, rehacer: $('aRehacer').checked, camara: $('aCamara').checked,
         tolerancia: +$('aTol').value || 5, camaraMin: +$('aCam').value || 20,
-        filtros: { programa: $('aPrograma').value.split(',').filter(Boolean), docente: $('aDocente').value.trim(), periodo: $('aPeriodo').value.trim(), turno: $('aTurno').value }
+        filtros: { programa: $('aPrograma').value.split(',').filter(Boolean), docente: $('aDocente').value.trim(), periodos: [...st.periodosAudit], turno: $('aTurno').value }
     }).catch((err) => ({ ok: false, error: err.message }));
     if (!r.ok) {
         paso(3, 'activo', r.error === 'sin_sesion' ? 'Primero inicia sesión en Campus Digital (paso 2).' : esc(r.error || 'El agente no pudo empezar.'));
@@ -408,6 +434,46 @@ async function publicar(clave) {
     avisoPublicar('<span class="nf-spinner"></span> Cifrando y subiendo a GitHub...');
 }
 
+// ------------------------------------------------------------ periodos, excluidos y eliminar
+function pintarPeriodos() {
+    if (!st.periodos) return;
+    $('aPeriodos').innerHTML = st.periodos.map((p) => `<button class="nf-chip${st.periodosAudit.has(p) ? ' on' : ''}" data-periodo="${esc(p)}">${esc(p)}</button>`).join('')
+        || '<span class="ev-muted">La hoja de carga no trae periodos.</span>';
+}
+async function cargarPeriodos() {
+    st.periodosCargados = true;
+    const r = await agente('/periodos', { espera: 60000 }).catch(() => null);
+    if (!r) { st.periodosCargados = false; return; }
+    st.periodos = r.periodos || [];
+    for (const p of [...st.periodosAudit]) if (!st.periodos.includes(p)) st.periodosAudit.delete(p);
+    pintarPeriodos();
+    const x = await agente('/excluidos').catch(() => null);
+    if (x) { st.excluidos = x.excluidos || []; pintarExcluidos(); }
+}
+function pintarExcluidos() {
+    const el = $('excluidos');
+    el.hidden = !st.excluidos.length;
+    el.innerHTML = '<span><i class="fas fa-user-slash"></i> No se auditan (excluidos):</span>'
+        + st.excluidos.map((d) => `<button class="nf-chip" data-incluir="${esc(d)}" title="Volver a auditar a este docente">${esc(d)} ✕</button>`).join('');
+}
+
+// Elimina clases del historial (en el agente). Opcional: excluir a sus docentes de futuras auditorías.
+async function eliminar(claves) {
+    claves = claves.filter((k) => st.filas.has(k));
+    if (!claves.length) { alert('No hay clases para eliminar con estos filtros.'); return; }
+    if (!st.agente) { alert('Para eliminar necesitas el agente abierto (paso 1): el historial vive en tu PC.'); return; }
+    const docentes = [...new Set(claves.map((k) => st.filas.get(k).docente))];
+    if (!confirm(`¿Eliminar ${claves.length} clase(s) de ${docentes.length} docente(s) del historial?`)) return;
+    const excluir = confirm(`¿Además dejar de auditar a ${docentes.length === 1 ? docentes[0] : 'estos ' + docentes.length + ' docentes'} en las próximas auditorías?\n(Úsalo para docentes que no son de COT/PLN. Se puede deshacer.)`) ? docentes : [];
+    const r = await post('/eliminar', { claves, excluir }).catch(() => null);
+    if (!r || !r.ok) { alert('El agente no pudo eliminar. ¿Está abierto?'); return; }
+    claves.forEach((k) => st.filas.delete(k));
+    st.excluidos = r.excluidos || st.excluidos;
+    pintarExcluidos();
+    pintarTodo();
+    avisoPublicar(`🗑 ${r.eliminadas} clase(s) eliminada(s). Pulsa <b>Publicar para el equipo</b> para que el cambio llegue al equipo.`, 'warn');
+}
+
 // ------------------------------------------------------------ inicio
 function init() {
     const ayer = new Date(Date.now() - 864e5);
@@ -436,6 +502,8 @@ function init() {
     $('detenerBtn').onclick = () => post('/detener').catch(() => {});
     $('publicarBtn').onclick = pulsarPublicar;
     $('exportarBtn').onclick = exportar;
+    $('eliminarBtn').onclick = () => eliminar(filtradas().map(clave));
+    try { (JSON.parse(localStorage.getItem('virtual_periodos')) || []).forEach((p) => st.periodosAudit.add(p)); } catch (e) { /* sin almacenamiento */ }
 
     document.addEventListener('click', (ev) => {
         const chip = ev.target.closest('[data-campo]');
@@ -452,10 +520,29 @@ function init() {
             pintarTabla();
             return;
         }
-        const doc = ev.target.closest('tr[data-docente]');
-        if (doc) {   // de "Por docente" a sus clases
-            $('buscar').value = st.texto = doc.dataset.docente.toUpperCase();
+        const borrar = ev.target.closest('[data-borrar]');
+        if (borrar) { eliminar([borrar.dataset.borrar]); return; }
+        const per = ev.target.closest('[data-periodo]');
+        if (per) {
+            const p = per.dataset.periodo;
+            st.periodosAudit.has(p) ? st.periodosAudit.delete(p) : st.periodosAudit.add(p);
+            try { localStorage.setItem('virtual_periodos', JSON.stringify([...st.periodosAudit])); } catch (e) { /* sin almacenamiento */ }
+            pintarPeriodos();
+            return;
+        }
+        const inc = ev.target.closest('[data-incluir]');
+        if (inc) {
+            post('/incluir', { docente: inc.dataset.incluir }).then((r) => { st.excluidos = r.excluidos || []; pintarExcluidos(); }).catch(() => {});
+            return;
+        }
+        const grupo = ev.target.closest('tr[data-grupo]');
+        if (grupo) {   // de un resumen a sus clases
+            const v = grupo.dataset.grupo, n = grupo.dataset.nombre;
+            if (v === 'docentes' || v === 'cursos') $('buscar').value = st.texto = n.toUpperCase();
+            if (v === 'ciclos') st.filtros.ciclo = new Set([n]);
+            if (v === 'fechas') st.filtros.fecha = new Set([n]);
             document.querySelector('[data-vista="clases"]').click();
+            pintarTodo();
         }
     });
     $('buscar').oninput = () => { st.texto = $('buscar').value.trim().toUpperCase(); pintarTodo(); };

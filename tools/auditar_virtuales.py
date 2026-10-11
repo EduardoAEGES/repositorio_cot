@@ -440,7 +440,7 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
     a, b = sec['horario'][dia.weekday()]
     ini = datetime.strptime(f'{dia} {a}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
     fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'], area=sec.get('area', ''),
-                docente=sec['docente'], curso=sec['curso'], sede=sec['sede'], turno=sec['turno'],
+                docente=sec['docente'], dni=sec.get('dni', ''), curso=sec['curso'], sede=sec['sede'], turno=sec['turno'],
                 periodo=sec['periodo'], modulo=sec['modulo'], ciclo=sec['ciclo'], horario=f'{a}-{b}',
                 ingreso='', retraso=None, estIngreso='', grabacion='', horas=None, esperado=None, grabado=None,
                 faltan=None, estPermanencia='', camara=None, estCamara='',
