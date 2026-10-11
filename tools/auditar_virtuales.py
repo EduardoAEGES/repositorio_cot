@@ -219,30 +219,43 @@ class Campus:
         return filas, diag
 
     def grabaciones(self, cm_ids, dia):
-        """Links de reproduccion de las grabaciones con fecha == dia."""
-        res = []
+        """Grabaciones con fecha == dia -> [{'href', 'minutos'}] (minutos = columna Duracion).
+        La misma grabacion sale en las dos actividades BigBlueButton del aula: se cuenta una vez."""
+        res, vistos = [], set()
         for cm in cm_ids:
             self.goto(f'{BASE}/mod/bigbluebuttonbn/view.php?id={cm}')
             try:
                 self.page.wait_for_selector('table tbody tr', timeout=8000)
             except Exception:
                 continue
-            for tr in self.page.query_selector_all('table tbody tr'):
-                m = re.search(r'(\d{1,2}) de (\w+) de (\d{4})', tr.inner_text().lower())
-                if not m or MESES.get(m.group(2)) is None:
-                    continue
-                if datetime(int(m.group(3)), MESES[m.group(2)], int(m.group(1))).date() != dia:
-                    continue
-                el = (tr.query_selector('[data-action="play"], a[href*="action=play"], a[href*="bbb_view"], a[href*="/playback/"]')
-                      or tr.query_selector('a:has-text("grabaci")'))
-                href = el and (el.get_attribute('data-href') or el.get_attribute('href'))
-                if href and not href.startswith(('http', '/')):     # '#' o javascript: buscar la URL en onclick
-                    m2 = re.search(r"https?://[^'\"\s)]+", el.get_attribute('onclick') or '')
-                    href = m2.group(0) if m2 else None
-                if href:
-                    href = BASE + href if href.startswith('/') else href
-                    if href not in res:
-                        res.append(href)
+            for tabla in self.page.query_selector_all('table'):
+                heads = [norm(h.inner_text()) for h in tabla.query_selector_all('thead th')]
+                iDur = next((i for i, h in enumerate(heads) if 'DURACI' in h or 'DURATION' in h), None)
+                for tr in tabla.query_selector_all('tbody tr'):
+                    m = re.search(r'(\d{1,2}) de (\w+) de (\d{4})', tr.inner_text().lower())
+                    if not m or MESES.get(m.group(2)) is None:
+                        continue
+                    if datetime(int(m.group(3)), MESES[m.group(2)], int(m.group(1))).date() != dia:
+                        continue
+                    el = (tr.query_selector('[data-action="play"], a[href*="action=play"], a[href*="bbb_view"], a[href*="/playback/"]')
+                          or tr.query_selector('a:has-text("grabaci")'))
+                    href = el and (el.get_attribute('data-href') or el.get_attribute('href'))
+                    if href and not href.startswith(('http', '/')):     # '#' o javascript: buscar la URL en onclick
+                        m2 = re.search(r"https?://[^'\"\s)]+", el.get_attribute('onclick') or '')
+                        href = m2.group(0) if m2 else None
+                    if href:
+                        href = BASE + href if href.startswith('/') else href
+                    tds = [c.inner_text().strip() for c in tr.query_selector_all('td')]
+                    minutos = None
+                    if iDur is not None and iDur < len(tds):
+                        md = re.search(r'\d+', tds[iDur])
+                        minutos = int(md.group(0)) if md else None
+                    rid = re.search(r'([0-9a-f]{40}-\d{13})', href or '')
+                    clave = rid.group(1) if rid else (tds[iDur] if iDur is not None and iDur < len(tds) else '') + '|' + ' '.join(tds)[-80:]
+                    if clave in vistos:
+                        continue
+                    vistos.add(clave)
+                    res.append(dict(href=href, minutos=minutos))
         return res
 
     def resolver_grabacion(self, href):
@@ -312,7 +325,8 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
     fila = dict(fecha=dia.isoformat(), carga=sec['carga'], nrc=sec['nrc'], seccion=sec['seccion'],
                 docente=sec['docente'], curso=sec['curso'], sede=sec['sede'], turno=sec['turno'],
                 periodo=sec['periodo'], modulo=sec['modulo'], ciclo=sec['ciclo'], horario=f'{a}-{b}',
-                ingreso='', retraso=None, estIngreso='', grabacion='', camara=None, estCamara='',
+                ingreso='', retraso=None, estIngreso='', grabacion='', horas=None, esperado=None, grabado=None,
+                faltan=None, estPermanencia='', camara=None, estCamara='',
                 nota='', aula='', auditado=datetime.now(LIMA).isoformat(timespec='minutes'))
     hallado = campus.buscar_curso(sec)
     if not hallado:
@@ -333,8 +347,11 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
     # Grabacion de ese dia (siempre se busca: tambien prueba que hubo clase).
     host = rid = inicio = None
     notas = []
-    for href in campus.grabaciones(cms, dia):
-        info = campus.resolver_grabacion(href)
+    grabs = campus.grabaciones(cms, dia)
+    for g in grabs:
+        if not g['href']:
+            continue
+        info = campus.resolver_grabacion(g['href'])
         if not info:
             notas.append('no se pudo abrir la grabacion')
             continue
@@ -344,7 +361,23 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
             continue                                    # grabacion de otra sesion del dia
         host, rid, inicio = h, r, ini_g
         break
-    avisar(f'   grabacion: {"si, empezo " + inicio.strftime("%H:%M") if inicio else ("si" if rid else "no encontrada")}')
+    grabado = sum(g['minutos'] or 0 for g in grabs)
+    avisar(f'   grabaciones: {len(grabs)} ({grabado} min)' + (f', la primera empezo {inicio:%H:%M}' if inicio else ''))
+    fin = datetime.strptime(f'{dia} {b}', '%Y-%m-%d %H:%M').replace(tzinfo=LIMA)
+    # Minutos esperados = horas de la sesion x 45 (07:00-08:30 = 2 h = 90 min; 07:00-10:45 = 5 h = 225 min).
+    horas = round((fin - ini).total_seconds() / 60 / 45)
+    esperado = horas * 45
+    fila.update(horas=horas, esperado=esperado, grabado=grabado if grabs else 0)
+    if datetime.now(LIMA) < fin:
+        fila['estPermanencia'] = 'PENDIENTE'
+    elif not grabs:
+        fila.update(estPermanencia='ALARMA', faltan=esperado)
+    elif all(g['minutos'] is None for g in grabs):
+        fila['estPermanencia'] = 'NO EVALUADO'           # la tabla no trajo la duracion
+    elif grabado >= esperado:
+        fila.update(estPermanencia='OK', faltan=0)
+    else:
+        fila.update(estPermanencia='ALARMA', faltan=esperado - grabado)
     if inicio:
         fila['grabacion'] = inicio.strftime('%H:%M')
 
@@ -361,21 +394,24 @@ def auditar_clase(campus, sec, dia, tolerancia=5, camara_min=20, con_camara=True
         # Sin registro del docente pero hay grabacion: la sala la abre el docente (moderador),
         # asi que el inicio de la grabacion es una buena estimacion de su ingreso.
         marcar(inicio, 'ingreso estimado por el inicio de la grabacion')
-    elif rid:
+    elif grabs:
         fila['estIngreso'] = 'SIN INGRESO'
         notas.append('hay grabacion, pero no se encontro el ingreso del docente')
-    elif not logs:
+    elif not logs and not grabs:
         # Nadie entro y no hay grabacion: lo mas probable es que ese dia no hubo clase
         # (modulo terminado o aun no empieza, feriado). Se separa para no culpar al docente.
-        fila.update(estIngreso='SIN ACTIVIDAD', estCamara='—',
+        fila.update(estIngreso='SIN ACTIVIDAD', estCamara='—', estPermanencia='SIN ACTIVIDAD', faltan=None,
                     nota='nadie entro a la sala y no hay grabacion ese dia')
         return fila
     else:
         fila['estIngreso'] = 'SIN INGRESO'
         notas.append(f'entraron {len(logs)} participante(s), el docente no')
 
-    if not rid:
+    if not grabs:
         fila['estCamara'] = 'SIN GRABACION'
+    elif not rid:
+        fila['estCamara'] = 'NO EVALUADO'
+        notas.append('no se pudo abrir el video de la grabacion')
     elif not con_camara:
         fila['estCamara'] = 'NO EVALUADO'
     else:

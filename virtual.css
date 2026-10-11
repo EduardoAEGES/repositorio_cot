@@ -1,5 +1,6 @@
 /* Seguimiento VIRTUAL — se apoya en evaldo.css; aquí solo lo propio */
-.vr-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 1150px; }
+.vr-stats { grid-template-columns: repeat(6, minmax(0, 1fr)); max-width: 1300px; }
+@media (max-width: 1200px) { .vr-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .nf-stat.ok b { color: var(--ok); }
 
 .vr-form {

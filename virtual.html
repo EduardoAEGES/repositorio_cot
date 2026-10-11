@@ -34,13 +34,14 @@
 
     <section class="nf-hero">
         <h1>Seguimiento VIRTUAL</h1>
-        <p>Clases virtuales (BigBlueButton): a qué hora ingresó el docente y si encendió la cámara en los primeros <span id="limCam">20</span> minutos.</p>
+        <p>Clases virtuales (BigBlueButton): a qué hora ingresó el docente, si encendió la cámara en los primeros <span id="limCam">20</span> minutos y cuánto duró la clase frente a lo programado.</p>
         <div class="nf-stats vr-stats" id="stats">
             <div class="nf-stat"><i class="fas fa-video"></i><b id="cTot">0</b><span>Clases auditadas</span></div>
             <div class="nf-stat ok"><i class="fas fa-circle-check"></i><b id="cPun">0</b><span>Ingresos puntuales</span></div>
             <div class="nf-stat alerta"><i class="fas fa-clock"></i><b id="cTar">0</b><span>Tardanzas</span></div>
             <div class="nf-stat alerta"><i class="fas fa-user-slash"></i><b id="cSin">0</b><span>Sin ingreso</span></div>
             <div class="nf-stat alerta"><i class="fas fa-video-slash"></i><b id="cCam">0</b><span>Cámara tardía / sin cámara</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-hourglass-half"></i><b id="cPerm">0</b><span>Permanencia incompleta</span></div>
         </div>
         <div class="nf-status" id="estado"><span class="nf-spinner"></span> Preparando...</div>
     </section>
@@ -90,7 +91,7 @@
                 <p class="ev-nota"><i class="fas fa-circle-info"></i>
                     "Sin actividad" = nadie entró a la sala ese día (no tocaba clase); no cuenta como alerta. Ingreso = primer evento "unirse a la reunión" del docente en los <b>Registros</b> del aula.
                     Cámara = primer momento en que el video de cámaras de la <b>grabación</b> deja de estar en negro (estimado).
-                    Sin grabación no se puede evaluar la cámara.</p>
+                    Permanencia = minutos grabados ese día vs. horas de la sesión × 45; si dura menos o no hay grabación es <b>Alarma</b>. Sin grabación no se puede evaluar la cámara.</p>
             </div>
         </section>
 
@@ -115,6 +116,7 @@
                     <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fSede"></div></div>
                     <div class="ev-fila"><span class="ev-label">Ingreso</span><div class="ev-chips" id="fIngreso"></div></div>
                     <div class="ev-fila"><span class="ev-label">Cámara</span><div class="ev-chips" id="fCamara"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Permanencia</span><div class="ev-chips" id="fPermanencia"></div></div>
                     <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. El Excel lleva solo lo filtrado.</p>
                 </div>
                 <div class="ev-vistas" role="tablist">

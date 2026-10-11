@@ -188,7 +188,9 @@ def auditar_lote(campus, pedido):
         guardar_fila(fila)
         E['hechos'] += 1
         log(f'{"✓" if fila["estIngreso"] == "PUNTUAL" else "⚠"} {s["docente"][:34]} · NRC {s["nrc"]} · '
-            f'{fila["estIngreso"]}{" +%s min" % fila["retraso"] if fila.get("retraso") else ""} · {fila["estCamara"]}')
+            f'{fila["estIngreso"]}{" +%s min" % fila["retraso"] if fila.get("retraso") else ""} · {fila["estCamara"]}'
+            f' · permanencia {fila.get("estPermanencia", "")}'
+            + (f' ({fila.get("grabado")} de {fila.get("esperado")} min)' if fila.get("esperado") else ''))
         time.sleep(0.5)
     E.update(corriendo=False, detener=False, actual='')
     log(f'✓ Listo: {E["hechos"]} de {E["total"]} sesiones auditadas.')

@@ -24,7 +24,7 @@ const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', '
 const st = {
     filas: new Map(),          // fecha|carga|nrc -> fila
     vista: 'clases',
-    filtros: { fecha: new Set(), periodo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set() },
+    filtros: { fecha: new Set(), periodo: new Set(), turno: new Set(), sede: new Set(), ingreso: new Set(), camara: new Set(), permanencia: new Set() },
     texto: '',
     bufEquipo: null, equipo: null,
     agente: null, nlog: 0, timer: null, claveAccion: null
@@ -44,7 +44,14 @@ const clsIngreso = (e) => ({ PUNTUAL: 'ok', TARDE: 'warn', 'SIN INGRESO': 'bad' 
 const clsCamara = (e) => ({ 'CAMARA OK': 'ok', 'CAMARA TARDIA': 'warn', 'SIN CAMARA': 'bad' }[e] || 'pend');
 const txtCamara = (e) => ({ 'CAMARA OK': 'Cámara OK', 'CAMARA TARDIA': 'Cámara tardía', 'SIN CAMARA': 'Sin cámara', 'SIN GRABACION': 'Sin grabación', 'NO EVALUADO': 'No evaluado' }[e] || e || '—');
 const txtIngreso = (e) => ({ PUNTUAL: 'Puntual', TARDE: 'Tarde', 'SIN INGRESO': 'Sin ingreso', 'SIN ACTIVIDAD': 'Sin actividad', 'AULA NO ENCONTRADA': 'Aula no encontrada', ERROR: 'Error' }[e] || e || '—');
-const esAlerta = (f) => ['TARDE', 'SIN INGRESO'].includes(f.estIngreso) || ['CAMARA TARDIA', 'SIN CAMARA'].includes(f.estCamara);
+const clsPerm = (e) => ({ OK: 'ok', ALARMA: 'bad' }[e] || 'pend');
+const txtPerm = (e) => ({ OK: 'OK', ALARMA: 'Alarma', PENDIENTE: 'Pendiente', 'SIN ACTIVIDAD': 'Sin actividad', 'NO EVALUADO': 'No evaluado' }[e] || e || '—');
+// Permanencia = minutos grabados ese día vs. horas de la sesión × 45 ("Duró 83 de 90 min (faltan 7)").
+const detallePerm = (f) => f.estPermanencia === 'OK' || f.estPermanencia === 'ALARMA'
+    ? (f.grabado ? `Duró ${f.grabado} de ${f.esperado} min${f.faltan ? ` (faltan ${f.faltan})` : ''}` : `Sin grabación (${f.esperado} min esperados)`)
+    : f.esperado ? `${f.esperado} min esperados` : '';
+const esAlerta = (f) => ['TARDE', 'SIN INGRESO'].includes(f.estIngreso) || ['CAMARA TARDIA', 'SIN CAMARA'].includes(f.estCamara)
+    || f.estPermanencia === 'ALARMA';
 
 function estado(msg, error) {
     const el = $('estado');
@@ -143,7 +150,8 @@ const CAMPOS = {
     turno: { el: 'fTurno', val: (f) => f.turno || '—', txt: (v) => TURNOS[v] || v },
     sede: { el: 'fSede', val: (f) => f.sede || '—' },
     ingreso: { el: 'fIngreso', val: (f) => f.estIngreso || '—', txt: txtIngreso },
-    camara: { el: 'fCamara', val: (f) => f.estCamara || '—', txt: txtCamara }
+    camara: { el: 'fCamara', val: (f) => f.estCamara || '—', txt: txtCamara },
+    permanencia: { el: 'fPermanencia', val: (f) => f.estPermanencia || '—', txt: txtPerm }
 };
 
 function pasa(f, salvo) {
@@ -178,6 +186,7 @@ function pintarStats(filas) {
     $('cPun').textContent = fmt(filas.filter((f) => f.estIngreso === 'PUNTUAL').length);
     $('cTar').textContent = fmt(filas.filter((f) => f.estIngreso === 'TARDE').length);
     $('cSin').textContent = fmt(filas.filter((f) => f.estIngreso === 'SIN INGRESO').length);
+    $('cPerm').textContent = fmt(filas.filter((f) => f.estPermanencia === 'ALARMA').length);
     $('cCam').textContent = fmt(filas.filter((f) => ['CAMARA TARDIA', 'SIN CAMARA'].includes(f.estCamara)).length);
 }
 
@@ -193,11 +202,12 @@ function tablaClases(filas) {
             <td class="c-curso">${esc(f.curso)}<br><small>${esc(f.seccion)} · NRC ${esc(f.nrc)} · ${esc(f.periodo)}</small></td>
             <td>${badge(clsIngreso(f.estIngreso), txtIngreso(f.estIngreso), f.nota)}<br><small>${f.ingreso ? 'entró ' + esc(f.ingreso) : ''}${f.retraso ? ` (${f.retraso > 0 ? '+' : ''}${f.retraso} min)` : ''}</small></td>
             <td>${badge(clsCamara(f.estCamara), txtCamara(f.estCamara), f.nota)}<br><small>${f.camara != null && f.camara !== '' ? 'min ' + esc(f.camara) : esc(f.nota || '')}</small></td>
+            <td>${badge(clsPerm(f.estPermanencia), txtPerm(f.estPermanencia))}<br><small>${esc(detallePerm(f))}</small></td>
             <td>${f.grabacion ? esc(f.grabacion) : '—'}</td>
             <td>${f.aula ? `<a href="${esc(f.aula)}" target="_blank" rel="noopener" title="Abrir aula"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}</td>
         </tr>`).join('');
     return `<div class="ev-tabla-wrap"><table class="ev-tabla">
-        <thead><tr><th>Fecha</th><th>Docente</th><th>Curso</th><th>Ingreso</th><th>Cámara</th><th>Grabó desde</th><th>Aula</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Docente</th><th>Curso</th><th>Ingreso</th><th>Cámara</th><th>Permanencia</th><th>Grabó desde</th><th>Aula</th></tr></thead>
         <tbody>${cuerpo}</tbody></table></div>`
         + (filas.length > MAX_FILAS ? `<p class="ev-mas">Se muestran ${fmt(MAX_FILAS)} de ${fmt(filas.length)}. El Excel lleva todas.</p>` : '');
 }
@@ -205,28 +215,29 @@ function tablaClases(filas) {
 function porDocente(filas) {
     const m = new Map();
     for (const f of filas) {
-        const d = m.get(f.docente) || { docente: f.docente, clases: 0, puntual: 0, tarde: 0, sin: 0, retrasos: [], camOk: 0, camMal: 0 };
+        const d = m.get(f.docente) || { docente: f.docente, clases: 0, puntual: 0, tarde: 0, sin: 0, retrasos: [], camOk: 0, camMal: 0, perm: 0, faltan: 0 };
         d.clases++;
         if (f.estIngreso === 'PUNTUAL') d.puntual++;
         if (f.estIngreso === 'TARDE') { d.tarde++; d.retrasos.push(f.retraso); }
         if (f.estIngreso === 'SIN INGRESO') d.sin++;
         if (f.estCamara === 'CAMARA OK') d.camOk++;
         if (['CAMARA TARDIA', 'SIN CAMARA'].includes(f.estCamara)) d.camMal++;
+        if (f.estPermanencia === 'ALARMA') { d.perm++; d.faltan += f.faltan || 0; }
         m.set(f.docente, d);
     }
     return [...m.values()].map((d) => Object.assign(d, {
         promRetraso: d.retrasos.length ? Math.round(d.retrasos.reduce((a, b) => a + b, 0) / d.retrasos.length) : ''
-    })).sort((a, b) => (b.tarde + b.sin + b.camMal) - (a.tarde + a.sin + a.camMal) || a.docente.localeCompare(b.docente));
+    })).sort((a, b) => (b.tarde + b.sin + b.camMal + b.perm) - (a.tarde + a.sin + a.camMal + a.perm) || a.docente.localeCompare(b.docente));
 }
 
 function tablaDocentes(filas) {
     const lista = porDocente(filas);
     return `<div class="ev-tabla-wrap"><table class="ev-tabla">
-        <thead><tr><th>Docente</th><th class="num">Clases</th><th class="num">Puntual</th><th class="num">Tarde</th><th class="num">Retraso prom.</th><th class="num">Sin ingreso</th><th class="num">Cámara OK</th><th class="num">Cámara tardía / sin</th></tr></thead>
-        <tbody>${lista.map((d) => `<tr class="clic${d.tarde + d.sin + d.camMal ? ' alarma' : ''}" data-docente="${esc(d.docente)}">
+        <thead><tr><th>Docente</th><th class="num">Clases</th><th class="num">Puntual</th><th class="num">Tarde</th><th class="num">Retraso prom.</th><th class="num">Sin ingreso</th><th class="num">Cámara OK</th><th class="num">Cámara tardía / sin</th><th class="num">Permanencia incompleta</th><th class="num">Min. faltantes</th></tr></thead>
+        <tbody>${lista.map((d) => `<tr class="clic${d.tarde + d.sin + d.camMal + d.perm ? ' alarma' : ''}" data-docente="${esc(d.docente)}">
             <td class="c-doc">${esc(d.docente)}</td><td class="num">${d.clases}</td><td class="num">${d.puntual}</td>
             <td class="num">${d.tarde || ''}</td><td class="num">${d.promRetraso !== '' ? '+' + d.promRetraso + ' min' : ''}</td>
-            <td class="num">${d.sin || ''}</td><td class="num">${d.camOk || ''}</td><td class="num">${d.camMal || ''}</td></tr>`).join('')}</tbody>
+            <td class="num">${d.sin || ''}</td><td class="num">${d.camOk || ''}</td><td class="num">${d.camMal || ''}</td><td class="num">${d.perm || ''}</td><td class="num">${d.faltan || ''}</td></tr>`).join('')}</tbody>
         </table></div>`;
 }
 
@@ -264,14 +275,14 @@ function exportar() {
     const negrita = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '111111' } } };
     let aoa;
     if (st.vista === 'docentes') {
-        aoa = [['Docente', 'Clases', 'Puntual', 'Tarde', 'Retraso promedio (min)', 'Sin ingreso', 'Cámara OK', 'Cámara tardía / sin cámara'],
-            ...porDocente(filas).map((d) => [d.docente, d.clases, d.puntual, d.tarde, d.promRetraso, d.sin, d.camOk, d.camMal])];
+        aoa = [['Docente', 'Clases', 'Puntual', 'Tarde', 'Retraso promedio (min)', 'Sin ingreso', 'Cámara OK', 'Cámara tardía / sin cámara', 'Permanencia incompleta', 'Minutos faltantes'],
+            ...porDocente(filas).map((d) => [d.docente, d.clases, d.puntual, d.tarde, d.promRetraso, d.sin, d.camOk, d.camMal, d.perm, d.faltan])];
     } else {
         const lista = (st.vista === 'alertas' ? filas.filter(esAlerta) : filas).sort(ordenClase);
         aoa = [['Fecha', 'Horario', 'Docente', 'Curso', 'Sección', 'NRC', 'Carga', 'Periodo', 'Turno', 'Sede',
-            'Ingreso', 'Retraso (min)', 'Estado ingreso', 'Grabación desde', 'Cámara (min)', 'Estado cámara', 'Nota', 'Aula'],
+            'Ingreso', 'Retraso (min)', 'Estado ingreso', 'Grabación desde', 'Cámara (min)', 'Estado cámara', 'Horas', 'Min. esperados', 'Min. grabados', 'Min. faltantes', 'Permanencia', 'Nota', 'Aula'],
         ...lista.map((f) => [f.fecha, f.horario, f.docente, f.curso, f.seccion, f.nrc, f.carga, f.periodo, TURNOS[f.turno] || f.turno, f.sede,
-            f.ingreso, f.retraso ?? '', txtIngreso(f.estIngreso), f.grabacion, f.camara ?? '', txtCamara(f.estCamara), f.nota || '', f.aula || ''])];
+            f.ingreso, f.retraso ?? '', txtIngreso(f.estIngreso), f.grabacion, f.camara ?? '', txtCamara(f.estCamara), f.horas ?? '', f.esperado ?? '', f.grabado ?? '', f.faltan ?? '', txtPerm(f.estPermanencia), f.nota || '', f.aula || ''])];
     }
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     aoa[0].forEach((_, i) => { const c = ws[XLSX.utils.encode_cell({ r: 0, c: i })]; if (c) c.s = negrita; });
