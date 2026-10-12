@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Resultados - CERTUS</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <script src="evidencias.js?v=20261011a"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+        :root {
+            --brand-blue: #1b49e0;
+            --brand-deep-blue: #091540;
+            --brand-red: #932026;
+            --brand-cream: #fffbf2;
+            --brand-gold: #f5b942;
+            --text-dark: #1e293b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #111; margin: 0; }
+
+        /* Loader & Event Selector */
+        #event-selector {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
+            background: linear-gradient(135deg, var(--brand-deep-blue) 0%, var(--brand-blue) 100%);
+            display: flex; align-items: center; justify-content: center;
+            color: white; transition: opacity .4s;
+        }
+        #event-selector.hidden { display: none; }
+        .selector-card {
+            background: rgba(255,255,255,0.06); backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 30px;
+            padding: 60px; max-width: 600px; width: 90%; text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .selector-card h2 { font-size: 32px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px; }
+        .selector-card p { color: rgba(255,255,255,0.7); margin-bottom: 30px; font-size: 16px; }
+
+        .tabs-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 12px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: white; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s; }
+        .tab-btn.active { background: white; color: var(--brand-deep-blue); border-color: white; }
+
+        .selector-card select {
+            width: 100%; padding: 16px 20px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.05); color: white; font-size: 16px; font-weight: 500;
+            outline: none; cursor: pointer; transition: all 0.3s;
+        }
+        .selector-card select option { background: var(--brand-deep-blue); color: white; }
+        .selector-card button#btn-generar {
+            margin-top: 24px; width: 100%; padding: 18px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, #f5b942, #f97316); color: white;
+            font-size: 18px; font-weight: 700; cursor: pointer; transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(245, 185, 66, 0.3);
+        }
+        .selector-card button#btn-generar:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+        .selector-card button#btn-generar:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+        /* Presentation Wrapper */
+        #presentation-wrapper { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        #presentation-scale {
+            width: 1920px; height: 1080px; overflow: hidden; position: absolute; left: 50%; top: 50%;
+            transform-origin: center center; box-shadow: 0 0 40px rgba(0,0,0,0.8); background: var(--brand-deep-blue);
+        }
+        #presentation-container { display: flex; width: 100%; height: 100%; transition: transform 0.6s cubic-bezier(0.76, 0, 0.24, 1); }
+        .slide { width: 1920px; height: 1080px; flex-shrink: 0; position: relative; overflow: hidden; background-image: url('REPORTE_FONDO.png'); background-size: cover; background-position: center; }
+
+        /* Shared Slide Elements */
+        .slide-title-wrapper { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 25px; margin-bottom: 40px; color: var(--brand-deep-blue); max-width: 1440px; }
+        .slide-title { font-size: 64px; font-weight: 900; letter-spacing: -1.5px; text-transform: uppercase; color: var(--brand-deep-blue); white-space: nowrap; }
+        .slide-subtitle { font-size: 30px; font-weight: 600; opacity: 0.8; }
+        .pegatina { position: absolute; z-index: 10; pointer-events: none; filter: drop-shadow(0 20px 40px rgba(0,0,0,0.3)); }
+
+        /* Slide 1: Cover */
+        #slide-cover { background-image: url('REPORTE_INICIO.png'); color: white; display: flex; flex-direction: column; justify-content: center; padding-left: 150px; }
+        .cover-content { position: relative; z-index: 20; max-width: 62%; }
+        .cover-badge { display: inline-block; padding: 12px 28px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 50px; font-size: 20px; font-weight: 700; margin-bottom: 30px; letter-spacing: 2px; }
+        .cover-content h1 { font-size: 80px; font-weight: 900; line-height: 1.05; margin-bottom: 35px; letter-spacing: -2px; text-transform: uppercase; }
+        .cover-content p { font-size: 32px; font-weight: 500; opacity: 0.95; margin-bottom: 55px; line-height: 1.4; color: #e2e8f0; }
+        .cover-meta { display: flex; gap: 40px; font-size: 26px; font-weight: 600; opacity: 0.9; }
+        .cover-meta > span { display: flex; align-items: center; gap: 12px; }
+        .cover-meta i { color: var(--brand-gold); font-size: 34px; }
+
+        /* Slide 2: NPS & Satisfaction */
+        #slide-nps { padding: 100px 140px; }
+        .red-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 60px; height: 760px; }
+        .red-card { background: var(--brand-cream); color: var(--brand-red); border-radius: 40px; padding: 50px; display: flex; flex-direction: column; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+        .card-title { font-size: 36px; font-weight: 900; text-transform: uppercase; margin-bottom: 30px; letter-spacing: -1px; }
+
+        .nps-gauge-wrapper { position: relative; width: 100%; height: 330px; display: flex; justify-content: center; align-items: flex-end; margin-top: auto; margin-bottom: 20px; }
+        .nps-gauge-text { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); text-align: center; }
+        .nps-gauge-text h3 { font-size: 110px; font-weight: 900; line-height: 0.9; letter-spacing: -4px; color: var(--brand-red); }
+        .nps-gauge-text p { font-size: 22px; font-weight: 800; opacity: 0.8; text-transform: uppercase; margin-top: 5px; }
+
+        .nps-legend { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 20px; border-top: 2px dashed rgba(147, 32, 38, 0.2); }
+        .nps-legend div { text-align: center; }
+        .nps-legend h4 { font-size: 32px; font-weight: 900; }
+        .nps-legend p { font-size: 16px; font-weight: 700; opacity: 0.7; text-transform: uppercase; }
+
+        .sat-row { display: flex; align-items: center; margin-bottom: 30px; gap: 25px; }
+        .sat-stars { font-size: 32px; color: var(--brand-red); min-width: 150px; font-weight: 800; letter-spacing: 2px;}
+        .sat-bar-bg { flex: 1; height: 28px; background: rgba(147, 32, 38, 0.1); border-radius: 14px; overflow: hidden; }
+        .sat-bar-fill { height: 100%; background: var(--brand-red); border-radius: 14px; transition: width 1s ease-out; }
+        .sat-val { font-size: 32px; font-weight: 900; min-width: 90px; text-align: right; }
+        .sat-nota { font-size: 20px; font-weight: 600; color: rgba(147,32,38,.75); margin-top: 10px; }
+
+        /* Slide 3: Alcance y participación */
+        #slide-reach { padding: 100px 140px; }
+        .reach-band { background: var(--brand-deep-blue); color: white; border-radius: 40px; box-shadow: 0 20px 60px rgba(9, 21, 64, 0.2); display: grid; grid-template-columns: repeat(4, 1fr); padding: 40px 30px; height: 250px; align-items: center; }
+        .reach-stat { text-align: center; padding: 0 20px; border-left: 2px solid rgba(255,255,255,0.15); }
+        .reach-stat:first-child { border-left: none; }
+        .reach-big-num { font-size: 96px; font-weight: 900; line-height: 1; margin-bottom: 12px; color: var(--brand-gold); letter-spacing: -3px; }
+        .reach-big-num small { font-size: 44px; letter-spacing: 0; opacity: .85; }
+        .reach-label { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #fff; }
+        .reach-hint { font-size: 17px; font-weight: 500; color: rgba(255,255,255,0.65); margin-top: 6px; }
+        .reach-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; height: 470px; margin-top: 40px; }
+        .reach-card { background: white; border-radius: 40px; padding: 36px 44px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); display: flex; flex-direction: column; min-width: 0; }
+        .reach-card .card-title { color: var(--brand-deep-blue); font-size: 26px; margin-bottom: 14px; }
+        .chart-box { height: 330px; position: relative; }
+
+        /* Slide 4: Actividades */
+        #slide-activities { padding: 100px 140px; }
+        .activities-container { background: var(--brand-cream); border-radius: 40px; padding: 30px 40px; height: 780px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); overflow: hidden; display: flex; flex-direction: column; }
+        .act-table { width: 100%; border-collapse: separate; border-spacing: 0 12px; }
+        .act-table th { color: var(--brand-red); padding: 12px 20px; font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; text-align: center; border-bottom: 3px solid rgba(147,32,38,0.2); }
+        .act-table th:first-child, .act-table th:nth-child(2) { text-align: left; }
+        .act-table td { padding: 22px 20px; background: white; color: var(--brand-deep-blue); font-size: 24px; font-weight: 600; vertical-align: middle; text-align: center; }
+        .act-table td:first-child { font-weight: 800; text-align: left; }
+        .act-table td:nth-child(2) { text-align: left; }
+        .act-table tr td:first-child { border-radius: 16px 0 0 16px; }
+        .act-table tr td:last-child { border-radius: 0 16px 16px 0; }
+        .act-table tr.total td { background: var(--brand-deep-blue); color: white; font-weight: 800; }
+        .act-table.compacta td { padding: 12px 20px; font-size: 20px; }
+        .act-nota { margin-top: auto; font-size: 17px; color: rgba(9,21,64,.6); font-weight: 500; max-width: 1150px; }
+
+        /* Evidencias */
+        .slide-evid { padding: 100px 140px; }
+        .evid-evento { display: flex; align-items: center; gap: 18px; background: var(--brand-deep-blue); color: white; border-radius: 22px; padding: 18px 30px; margin-bottom: 30px; max-width: 1500px; }
+        .evid-evento .tag { background: var(--brand-gold); color: var(--brand-deep-blue); font-size: 16px; font-weight: 900; letter-spacing: 2px; padding: 6px 14px; border-radius: 10px; }
+        .evid-evento strong { font-size: 32px; font-weight: 800; line-height: 1.15; }
+        .evid-evento .meta { margin-left: auto; font-size: 20px; color: var(--brand-gold); font-weight: 600; white-space: nowrap; }
+        /* Fotos acomodadas por JS (acomodarFotos): cada una completa, sin recortes. */
+        .evid-layout { position: relative; width: 1640px; height: 650px; }
+        .evid-layout figure { position: absolute; background: white; padding: 10px; border-radius: 22px; box-shadow: 0 18px 40px rgba(9,21,64,0.18); }
+        .evid-layout img { width: 100%; height: 100%; object-fit: contain; border-radius: 14px; display: block; background: #f1f5f9; }
+
+        /* Comentarios */
+        #slide-comments { padding: 100px 140px; }
+        .comments-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; height: 780px; align-content: center; }
+        .comment-card { background: white; color: var(--brand-deep-blue); border-radius: 30px; padding: 40px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.15); display: flex; flex-direction: column;}
+        .comment-card::after { content: ''; position: absolute; bottom: -20px; left: 60px; border-width: 20px 20px 0; border-style: solid; border-color: white transparent transparent; display: block; width: 0; }
+        .comment-quote { font-size: 60px; color: var(--brand-gold); margin-bottom: 15px; line-height: 0.5; font-family: serif; }
+        .comment-card.dato::after { display: none; }
+        .comment-card.dato .dato-num { font-size: 76px; font-weight: 900; color: var(--brand-blue); line-height: 1; letter-spacing: -2px; margin-bottom: 14px; }
+        .comment-card.dato .comment-text { font-style: normal; font-weight: 600; }
+        .comment-text { font-size: 24px; font-weight: 600; line-height: 1.4; font-style: italic; flex: 1; }
+        .comment-author { margin-top: 20px; font-size: 18px; font-weight: 800; color: rgba(9, 21, 64, 0.6); text-transform: uppercase; letter-spacing: 1px; }
+        .comments-vacio { grid-column: 1/-1; text-align: center; color: rgba(9,21,64,0.45); font-size: 30px; }
+
+        /* Final */
+        #slide-final { background-image: url('REPORTE_FINAL.png'); }
+
+        /* Controls */
+        .controls { position: fixed; bottom: 40px; right: 50px; display: flex; gap: 15px; z-index: 1000; }
+        .controls button { background: rgba(9,21,64,0.85); backdrop-filter: blur(10px); color: white; border: 3px solid #fff; border-radius: 50%; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s, background 0.2s; font-size: 28px; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+        .controls button:hover { background: var(--brand-blue); transform: scale(1.08); }
+        .slide-indicator { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; z-index: 1000; }
+        .dot { width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.3s; }
+        .dot.active { background: white; transform: scale(1.6); }
+        .dark-bg-dot .dot { background: rgba(0,0,0,0.15); }
+        .dark-bg-dot .dot.active { background: var(--brand-deep-blue); }
+
+        #toast { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); background: var(--brand-deep-blue); color: white; padding: 14px 26px; border-radius: 12px; font-size: 16px; font-weight: 600; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,.35); display: none; }
+    </style>
+    <style>
+        @media print {
+            @page { size: 1920px 1080px; margin: 0; }
+            body, html { width: 1920px; height: auto; overflow: visible !important; background: transparent; }
+            #event-selector, .controls, .slide-indicator, #toast, .no-print { display: none !important; }
+            .slide.sin-contenido { display: none !important; }
+            #presentation-wrapper { display: block !important; position: static !important; width: auto; height: auto; }
+            #presentation-scale { transform: none !important; position: static !important; box-shadow: none !important; height: auto; overflow: visible; }
+            #presentation-container { transform: none !important; display: block !important; height: auto !important; }
+            .slide { page-break-after: always; break-after: page; position: relative !important; float: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="event-selector">
+        <div class="selector-card">
+            <h2>Generador de Reportes</h2>
+            <p>Selecciona la vista de reporte que deseas generar.</p>
+
+            <div class="tabs-container">
+                <button class="tab-btn active" id="tab-evento" onclick="switchTab('evento')">Por Evento</button>
+                <button class="tab-btn" id="tab-mes" onclick="switchTab('mes')">Todos del Mes</button>
+            </div>
+
+            <div id="panel-evento">
+                <select id="evento-select"><option value="">Cargando eventos...</option></select>
+            </div>
+            <div id="panel-mes" style="display: none;">
+                <select id="mes-select"><option value="">Cargando meses...</option></select>
+            </div>
+
+            <button id="btn-generar" onclick="iniciarReporte()" disabled>Generar Reporte Interactivo <i class="ph ph-magic-wand"></i></button>
+            <div id="loader-msg" style="margin-top: 20px; font-size: 15px; color: rgba(255,255,255,0.6); display: none;">
+                <span id="loader-text">Procesando datos...</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="presentation-wrapper" style="display:none;">
+        <div id="presentation-scale">
+            <div id="presentation-container">
+
+                <!-- PORTADA -->
+                <div class="slide" id="slide-cover" data-oscuro="1">
+                    <img src="pegatinas/personaje 7.png" class="pegatina" style="right: 80px; bottom: 40px; width: 450px;" onerror="this.style.display='none'">
+                    <div class="cover-content">
+                        <div class="cover-badge" id="cover-badge">REPORTE DE EVENTO</div>
+                        <h1 id="cover-title">CARGANDO...</h1>
+                        <p id="cover-subtitle">Análisis de impacto, asistencia y nivel de recomendación.</p>
+                        <div class="cover-meta">
+                            <span><i class="ph ph-calendar-check"></i> <span id="cover-date">...</span></span>
+                            <span><i class="ph ph-users-three"></i> <span id="cover-count">0 participantes</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NPS -->
+                <div class="slide" id="slide-nps">
+                    <div class="slide-title-wrapper">
+                        <h2 class="slide-title">NPS & SATISFACCIÓN</h2>
+                        <span class="slide-subtitle">Indicadores clave</span>
+                    </div>
+                    <img src="pegatinas/personaje 1.png" class="pegatina" style="right: 300px; top: 0; width: 230px;" onerror="this.style.display='none'">
+                    <div class="red-grid">
+                        <div class="red-card" style="align-items: center; justify-content: space-between;">
+                            <div class="card-title" style="text-align:center;">NET PROMOTER SCORE</div>
+                            <div class="nps-gauge-wrapper">
+                                <canvas id="npsGaugeChart"></canvas>
+                                <div class="nps-gauge-text">
+                                    <h3 id="nps-val-big">0</h3>
+                                    <p>NPS GLOBAL</p>
+                                </div>
+                            </div>
+                            <div class="nps-legend" style="width: 100%;">
+                                <div><h4 id="nps-det-pos" style="color: #10b981;">0%</h4><p>Promotores (9-10)</p></div>
+                                <div><h4 id="nps-det-neu" style="color: #f59e0b;">0%</h4><p>Pasivos (7-8)</p></div>
+                                <div><h4 id="nps-det-neg" style="color: #ef4444;">0%</h4><p>Detractores (0-6)</p></div>
+                            </div>
+                        </div>
+                        <div class="red-card">
+                            <div class="card-title">NIVEL DE SATISFACCIÓN</div>
+                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;" id="sat-bars-container"></div>
+                            <div class="sat-nota" id="sat-nota"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALCANCE -->
+                <div class="slide" id="slide-reach">
+                    <div class="slide-title-wrapper">
+                        <h2 class="slide-title">ALCANCE Y PARTICIPACIÓN</h2>
+                        <span class="slide-subtitle">Asistencia y respuesta a encuestas</span>
+                    </div>
+                    <div class="reach-band" id="reach-band"></div>
+                    <div class="reach-grid">
+                        <div class="reach-card">
+                            <div class="card-title" id="chart1-title"></div>
+                            <div class="chart-box"><canvas id="chart1"></canvas></div>
+                        </div>
+                        <div class="reach-card">
+                            <div class="card-title" id="chart2-title"></div>
+                            <div class="chart-box"><canvas id="chart2"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ACTIVIDADES -->
+                <div class="slide" id="slide-activities">
+                    <div class="slide-title-wrapper">
+                        <h2 class="slide-title">RESUMEN DE ACTIVIDADES</h2>
+                        <span class="slide-subtitle">Resultados por evento</span>
+                    </div>
+                    <img src="pegatinas/personaje 4.png" class="pegatina" style="right: 290px; top: 0; width: 220px;" onerror="this.style.display='none'">
+                    <div class="activities-container">
+                        <table class="act-table" id="act-table">
+                            <thead>
+                                <tr>
+                                    <th>Actividad / Evento</th>
+                                    <th>Responsable</th>
+                                    <th>Sesiones</th>
+                                    <th>Participantes</th>
+                                    <th>Encuestas</th>
+                                    <th>Satisfacción</th>
+                                    <th>NPS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-actividades"></tbody>
+                        </table>
+                        <div class="act-nota">Participantes: alcance manual del evento o, si no se registró, el mayor entre asistentes registrados y personas que respondieron la encuesta. Satisfacción en escala de 1 a 5.</div>
+                    </div>
+                </div>
+
+                <!-- (aquí se insertan las diapositivas de evidencias) -->
+
+                <!-- COMENTARIOS -->
+                <div class="slide" id="slide-comments">
+                    <div class="slide-title-wrapper">
+                        <h2 class="slide-title" id="comments-title">VOCES DESTACADAS</h2>
+                        <span class="slide-subtitle" id="comments-subtitle">Feedback de los asistentes</span>
+                    </div>
+                    <img src="pegatinas/personaje 8.png" class="pegatina" style="right: 30px; bottom: -10px; width: 260px;" onerror="this.style.display='none'">
+                    <div class="comments-grid" id="comments-grid"></div>
+                </div>
+
+                <!-- FINAL -->
+                <div class="slide" id="slide-final" data-oscuro="1"></div>
+
+            </div>
+        </div>
+
+        <div class="slide-indicator" id="slide-dots"></div>
+        <div class="controls">
+            <button onclick="exportarPDF()" id="btn-export-pdf" title="Descargar PDF" style="background: var(--brand-red);"><i class="ph ph-file-pdf"></i></button>
+            <button onclick="exportarPPTX()" id="btn-export-pptx" title="Descargar PowerPoint editable" style="background: var(--brand-red);"><i class="ph ph-file-ppt"></i></button>
+            <button onclick="prevSlide()"><i class="ph ph-caret-left"></i></button>
+            <button onclick="nextSlide()"><i class="ph ph-caret-right"></i></button>
+        </div>
+    </div>
+    <div id="toast"></div>
+
+    <script>
+        const sb = window.supabase.createClient('https://klmjmlhwuzhymrplemgw.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E');
+
+        let allEventos = [];
+        // Misma URL de Apps Script que usa script.js
+        const GOOGLE_APP_SCRIPT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzcuWg_eQmRMYfcilsm4b4TxlBw8YrP5p6U-UuewY6zQv7zS8ow2DZjO-ek2hYuvk4/exec";
+        let modoReporte = 'evento';
+        let currentSlide = 0;
+        let totalSlides = 0;
+
+        const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+        // Datos calculados del reporte (los usa también la exportación a PowerPoint).
+        let REPORTE = null;
+
+        // ==========================================
+        // UTILIDADES
+        // ==========================================
+        const norm = (s) => (s ?? '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+        const esc = (s) => (s ?? '').toString().replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+        function sesionesDe(ev) { try { return JSON.parse(ev.horario || '[]'); } catch (e) { return []; } }
+        function requisitosDe(ev) { try { return typeof ev.requisitos === 'string' ? JSON.parse(ev.requisitos) : (ev.requisitos || {}); } catch (e) { return {}; } }
+
+        /** "2026-10-02" -> "2 de octubre de 2026" */
+        function fechaLarga(iso) {
+            if (!iso) return '';
+            const [y, m, d] = iso.split('-');
+            return `${parseInt(d)} de ${MESES[parseInt(m) - 1].toLowerCase()} de ${y}`;
+        }
+
+        /**
+         * Identifica a una persona: por DNI si lo hay; si no, por nombre con las palabras
+         * ordenadas (las importaciones a veces invierten nombres y apellidos).
+         */
+        function clavePersona(x) {
+            const dni = (x.dni ?? '').toString().trim();
+            if (dni) return 'dni:' + dni;
+            const nombre = x.participante_nombre || `${x.apellidos || ''} ${x.nombres || ''}`;
+            return 'nom:' + norm(nombre).split(' ').sort().join(' ');
+        }
+
+        function calcularNps(lista) {
+            const vals = lista.filter((e) => e.nps != null && e.nps !== '').map((e) => Number(e.nps));
+            const n = vals.length;
+            if (!n) return { n: 0, score: null, prom: 0, neu: 0, det: 0 };
+            const prom = Math.round(vals.filter((v) => v >= 9).length / n * 100);
+            const det = Math.round(vals.filter((v) => v <= 6).length / n * 100);
+            return { n, score: prom - det, prom, neu: Math.max(0, 100 - prom - det), det };
+        }
+
+        function promedioSatisfaccion(lista) {
+            const vals = lista.map((e) => Number(e.facilidad)).filter((v) => v >= 1 && v <= 5);
+            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        }
+
+        const fmtNps = (v) => v == null ? '—' : (v > 0 ? '+' : '') + v;
+        const fmtSat = (v) => v == null ? '—' : v.toFixed(1);
+
+        /**
+         * Métricas de un evento. Participantes = alcance manual si se registró; si no,
+         * el mayor entre asistentes registrados y personas distintas que respondieron la
+         * encuesta (hay eventos con encuestas importadas pero sin lista de asistencia).
+         */
+        function calcularEvento(ev, asistencias, encuestas) {
+            const asis = asistencias.filter((a) => a.evento_id == ev.id);
+            const encs = encuestas.filter((e) => e.evento_id == ev.id);
+            const nSes = Math.max(1, sesionesDe(ev).length);
+            const registrados = new Set(asis.map(clavePersona)).size;
+            const respondentes = new Set(encs.map(clavePersona)).size;
+            const manual = parseInt(requisitosDe(ev).alcance) || 0;
+            const participantes = manual > 0 ? manual : Math.max(registrados, respondentes);
+            return {
+                ev, nombre: ev.nombre, responsable: ev.responsable || 'Sin asignar', nSes,
+                participantes, encuestas: encs.length,
+                // Se espera una encuesta por participante y sesión.
+                esperadas: participantes * nSes,
+                nps: calcularNps(encs), sat: promedioSatisfaccion(encs), encs
+            };
+        }
+
+        function toast(t, ms = 3500) {
+            const el = document.getElementById('toast');
+            el.textContent = t; el.style.display = 'block';
+            clearTimeout(toast._t);
+            if (ms) toast._t = setTimeout(() => el.style.display = 'none', ms);
+        }
+
+        // ==========================================
+        // INICIO / SELECTOR
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            window.addEventListener('resize', resizePresentation);
+            resizePresentation();
+            const lista = cargarEventosLista();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const evId = urlParams.get('evento_id');
+            const mes = urlParams.get('mes');
+            if (evId || mes) {
+                lista.then(() => {
+                    if (evId) { switchTab('evento'); document.getElementById('evento-select').value = evId; }
+                    else { switchTab('mes'); document.getElementById('mes-select').value = mes; }
+                    iniciarReporte(evId, mes);
+                });
+            }
+        });
+
+        function resizePresentation() {
+            const scaleDiv = document.getElementById('presentation-scale');
+            if (scaleDiv) {
+                const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                scaleDiv.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            }
+        }
+
+        function switchTab(modo) {
+            modoReporte = modo;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + modo).classList.add('active');
+            document.getElementById('panel-evento').style.display = modo === 'evento' ? 'block' : 'none';
+            document.getElementById('panel-mes').style.display = modo === 'mes' ? 'block' : 'none';
+            checkGenerateBtn();
+        }
+
+        function checkGenerateBtn() {
+            const val = modoReporte === 'evento' ? document.getElementById('evento-select').value : document.getElementById('mes-select').value;
+            document.getElementById('btn-generar').disabled = !val;
+        }
+
+        async function cargarEventosLista() {
+            const { data, error } = await sb.from('eventos').select('*').order('created_at', { ascending: false }).limit(200);
+            if (error) return;
+            allEventos = data || [];
+
+            const selEv = document.getElementById('evento-select');
+            selEv.innerHTML = '<option value="">-- Selecciona un evento --</option>';
+            allEventos.forEach(ev => {
+                const opt = document.createElement('option');
+                opt.value = ev.id;
+                const h = sesionesDe(ev);
+                opt.textContent = `${ev.nombre}${h.length ? ` (${h[0].fecha})` : ''} - ${ev.tipo}`;
+                selEv.appendChild(opt);
+            });
+            selEv.addEventListener('change', checkGenerateBtn);
+
+            const meses = {};
+            allEventos.forEach(ev => {
+                const h = sesionesDe(ev);
+                if (h.length && h[0].fecha) {
+                    const [y, m] = h[0].fecha.split('-');
+                    const key = `${y}-${m}`;
+                    if (!meses[key]) meses[key] = { label: `${MESES[parseInt(m) - 1]} ${y}`, count: 0 };
+                    meses[key].count++;
+                }
+            });
+            const selMes = document.getElementById('mes-select');
+            selMes.innerHTML = '<option value="">-- Selecciona un mes --</option>';
+            Object.keys(meses).sort().reverse().forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key; opt.textContent = `${meses[key].label} (${meses[key].count} eventos)`;
+                opt.dataset.label = meses[key].label;
+                selMes.appendChild(opt);
+            });
+            selMes.addEventListener('change', checkGenerateBtn);
+            checkGenerateBtn();
+        }
+
+        // ==========================================
+        // DATOS
+        // ==========================================
+        let chartInstances = {};
+
+        async function iniciarReporte(preId, preMes) {
+            const id = preId || document.getElementById('evento-select').value;
+            const mes = preMes || document.getElementById('mes-select').value;
+
+            document.getElementById('btn-generar').style.display = 'none';
+            document.getElementById('loader-msg').style.display = 'block';
+
+            let eventos = [];
+            if (modoReporte === 'evento') {
+                eventos = allEventos.filter(e => e.id == id);
+            } else {
+                eventos = allEventos.filter(ev => {
+                    const h = sesionesDe(ev);
+                    return h.length && h[0].fecha && h[0].fecha.startsWith(mes);
+                });
+                // Orden cronológico en el reporte mensual.
+                eventos.sort((a, b) => (sesionesDe(a)[0].fecha || '').localeCompare(sesionesDe(b)[0].fecha || ''));
+            }
+
+            if (eventos.length === 0) { alert('No hay eventos'); return; }
+            const ids = eventos.map(e => e.id);
+
+            document.getElementById('loader-text').textContent = 'Obteniendo datos...';
+
+            const [resAsist, resEnc, fotos] = await Promise.all([
+                sb.from('asistencias').select('evento_id,dni,nombres,apellidos').in('evento_id', ids),
+                sb.from('asistencia_encuesta').select('*').in('evento_id', ids),
+                Promise.all(eventos.map(ev => Evidencias.listar(sb, ev.id).catch(() => [])))
+            ]);
+
+            if (resAsist.error) console.error(resAsist.error);
+            if (resEnc.error) console.error(resEnc.error);
+
+            const asistencias = resAsist.data || [];
+            const encuestas = resEnc.data || [];
+            renderReporteData(eventos, asistencias, encuestas, mes);
+            await renderEvidencias(eventos, fotos);
+            enviarResultadosASheets(eventos, asistencias, encuestas);
+
+            document.getElementById('event-selector').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('event-selector').classList.add('hidden');
+                document.getElementById('presentation-wrapper').style.display = 'flex';
+                initSlider();
+                goToSlide(0);
+            }, 500);
+        }
+
+        // Envía a la hoja ACTIVIDADES el NPS y el promedio de participantes por sesión de cada evento
+        // y marca EJECUCIÓN.
+        function enviarResultadosASheets(eventos, asistencias, encuestas) {
+            const payload = eventos.map(ev => {
+                const m = calcularEvento(ev, asistencias, encuestas);
+                return { nombre: ev.nombre, nps: m.nps.score, asistentes: Math.round(m.participantes / m.nSes) };
+            });
+
+            fetch(GOOGLE_APP_SCRIPT_WEBHOOK_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'actualizar_resultados', data: { eventos: payload } })
+            }).catch(err => console.error('Error enviando resultados a Google Sheets:', err));
+        }
+
+        // Escribe el valor encima de cada barra (o a la derecha si es horizontal).
+        const pluginValores = {
+            id: 'valores',
+            afterDatasetsDraw(chart, args, opts) {
+                const { ctx } = chart;
+                const horiz = chart.options.indexAxis === 'y';
+                ctx.save();
+                ctx.font = '800 17px Outfit';
+                ctx.fillStyle = '#091540';
+                chart.data.datasets.forEach((ds, i) => {
+                    const meta = chart.getDatasetMeta(i);
+                    if (meta.hidden) return;
+                    meta.data.forEach((bar, j) => {
+                        const v = ds.data[j];
+                        if (v == null || v === 0) return;
+                        const txt = opts.decimales ? Number(v).toFixed(opts.decimales) : String(v);
+                        if (horiz) { ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, bar.x + 8, bar.y); }
+                        else { ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(txt, bar.x, bar.y - 4); }
+                    });
+                });
+                ctx.restore();
+            }
+        };
+
+        /** Parte un texto en líneas de ~max caracteres (para etiquetas de gráficos). */
+        function partirTexto(t, max = 18) {
+            const out = []; let linea = '';
+            String(t).split(' ').forEach(p => {
+                if ((linea + ' ' + p).trim().length > max && linea) { out.push(linea); linea = p; }
+                else linea = (linea + ' ' + p).trim();
+            });
+            if (linea) out.push(linea);
+            return out.length > 3 ? [...out.slice(0, 2), out.slice(2).join(' ').slice(0, max - 1) + '…'] : out;
+        }
+
+        function dibujarGrafico(canvasId, spec) {
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            // Tamaño fijo en px de la diapositiva (1920x1080): en modo responsive Chart.js
+            // mediría el tamaño ya reducido por la escala de la presentación.
+            const canvas = document.getElementById(canvasId);
+            canvas.width = 707; canvas.height = 330;
+            const ctx = canvas.getContext('2d');
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: spec.labels.map(l => spec.horizontal ? l : partirTexto(l)),
+                    datasets: spec.series.map(s => ({ label: s.name, data: s.values, backgroundColor: s.color, borderRadius: 8, maxBarThickness: 70 }))
+                },
+                options: {
+                    indexAxis: spec.horizontal ? 'y' : 'x',
+                    responsive: false, maintainAspectRatio: false, devicePixelRatio: 2,
+                    layout: { padding: { top: 26, right: spec.horizontal ? 50 : 0 } },
+                    plugins: {
+                        legend: { display: spec.series.length > 1, position: 'top', labels: { font: { family: 'Outfit', size: 16, weight: '600' }, boxWidth: 18 } },
+                        tooltip: { enabled: true },
+                        valores: { decimales: spec.decimales || 0 }
+                    },
+                    scales: {
+                        x: { stacked: !!spec.stacked, grid: { display: !!spec.horizontal }, ticks: { font: { family: 'Outfit', size: spec.horizontal ? 14 : 13, weight: '600' }, color: '#334155', maxRotation: 0, autoSkip: false }, ...(spec.horizontal && spec.max ? { max: spec.max, beginAtZero: true } : {}) },
+                        y: { stacked: !!spec.stacked, beginAtZero: true, grid: { display: !spec.horizontal }, ticks: { font: { family: 'Outfit', size: 14 }, color: '#64748b' }, ...(!spec.horizontal && spec.max ? { max: spec.max } : {}) }
+                    }
+                },
+                plugins: [pluginValores]
+            });
+        }
+
+        function renderReporteData(eventos, asistencias, encuestas, mes) {
+            const isMes = modoReporte === 'mes';
+            const filas = eventos.map(ev => calcularEvento(ev, asistencias, encuestas));
+            const tot = {
+                participantes: filas.reduce((a, f) => a + f.participantes, 0),
+                encuestas: encuestas.length,
+                // Tasa: encuestas recibidas sobre las esperadas (participantes x sesiones), sin pasar de 100% por evento.
+                esperadas: filas.reduce((a, f) => a + f.esperadas, 0),
+                recibidas: filas.reduce((a, f) => a + Math.min(f.encuestas, f.esperadas), 0),
+                nps: calcularNps(encuestas),
+                sat: promedioSatisfaccion(encuestas)
+            };
+            tot.tasa = tot.esperadas > 0 ? Math.round(tot.recibidas / tot.esperadas * 100) : 0;
+
+            // PORTADA
+            let dateStr = '';
+            document.getElementById('cover-badge').textContent = isMes ? 'REPORTE MENSUAL' : 'REPORTE DE EVENTO';
+            if (isMes) {
+                const opt = document.getElementById('mes-select').selectedOptions[0];
+                dateStr = opt && opt.dataset.label ? opt.dataset.label : (mes || '');
+                document.getElementById('cover-title').textContent = 'INFORME DE ACTIVIDADES – ' + dateStr.toUpperCase();
+                document.getElementById('cover-subtitle').textContent = 'Resultados, participación e impacto de las actividades realizadas durante el mes';
+            } else {
+                document.getElementById('cover-title').textContent = (eventos[0].nombre || 'Sin título').toUpperCase();
+                document.getElementById('cover-subtitle').textContent = 'Análisis de impacto, asistencia y nivel de recomendación.';
+                const h = sesionesDe(eventos[0]);
+                dateStr = h.length === 0 ? 'Fecha no especificada'
+                    : h.length === 1 ? fechaLarga(h[0].fecha)
+                    : `Del ${fechaLarga(h[0].fecha)} al ${fechaLarga(h[h.length - 1].fecha)}`;
+            }
+            document.getElementById('cover-date').textContent = dateStr;
+            document.getElementById('cover-count').textContent = isMes
+                ? `${eventos.length} eventos · ${tot.participantes} participantes`
+                : `${tot.participantes} participantes`;
+
+            // NPS
+            const n = tot.nps;
+            document.getElementById('nps-val-big').textContent = fmtNps(n.score ?? 0);
+            document.getElementById('nps-det-pos').textContent = n.prom + '%';
+            document.getElementById('nps-det-neu').textContent = n.neu + '%';
+            document.getElementById('nps-det-neg').textContent = n.det + '%';
+
+            if (chartInstances['nps']) chartInstances['nps'].destroy();
+            const gauge = document.getElementById('npsGaugeChart');
+            gauge.width = 560; gauge.height = 330;
+            chartInstances['nps'] = new Chart(gauge.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Detractores', 'Pasivos', 'Promotores'],
+                    datasets: [{ data: [n.det || 1, n.neu || 1, n.prom || 1], backgroundColor: ['#ef4444', '#f59e0b', '#10b981'], borderWidth: 0, circumference: 180, rotation: 270 }]
+                },
+                options: { responsive: false, maintainAspectRatio: false, devicePixelRatio: 2, cutout: '80%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { animateRotate: true, animateScale: false, duration: 2000, easing: 'easeOutQuart' } }
+            });
+
+            // SATISFACCIÓN (1 a 5)
+            const satCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+            let satTotal = 0;
+            encuestas.forEach(e => { const v = Number(e.facilidad); if (v >= 1 && v <= 5) { satCounts[v]++; satTotal++; } });
+            const satPct = {};
+            const satContainer = document.getElementById('sat-bars-container');
+            satContainer.innerHTML = [5, 4, 3, 2, 1].map(star => {
+                const pct = satTotal > 0 ? Math.round(satCounts[star] / satTotal * 100) : 0;
+                satPct[star] = pct;
+                return `
+                    <div class="sat-row" data-pct="${pct}">
+                        <div class="sat-stars">${'★'.repeat(star)}${'☆'.repeat(5 - star)}</div>
+                        <div class="sat-bar-bg"><div class="sat-bar-fill" style="width: 0%;" data-target="${pct}%"></div></div>
+                        <div class="sat-val">${pct}%</div>
+                    </div>`;
+            }).join('');
+            document.getElementById('sat-nota').textContent = satTotal
+                ? `Promedio: ${fmtSat(tot.sat)} de 5 · ${satTotal} calificaciones`
+                : 'Sin calificaciones registradas';
+            setTimeout(() => document.querySelectorAll('.sat-bar-fill').forEach(el => { el.style.width = el.dataset.target; }), 500);
+
+            // ALCANCE: 4 indicadores con explicación
+            const stats = [
+                { num: tot.participantes, label: 'Participantes', hint: isMes ? `personas atendidas en ${eventos.length} eventos` : 'personas que asistieron' },
+                { num: tot.encuestas, label: 'Encuestas', hint: 'respuestas recibidas' },
+                { num: tot.tasa + '%', label: 'Tasa de respuesta', hint: 'encuestas recibidas / esperadas' },
+                { num: tot.sat == null ? '—' : `${fmtSat(tot.sat)}<small>/5</small>`, label: 'Satisfacción', hint: 'promedio de calificación' }
+            ];
+            document.getElementById('reach-band').innerHTML = stats.map(s => `
+                <div class="reach-stat">
+                    <div class="reach-big-num">${s.num}</div>
+                    <div class="reach-label">${s.label}</div>
+                    <div class="reach-hint">${s.hint}</div>
+                </div>`).join('');
+
+            // GRÁFICOS
+            let charts;
+            if (isMes) {
+                charts = [
+                    { titulo: 'Participantes y encuestas por evento', labels: filas.map(f => f.nombre),
+                      series: [{ name: 'Participantes', values: filas.map(f => f.participantes), color: '#1b49e0' },
+                               { name: 'Encuestas', values: filas.map(f => f.encuestas), color: '#f5b942' }] },
+                    { titulo: 'Satisfacción promedio por evento (1 a 5)', labels: filas.map(f => f.nombre), max: 5, decimales: 1,
+                      series: [{ name: 'Satisfacción', values: filas.map(f => f.sat == null ? 0 : Number(f.sat.toFixed(1))), color: '#932026' }] }
+                ];
+            } else {
+                const porSede = {};
+                encuestas.forEach(e => { const s = (e.sede || 'Sin sede').toString().trim() || 'Sin sede'; porSede[s] = (porSede[s] || 0) + 1; });
+                const sedes = Object.keys(porSede).sort((a, b) => porSede[b] - porSede[a]).slice(0, 8);
+                const dist = Array.from({ length: 11 }, (_, v) => encuestas.filter(e => e.nps != null && Number(e.nps) === v).length);
+                const tramo = (desde, hasta) => dist.map((c, v) => v >= desde && v <= hasta ? c : 0);
+                charts = [
+                    { titulo: 'Encuestas respondidas por sede', labels: sedes, horizontal: true,
+                      series: [{ name: 'Encuestas', values: sedes.map(s => porSede[s]), color: '#1b49e0' }] },
+                    { titulo: '¿Recomendarían el evento? (0 a 10)', labels: dist.map((_, v) => String(v)), stacked: true,
+                      series: [{ name: 'Detractores', values: tramo(0, 6), color: '#ef4444' },
+                               { name: 'Pasivos', values: tramo(7, 8), color: '#f59e0b' },
+                               { name: 'Promotores', values: tramo(9, 10), color: '#10b981' }] }
+                ];
+            }
+            document.getElementById('chart1-title').textContent = charts[0].titulo;
+            document.getElementById('chart2-title').textContent = charts[1].titulo;
+            dibujarGrafico('chart1', charts[0]);
+            dibujarGrafico('chart2', charts[1]);
+
+            // TABLA DE ACTIVIDADES
+            const tbody = document.getElementById('tbody-actividades');
+            tbody.innerHTML = filas.map(f => `
+                <tr>
+                    <td>${esc(f.nombre)}</td>
+                    <td>${esc(f.responsable)}</td>
+                    <td>${f.nSes}</td>
+                    <td>${f.participantes}</td>
+                    <td>${f.encuestas}</td>
+                    <td>${fmtSat(f.sat)}</td>
+                    <td><strong>${fmtNps(f.nps.score)}</strong></td>
+                </tr>`).join('');
+            if (filas.length > 1) {
+                tbody.innerHTML += `
+                <tr class="total">
+                    <td>TOTAL</td><td></td>
+                    <td>${filas.reduce((a, f) => a + f.nSes, 0)}</td>
+                    <td>${tot.participantes}</td>
+                    <td>${tot.encuestas}</td>
+                    <td>${fmtSat(tot.sat)}</td>
+                    <td>${fmtNps(tot.nps.score)}</td>
+                </tr>`;
+            }
+            document.getElementById('act-table').classList.toggle('compacta', filas.length > 5);
+
+            // COMENTARIOS
+            // Comentarios positivos con contenido real (se omiten "ninguna", "nada", "ok", etc.).
+            const vacio = /^(ningun[oa]?|nada|ninguna sugerencia|no|ok|todo bien|n\/?a|-+|\.+|s\/?c)\.?$/i;
+            let withComments = encuestas.filter(e => { const c = (e.comentarios || '').trim(); return c.length >= 8 && !vacio.test(c) && e.nps >= 7; });
+            withComments.sort(() => 0.5 - Math.random());
+            COMENT_REALES = withComments;
+
+            REPORTE = { isMes, eventos, filas, tot, charts, satPct, satTotal, titulo: document.getElementById('cover-title').textContent };
+            pintarComentarios();
+            hacerEditables();
+        }
+
+        // COMENTARIOS: los de la lista de Resultados (encuestas). Si no hay, la diapositiva
+        // no sale en el PDF ni en el PowerPoint.
+        const MAX_COMENT = 6;
+        let COMENT_REALES = [];
+
+        /** "Taller" -> "el taller", "Capacitación" -> "la capacitación". */
+        function nombreActividad(tipo) {
+            const t = (tipo || '').toString().trim().toLowerCase();
+            if (!t) return 'la actividad';
+            return (/(a|ón|ion|ad)$/.test(t) ? 'la ' : 'el ') + t;
+        }
+
+        /**
+         * "Lo que dicen los números": frases armadas SOLO con los resultados de la encuesta,
+         * para completar la diapositiva cuando hay pocos comentarios (o ninguno). El tono
+         * depende del NPS y no se atribuyen a ningún participante.
+         */
+        function frasesDeDatos(R) {
+            const t = R.tot, n = t.nps, out = [];
+            const act = R.isMes ? 'las actividades del mes' : nombreActividad(R.eventos[0].tipo);
+            if (n.n > 0) {
+                out.push({ num: n.prom + '%', texto: `de los participantes recomendaría ${act} (calificación de 9 o 10).` });
+                const s = n.score;
+                const nivel = s >= 70 ? 'Nivel de recomendación excelente: la gran mayoría recomendaría la experiencia.'
+                    : s >= 50 ? 'Nivel de recomendación muy bueno: los promotores superan ampliamente a los detractores.'
+                    : s >= 30 ? 'Buen nivel de recomendación, con más promotores que detractores.'
+                    : s >= 0 ? 'Recomendación positiva: hay más promotores que detractores.'
+                    : 'Hay oportunidades de mejora: los detractores superan a los promotores.';
+                out.push({ num: fmtNps(s), texto: `NPS. ${nivel}` });
+            }
+            if (R.satTotal > 0) {
+                const alta = (R.satPct[4] || 0) + (R.satPct[5] || 0);
+                out.push({ num: Math.min(100, alta) + '%', texto: 'calificó su satisfacción con 4 o 5 estrellas.' });
+            }
+            if (n.n > 0 && n.det === 0) out.push({ num: '0%', texto: 'de detractores: nadie calificó por debajo de 7.' });
+            else if (t.tasa > 0) out.push({ num: t.tasa + '%', texto: 'de los participantes respondió la encuesta.' });
+            if (R.isMes) {
+                const mejor = R.filas.filter(f => f.sat != null && f.encuestas >= 3).sort((a, b) => b.sat - a.sat)[0];
+                if (mejor) out.push({ num: fmtSat(mejor.sat) + '/5', texto: `«${mejor.nombre}» fue la actividad mejor valorada.` });
+            }
+            if (t.participantes > 0) out.push({ num: String(t.participantes), texto: R.isMes ? `participantes en ${R.eventos.length} actividades del mes.` : 'participantes en ' + act + '.' });
+            return out;
+        }
+
+        function pintarComentarios() {
+            // Hasta 6 tarjetas: primero los comentarios reales y, si hay menos de 6, se
+            // completan con datos de la encuesta. Sin comentarios: solo datos (mínimo 2).
+            const reales = COMENT_REALES.slice(0, MAX_COMENT);
+            const todos = frasesDeDatos(REPORTE);
+            const datos = reales.length ? todos.slice(0, MAX_COMENT - reales.length)
+                : (todos.length >= 2 ? todos.slice(0, MAX_COMENT) : []);
+            const grid = document.getElementById('comments-grid');
+            const [titulo, subtitulo] = !reales.length && datos.length ? ['LO QUE DICEN LOS NÚMEROS', 'Resultados de la encuesta de satisfacción']
+                : reales.length && datos.length ? ['VOCES DESTACADAS', 'Lo que opinan los asistentes y lo que dice la encuesta']
+                : ['VOCES DESTACADAS', 'Feedback de los asistentes'];
+            document.getElementById('comments-title').textContent = titulo;
+            document.getElementById('comments-subtitle').textContent = subtitulo;
+            if (reales.length || datos.length) {
+                grid.innerHTML = reales.map(c => `
+                    <div class="comment-card">
+                        <div class="comment-quote">"</div>
+                        <div class="comment-text" contenteditable="true">${esc(c.comentarios.trim())}</div>
+                        <div class="comment-author" contenteditable="true">${esc(c.participante_nombre || 'Anónimo')}</div>
+                    </div>`).join('') + datos.map(d => `
+                    <div class="comment-card dato">
+                        <div class="dato-num">${esc(d.num)}</div>
+                        <div class="comment-text" contenteditable="true">${esc(d.texto)}</div>
+                        <div class="comment-author">Encuesta de satisfacción</div>
+                    </div>`).join('');
+            } else {
+                grid.innerHTML = '<div class="comments-vacio"><i class="ph ph-chat-circle-slash" style="font-size: 60px; margin-bottom: 20px; display:block;"></i>No hay comentarios ni encuestas.<br>Esta diapositiva no saldrá en el PDF ni en el PowerPoint.</div>';
+            }
+            document.getElementById('slide-comments').classList.toggle('sin-contenido', !reales.length && !datos.length);
+        }
+
+        /** Diapositivas que salen en el PDF / PowerPoint (sin "Voces destacadas" si quedó vacía). */
+        function diapositivasParaExportar() {
+            return [...document.querySelectorAll('.slide')].filter(s => {
+                if (s.id !== 'slide-comments') return true;
+                return [...s.querySelectorAll('.comment-text')].some(t => t.innerText.trim());
+            });
+        }
+
+        // EVIDENCIAS: diapositivas por evento con las fotos acomodadas según su forma.
+        const EVID_W = 1640, EVID_H = 650, EVID_GAP = 26, EVID_MARCO = 10;
+        const EVID_MAX = 6;          // fotos por diapositiva como máximo
+        const EVID_MIN_LADO = 280;   // si una foto quedaría más chica que esto (lado menor), pasa a otra diapositiva
+
+        /** Carga las medidas de cada foto (ancho/alto). Las que no cargan se omiten. */
+        function medirFotos(fotos) {
+            return Promise.all(fotos.map(f => new Promise(res => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => res({ ...f, ar: img.naturalWidth / img.naturalHeight });
+                img.onerror = () => res(null);
+                img.src = f.url;
+            }))).then(l => l.filter(Boolean));
+        }
+
+        /** Fotos en filas (en el orden dado): cada fila llena el ancho; luego se escala para entrar en el alto. */
+        function acomodoEnFilas(ars, W, H, filasCorte) {
+            const g = EVID_GAP + 2 * EVID_MARCO;
+            const filas = [[0]];
+            for (let i = 1; i < ars.length; i++) (filasCorte & (1 << (i - 1))) ? filas.push([i]) : filas[filas.length - 1].push(i);
+            const altos = filas.map(f => (W - g * (f.length - 1)) / f.reduce((a, j) => a + ars[j], 0));
+            const k = Math.min(1, (H - g * (filas.length - 1)) / altos.reduce((a, b) => a + b, 0));
+            const hs = altos.map(h => h * k);
+            const altoTotal = hs.reduce((a, b) => a + b, 0) + g * (filas.length - 1);
+            const rects = [];
+            let y = (H - altoTotal) / 2;
+            filas.forEach((f, i) => {
+                const anchoFila = f.reduce((a, j) => a + ars[j] * hs[i], 0) + g * (f.length - 1);
+                let x = (W - anchoFila) / 2;
+                f.forEach(j => { rects[j] = { x, y, w: ars[j] * hs[i], h: hs[i] }; x += ars[j] * hs[i] + g; });
+                y += hs[i] + g;
+            });
+            return rects;
+        }
+
+        function puntajeAcomodo(rects, W, H) {
+            const areas = rects.map(r => r.w * r.h);
+            const cubierto = areas.reduce((a, b) => a + b, 0) / (W * H);
+            const parejo = Math.sqrt(Math.min(...areas) / Math.max(...areas));
+            // Si alguna foto queda chica, este acomodo casi no compite.
+            const chica = Math.min(...rects.map(r => Math.min(r.w, r.h))) < EVID_MIN_LADO ? 0.4 : 1;
+            return cubierto * (0.7 + 0.3 * parejo) * chica;
+        }
+
+        function permutaciones(n) {
+            const out = [];
+            const rec = (pref, resto) => { if (!resto.length) out.push(pref); resto.forEach((x, i) => rec([...pref, x], resto.filter((_, j) => j !== i))); };
+            rec([], [...Array(n).keys()]);
+            return out;
+        }
+
+        /**
+         * Acomodo inteligente: cada foto completa (sin recortes) con su forma original. Prueba
+         * repartirlas en filas y en columnas, en distintos órdenes, y elige la opción que deja las
+         * fotos más grandes y parejas. Devuelve { orden, rects } con rects en el orden de `orden`.
+         */
+        function acomodarFotos(ars, W = EVID_W - 2 * EVID_MARCO, H = EVID_H - 2 * EVID_MARCO) {
+            const n = ars.length;
+            let mejor = null;
+            for (const orden of permutaciones(n)) {
+                const a = orden.map(i => ars[i]);
+                for (let corte = 0; corte < (1 << (n - 1)); corte++) {
+                    // Filas
+                    const rf = acomodoEnFilas(a, W, H, corte);
+                    // Columnas: lo mismo con el dibujo girado
+                    const rc = acomodoEnFilas(a.map(x => 1 / x), H, W, corte).map(r => ({ x: r.y, y: r.x, w: r.h, h: r.w }));
+                    for (const rects of [rf, rc]) {
+                        // Pequeña preferencia por respetar el orden de subida.
+                        const p = puntajeAcomodo(rects, W, H) * (orden.every((v, i) => v === i) ? 1.02 : 1);
+                        if (!mejor || p > mejor.p) mejor = { p, orden, rects };
+                    }
+                }
+            }
+            return mejor;
+        }
+
+        /** Reparte las fotos en diapositivas: agrega fotos mientras todas sigan viéndose grandes. */
+        function agruparFotos(fotos) {
+            const grupos = [];
+            let actual = [];
+            fotos.forEach(f => {
+                const prueba = [...actual, f];
+                const ok = prueba.length <= EVID_MAX &&
+                    Math.min(...acomodarFotos(prueba.map(x => x.ar)).rects.map(r => Math.min(r.w, r.h))) >= EVID_MIN_LADO;
+                if (ok || !actual.length) actual = prueba;
+                else { grupos.push(actual); actual = [f]; }
+            });
+            if (actual.length) grupos.push(actual);
+            return grupos;
+        }
+
+        async function renderEvidencias(eventos, fotosPorEvento) {
+            document.querySelectorAll('.slide-evid').forEach(s => s.remove());
+            const antes = document.getElementById('slide-comments');
+            const medidas = await Promise.all(eventos.map((ev, i) => medirFotos(fotosPorEvento[i] || [])));
+            eventos.forEach((ev, i) => {
+                const grupos = agruparFotos(medidas[i]);
+                const h = sesionesDe(ev);
+                const fecha = h.length ? fechaLarga(h[0].fecha) + (h.length > 1 ? ` · ${h.length} sesiones` : '') : '';
+                grupos.forEach((grupo, p) => {
+                    const { orden, rects } = acomodarFotos(grupo.map(f => f.ar));
+                    const slide = document.createElement('div');
+                    slide.className = 'slide slide-evid';
+                    slide.innerHTML = `
+                        <div class="slide-title-wrapper">
+                            <h2 class="slide-title">EVIDENCIA FOTOGRÁFICA</h2>
+                            <span class="slide-subtitle">${grupos.length > 1 ? `Parte ${p + 1} de ${grupos.length}` : 'Registro del evento'}</span>
+                        </div>
+                        <div class="evid-evento">
+                            <span class="tag">EVENTO</span>
+                            <strong>${esc(ev.nombre)}</strong>
+                            <span class="meta">${esc(fecha)}</span>
+                        </div>
+                        <div class="evid-layout">
+                            ${orden.map((idx, j) => { const f = grupo[idx], r = rects[j]; return `<figure style="left:${r.x}px;top:${r.y}px;width:${r.w + 2 * EVID_MARCO}px;height:${r.h + 2 * EVID_MARCO}px;"><img src="${f.url}" crossorigin="anonymous" alt="Evidencia"></figure>`; }).join('')}
+                        </div>`;
+                    antes.parentNode.insertBefore(slide, antes);
+                });
+            });
+        }
+
+        // Todos los textos principales se pueden corregir antes de exportar.
+        function hacerEditables() {
+            document.querySelectorAll('.slide h1, .slide h2, .slide h3, .slide p, .slide-subtitle, .act-table td, .card-title, .reach-label, .reach-hint, .comment-text, .comment-author, .cover-badge, #cover-date, #cover-count, .sat-nota, .act-nota').forEach(el => {
+                el.contentEditable = 'true';
+                el.style.outline = 'none';
+            });
+        }
+
+        // ==========================================
+        // EXPORTAR
+        // ==========================================
+        function exportarPDF() {
+            const com = document.getElementById('slide-comments');
+            com.classList.toggle('sin-contenido', !diapositivasParaExportar().includes(com));
+            window.print();
+        }
+
+        /* ---------- PowerPoint editable ----------
+         * Cada diapositiva se arma con objetos nativos (textos, formas, tablas y gráficos
+         * de PowerPoint) usando las posiciones que tienen en pantalla. Solo los fondos,
+         * los personajes y las fotos van como imagen. Los textos se leen de la pantalla,
+         * así que respetan lo que se haya corregido a mano. */
+        const PX = 144;                        // 1920 px = 13.333 in
+        const FUENTE = 'Segoe UI', FUENTE_TIT = 'Segoe UI Black';
+        const pt = (px) => Math.round(px / 2 * 10) / 10;   // 1920 px = 960 pt
+
+        const _cacheImg = {};
+        function aDataUrl(url) {
+            if (!_cacheImg[url]) {
+                _cacheImg[url] = fetch(url, { mode: 'cors' }).then(r => { if (!r.ok) throw new Error(url); return r.blob(); })
+                    .then(b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); }));
+            }
+            return _cacheImg[url];
+        }
+
+        /** Recorta la imagen al tamaño del recuadro (como object-fit: cover). */
+        async function recortarCover(url, w, h) {
+            const src = await aDataUrl(url);
+            const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+            const k = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+            const sw = w / k, sh = h / k;
+            const c = document.createElement('canvas');
+            const escala = Math.min(2, 1600 / w);
+            c.width = Math.round(w * escala); c.height = Math.round(h * escala);
+            c.getContext('2d').drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, 0, 0, c.width, c.height);
+            return c.toDataURL('image/jpeg', 0.88);
+        }
+
+        function rectEn(el, slideEl) {
+            const s = slideEl.getBoundingClientRect(), r = el.getBoundingClientRect(), k = s.width / 1920;
+            return { x: (r.left - s.left) / k, y: (r.top - s.top) / k, w: r.width / k, h: r.height / k };
+        }
+        const caja = (r) => ({ x: r.x / PX, y: r.y / PX, w: r.w / PX, h: r.h / PX });
+        const hex = (c) => c.replace('#', '').toUpperCase();
+        const textoDe = (el) => (el ? el.innerText : '').replace(/\s+\n/g, '\n').trim();
+
+        function agregarTexto(ps, texto, r, o = {}) {
+            // Holgura: las fuentes de PowerPoint son algo más anchas que Outfit y el texto se partiría.
+            const extra = r.w * 0.2;
+            const x = o.align === 'center' ? r.x - extra / 2 : o.align === 'right' ? r.x - extra : r.x;
+            ps.addText(texto, { ...caja({ ...r, x, w: r.w + extra }), fontFace: FUENTE, margin: 0, valign: 'middle', ...o });
+        }
+
+        function agregarTitulo(ps, slideEl) {
+            const w = slideEl.querySelector('.slide-title-wrapper');
+            if (!w) return;
+            const r = rectEn(w, slideEl);
+            ps.addText([
+                { text: textoDe(w.querySelector('.slide-title')), options: { fontFace: FUENTE_TIT, fontSize: 32, color: '091540', bold: true } },
+                { text: '   ' + textoDe(w.querySelector('.slide-subtitle')), options: { fontFace: FUENTE, fontSize: 15, color: '475569', bold: true } }
+            ], { ...caja({ x: r.x, y: r.y - 10, w: 1480, h: r.h + 20 }), margin: 0, valign: 'bottom' });
+        }
+
+        async function agregarPegatinas(ps, slideEl) {
+            for (const img of slideEl.querySelectorAll('.pegatina')) {
+                if (!img.naturalWidth || img.style.display === 'none') continue;
+                try { ps.addImage({ data: await aDataUrl(img.getAttribute('src')), ...caja(rectEn(img, slideEl)) }); } catch (e) { }
+            }
+        }
+
+        function agregarTarjeta(ps, r, color, radio = 40) {
+            ps.addShape('roundRect', { ...caja(r), fill: { color }, line: { type: 'none' }, rectRadius: Math.min(radio, r.w / 2, r.h / 2) / PX });
+        }
+
+        function opcionesGrafico(spec) {
+            return {
+                barDir: spec.horizontal ? 'bar' : 'col',
+                barGrouping: spec.stacked ? 'stacked' : 'clustered',
+                overlap: spec.stacked ? 100 : undefined,
+                barGapWidthPct: 60,
+                chartColors: spec.series.map(s => hex(s.color)),
+                showValue: true, dataLabelFontSize: 11, dataLabelFontBold: true, dataLabelColor: '091540', dataLabelFontFace: FUENTE,
+                dataLabelPosition: spec.stacked ? 'ctr' : 'outEnd',
+                dataLabelFormatCode: spec.decimales ? '0.0;-0.0;;@' : '0;-0;;@',
+                showLegend: spec.series.length > 1, legendPos: 't', legendFontSize: 11, legendFontFace: FUENTE,
+                catAxisLabelFontSize: 10, catAxisLabelFontFace: FUENTE, catAxisLabelColor: '334155',
+                valAxisLabelFontSize: 10, valAxisLabelColor: '64748B', valAxisMinVal: 0,
+                ...(spec.max ? { valAxisMaxVal: spec.max, valAxisMajorUnit: 1 } : {}),
+                valGridLine: { color: 'E2E8F0', size: 1 }, catGridLine: { style: 'none' }
+            };
+        }
+
+        async function construirDiapositiva(pptx, ps, slideEl) {
+            const id = slideEl.id;
+            const q = (sel) => slideEl.querySelector(sel);
+            const qa = (sel) => [...slideEl.querySelectorAll(sel)];
+            const R = (el) => rectEn(el, slideEl);
+
+            const fondo = id === 'slide-cover' ? 'REPORTE_INICIO.png' : id === 'slide-final' ? 'REPORTE_FINAL.png' : 'REPORTE_FONDO.png';
+            ps.background = { data: await aDataUrl(fondo) };
+            if (id === 'slide-final') return;
+
+            if (id === 'slide-cover') {
+                const badge = q('.cover-badge'); const rb = R(badge);
+                ps.addShape('roundRect', { ...caja(rb), fill: { color: 'FFFFFF', transparency: 80 }, line: { type: 'none' }, rectRadius: rb.h / 2 / PX });
+                agregarTexto(ps, textoDe(badge), rb, { fontSize: 10, bold: true, color: 'FFFFFF', align: 'center', charSpacing: 2 });
+                const h1 = q('#cover-title'); const r1 = R(h1);
+                agregarTexto(ps, textoDe(h1), { ...r1, w: r1.w + 40 }, { fontFace: FUENTE_TIT, fontSize: pt(80), bold: true, color: 'FFFFFF', valign: 'top', lineSpacingMultiple: 0.95, fit: 'shrink' });
+                const p = q('#cover-subtitle');
+                agregarTexto(ps, textoDe(p), R(p), { fontSize: 16, color: 'E2E8F0', valign: 'top' });
+                const meta = q('.cover-meta'); const rm = R(meta);
+                ps.addText([
+                    { text: '■  ', options: { color: 'F5B942' } }, { text: textoDe(q('#cover-date')) + '        ', options: { color: 'FFFFFF' } },
+                    { text: '■  ', options: { color: 'F5B942' } }, { text: textoDe(q('#cover-count')), options: { color: 'FFFFFF' } }
+                ], { ...caja({ ...rm, w: Math.max(rm.w, 1100) }), fontFace: FUENTE, fontSize: 13, bold: true, margin: 0, valign: 'middle' });
+                await agregarPegatinas(ps, slideEl);
+                return;
+            }
+
+            agregarTitulo(ps, slideEl);
+
+            if (id === 'slide-nps') {
+                const [c1, c2] = qa('.red-card');
+                agregarTarjeta(ps, R(c1), 'FFFBF2'); agregarTarjeta(ps, R(c2), 'FFFBF2');
+                [c1, c2].forEach((c, i) => {
+                    const t = c.querySelector('.card-title'), rc = R(c);
+                    const w = (rc.w - 100) / 1.2;
+                    agregarTexto(ps, textoDe(t), { ...R(t), x: i === 0 ? rc.x + (rc.w - w) / 2 : rc.x + 50, w }, { fontFace: FUENTE_TIT, fontSize: 18, bold: true, color: '932026', align: i === 0 ? 'center' : 'left' });
+                });
+
+                // Medidor: dona con la mitad inferior del color de la tarjeta.
+                const n = REPORTE.tot.nps;
+                const rg = R(q('.nps-gauge-wrapper')), rc1 = R(c1);
+                const arriba = R(c1.querySelector('.card-title')).y + R(c1.querySelector('.card-title')).h + 20;
+                const lado = Math.min(rg.w, rc1.y + rc1.h - 15 - arriba);
+                const cy = rc1.y + rc1.h - 15 - lado / 2;   // centro del medidor
+                ps.addChart(pptx.ChartType.doughnut, [{ name: 'NPS', labels: ['Detractores', 'Pasivos', 'Promotores', ''], values: [n.det, n.neu, n.prom, n.det + n.neu + n.prom || 1] }], {
+                    ...caja({ x: rg.x + (rg.w - lado) / 2, y: cy - lado / 2, w: lado, h: lado }),
+                    holeSize: 75, firstSliceAng: 270, chartColors: ['EF4444', 'F59E0B', '10B981', 'FFFBF2'],
+                    showLegend: false, showValue: false, showPercent: false, showLabel: false, dataBorder: { pt: 0, color: 'FFFBF2' }
+                });
+                const centroX = rg.x + rg.w / 2;
+                agregarTexto(ps, textoDe(q('#nps-val-big')), { x: centroX - 200, y: cy - 150, w: 400, h: 110 }, { fontFace: FUENTE_TIT, fontSize: 55, bold: true, color: '932026', align: 'center' });
+                agregarTexto(ps, textoDe(q('.nps-gauge-text p')), { x: centroX - 150, y: cy - 40, w: 300, h: 34 }, { fontSize: 11, bold: true, color: '932026', align: 'center' });
+                const colores = ['10B981', 'F59E0B', 'EF4444'];
+                qa('.nps-legend > div').forEach((d, i) => {
+                    const h4 = d.querySelector('h4'), p = d.querySelector('p');
+                    agregarTexto(ps, textoDe(h4), R(h4), { fontSize: 16, bold: true, color: colores[i], align: 'center' });
+                    agregarTexto(ps, textoDe(p), { ...R(p), x: R(p).x - 20, w: R(p).w + 40 }, { fontSize: 8, bold: true, color: '932026', align: 'center' });
+                });
+
+                qa('.sat-row').forEach(row => {
+                    const pct = Number(row.dataset.pct) || 0;
+                    agregarTexto(ps, textoDe(row.querySelector('.sat-stars')), R(row.querySelector('.sat-stars')), { fontSize: 16, bold: true, color: '932026' });
+                    const rb = R(row.querySelector('.sat-bar-bg'));
+                    ps.addShape('roundRect', { ...caja(rb), fill: { color: 'F2E2E3' }, line: { type: 'none' }, rectRadius: rb.h / 2 / PX });
+                    if (pct > 0) ps.addShape('roundRect', { ...caja({ ...rb, w: Math.max(rb.h, rb.w * pct / 100) }), fill: { color: '932026' }, line: { type: 'none' }, rectRadius: rb.h / 2 / PX });
+                    agregarTexto(ps, textoDe(row.querySelector('.sat-val')), R(row.querySelector('.sat-val')), { fontSize: 16, bold: true, color: '932026', align: 'right' });
+                });
+                const nota = q('#sat-nota');
+                agregarTexto(ps, textoDe(nota), R(nota), { fontSize: 10, bold: true, color: '932026' });
+            }
+
+            if (id === 'slide-reach') {
+                agregarTarjeta(ps, R(q('.reach-band')), '091540');
+                qa('.reach-stat').forEach((st, i) => {
+                    const rs = R(st);
+                    if (i > 0) ps.addShape('line', { x: rs.x / PX, y: (rs.y + 20) / PX, w: 0, h: (rs.h - 40) / PX, line: { color: '3A4466', width: 1 } });
+                    const num = st.querySelector('.reach-big-num');
+                    agregarTexto(ps, textoDe(num).replace(/\s+/g, ''), R(num), { fontFace: FUENTE_TIT, fontSize: pt(96), bold: true, color: 'F5B942', align: 'center' });
+                    agregarTexto(ps, textoDe(st.querySelector('.reach-label')), R(st.querySelector('.reach-label')), { fontSize: 11, bold: true, color: 'FFFFFF', align: 'center', charSpacing: 1 });
+                    agregarTexto(ps, textoDe(st.querySelector('.reach-hint')), R(st.querySelector('.reach-hint')), { fontSize: 8.5, color: 'B4BAD0', align: 'center' });
+                });
+                qa('.reach-card').forEach((card, i) => {
+                    agregarTarjeta(ps, R(card), 'FFFFFF');
+                    const t = card.querySelector('.card-title');
+                    agregarTexto(ps, textoDe(t), R(t), { fontFace: FUENTE_TIT, fontSize: 13, bold: true, color: '091540' });
+                    const spec = REPORTE.charts[i];
+                    ps.addChart(pptx.ChartType.bar, spec.series.map(s => ({ name: s.name, labels: spec.labels, values: s.values })),
+                        { ...caja(R(card.querySelector('.chart-box'))), ...opcionesGrafico(spec) });
+                });
+            }
+
+            if (id === 'slide-activities') {
+                agregarTarjeta(ps, R(q('.activities-container')), 'FFFBF2');
+                const tabla = q('#act-table');
+                const anchos = [...tabla.querySelectorAll('thead th')].map(th => R(th).w / PX);
+                const borde = { type: 'solid', pt: 6, color: 'FFFBF2' };
+                const filas = [[...tabla.querySelectorAll('thead th')].map((th, i) => ({
+                    text: textoDe(th).toUpperCase(),
+                    options: { bold: true, color: '932026', fontSize: 10, align: i < 2 ? 'left' : 'center', fill: { color: 'FFFBF2' }, border: [{ type: 'none' }, { type: 'none' }, { type: 'solid', pt: 2, color: 'E9C9CB' }, { type: 'none' }] }
+                }))];
+                tabla.querySelectorAll('tbody tr').forEach(tr => {
+                    const total = tr.classList.contains('total');
+                    filas.push([...tr.children].map((td, i) => ({
+                        text: textoDe(td),
+                        options: { bold: i === 0 || total || i === 6, color: total ? 'FFFFFF' : '091540', fill: { color: total ? '091540' : 'FFFFFF' }, align: i < 2 ? 'left' : 'center', border: [borde, { type: 'none' }, borde, { type: 'none' }] }
+                    })));
+                });
+                const rt = R(tabla);
+                const compacta = tabla.classList.contains('compacta');
+                ps.addTable(filas, { x: rt.x / PX, y: rt.y / PX, w: rt.w / PX, colW: anchos, fontFace: FUENTE, fontSize: compacta ? 10 : 12, valign: 'middle', margin: [0.06, 0.12, 0.06, 0.12], rowH: compacta ? 0.42 : 0.55, autoPage: false });
+                const nota = q('.act-nota');
+                agregarTexto(ps, textoDe(nota), R(nota), { fontSize: 8.5, color: '64748B', valign: 'top' });
+            }
+
+            if (slideEl.classList.contains('slide-evid')) {
+                const bar = q('.evid-evento');
+                agregarTarjeta(ps, R(bar), '091540', 22);
+                const tag = bar.querySelector('.tag'); const rt = R(tag);
+                ps.addShape('roundRect', { ...caja(rt), fill: { color: 'F5B942' }, line: { type: 'none' }, rectRadius: rt.h / 3 / PX });
+                agregarTexto(ps, textoDe(tag), rt, { fontSize: 8, bold: true, color: '091540', align: 'center', charSpacing: 2 });
+                const nom = bar.querySelector('strong'), rn = R(nom), rbar = R(bar);
+                ps.addText(textoDe(nom), { ...caja({ x: rn.x, y: rbar.y, w: rbar.x + rbar.w - rn.x - 330, h: rbar.h }), fontFace: FUENTE, fontSize: 16, bold: true, color: 'FFFFFF', margin: 0, valign: 'middle', fit: 'shrink' });
+                const meta = bar.querySelector('.meta');
+                if (textoDe(meta)) agregarTexto(ps, textoDe(meta), { ...R(meta), x: R(meta).x - 20, w: R(meta).w + 20 }, { fontSize: 10, bold: true, color: 'F5B942', align: 'right' });
+                for (const fig of qa('figure')) {
+                    agregarTarjeta(ps, R(fig), 'FFFFFF', 26);
+                    const img = fig.querySelector('img'); const ri = R(img);
+                    try { ps.addImage({ data: await recortarCover(img.src, ri.w, ri.h), ...caja(ri) }); }
+                    catch (e) { console.warn('No se pudo incluir la foto', img.src, e); }
+                }
+            }
+
+            if (id === 'slide-comments') {
+                const cards = qa('.comment-card').filter(c => textoDe(c.querySelector('.comment-text')));
+                cards.forEach(card => {
+                    agregarTarjeta(ps, R(card), 'FFFFFF', 30);
+                    const esDato = card.classList.contains('dato');
+                    if (esDato) {
+                        const num = card.querySelector('.dato-num');
+                        agregarTexto(ps, textoDe(num), R(num), { fontFace: FUENTE_TIT, fontSize: pt(76), bold: true, color: '1B49E0' });
+                    } else {
+                        const qt = card.querySelector('.comment-quote');
+                        agregarTexto(ps, '“', { ...R(qt), h: R(qt).h + 30 }, { fontFace: 'Georgia', fontSize: 36, bold: true, color: 'F5B942', valign: 'top' });
+                    }
+                    const tx = card.querySelector('.comment-text');
+                    agregarTexto(ps, textoDe(tx), R(tx), { fontSize: 12, italic: !esDato, bold: true, color: '091540', valign: 'top', fit: 'shrink' });
+                    const au = card.querySelector('.comment-author');
+                    agregarTexto(ps, textoDe(au), R(au), { fontSize: 9, bold: true, color: '6B7189', charSpacing: 1 });
+                });
+            }
+
+            await agregarPegatinas(ps, slideEl);
+        }
+
+        async function exportarPPTX() {
+            const btn = document.getElementById('btn-export-pptx');
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-spinner"></i>';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.7';
+            toast('Generando PowerPoint editable...', 0);
+            try {
+                const pptx = new PptxGenJS();
+                pptx.layout = 'LAYOUT_WIDE';
+                pptx.title = REPORTE ? REPORTE.titulo : 'Reporte CERTUS';
+                pptx.company = 'CERTUS';
+                const slides = diapositivasParaExportar();
+                for (let i = 0; i < slides.length; i++) {
+                    toast(`Generando PowerPoint editable... (${i + 1}/${slides.length})`, 0);
+                    await construirDiapositiva(pptx, pptx.addSlide(), slides[i]);
+                }
+                const base = (REPORTE ? REPORTE.titulo : 'Reporte').replace(/[^\wÁÉÍÓÚÑáéíóúñ –-]+/g, '').replace(/\s+/g, '_').slice(0, 70);
+                await pptx.writeFile({ fileName: `Reporte_${base}.pptx` });
+                toast('PowerPoint descargado.');
+            } catch (e) {
+                console.error(e);
+                toast('No se pudo generar el PowerPoint: ' + e.message, 6000);
+            } finally {
+                btn.innerHTML = originalIcon;
+                btn.style.pointerEvents = 'auto';
+                btn.style.opacity = '1';
+            }
+        }
+
+        // ==========================================
+        // NAVEGACIÓN
+        // ==========================================
+        function initSlider() {
+            totalSlides = document.querySelectorAll('.slide').length;
+            const dots = document.getElementById('slide-dots');
+            dots.innerHTML = '';
+            for (let i = 0; i < totalSlides; i++) {
+                dots.innerHTML += `<div class="dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`;
+            }
+        }
+
+        function goToSlide(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= totalSlides) idx = totalSlides - 1;
+            currentSlide = idx;
+            // Al enfocar un texto editable el navegador puede desplazar el contenedor: volver a 0.
+            const marco = document.getElementById('presentation-scale');
+            marco.scrollLeft = 0; marco.scrollTop = 0;
+            document.getElementById('presentation-container').style.transform = `translateX(-${currentSlide * 1920}px)`;
+            document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === currentSlide));
+            const slide = document.querySelectorAll('.slide')[currentSlide];
+            document.body.classList.toggle('dark-bg-dot', !(slide && slide.dataset.oscuro));
+        }
+        function nextSlide() { goToSlide(currentSlide + 1); }
+        function prevSlide() { goToSlide(currentSlide - 1); }
+
+        document.addEventListener('keydown', (e) => {
+            if (document.getElementById('presentation-wrapper').style.display !== 'none' && !e.target.isContentEditable) {
+                if (e.key === 'ArrowRight') nextSlide();
+                if (e.key === 'ArrowLeft') prevSlide();
+            }
+        });
+    </script>
+</body>
+</html>

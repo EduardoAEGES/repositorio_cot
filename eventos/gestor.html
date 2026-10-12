@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Eventos y Constancias | COT-PLN</title>
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,500&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #f5f6f8;
+            --panel: #ffffff;
+            --panel-2: #f6f7f9;
+            --border: #dfe2e7;
+            --text: #3c3c46;
+            --muted: #8a8a99;
+            --accent: #714b67;      /* aubergine Odoo */
+            --accent-hover: #5d3d55;
+            --accent-soft: #f1eaf0;
+            --teal: #017e84;
+            --ok: #28a745;
+            --warn: #d9822b;
+            --err: #d64550;
+            --sombra: 0 1px 2px rgba(60, 60, 70, .06), 0 1px 3px rgba(60, 60, 70, .08);
+            --sombra-alta: 0 4px 14px rgba(60, 60, 70, .12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Outfit, system-ui, sans-serif;
+            font-size: 13.5px;
+        }
+
+        .wrap { max-width: 1340px; margin: 0 auto; padding: 16px 18px 48px; }
+
+        header.top {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 14px; flex-wrap: wrap; margin-bottom: 14px;
+            padding-bottom: 12px; border-bottom: 1px solid var(--border);
+        }
+        .barra-inicio { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+        .btn-volver-inicio {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 12px 26px; border-radius: 10px;
+            background: #714b67; color: #fff; text-decoration: none;
+            font-size: 16px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+            box-shadow: 0 4px 14px rgba(113, 75, 103, .3);
+            transition: transform .15s, box-shadow .15s;
+        }
+        .btn-volver-inicio:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(113, 75, 103, .4); }
+        @media (max-width: 700px) {
+            .barra-inicio { justify-content: stretch; }
+            .btn-volver-inicio { width: 100%; justify-content: center; padding: 10px 18px; font-size: 14px; }
+        }
+        header.top h1 { margin: 0; font-size: 20px; font-weight: 700; color: #2b2b33; }
+        header.top p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+
+        button {
+            font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+            border-radius: 6px; padding: 7px 13px; border: 1px solid transparent;
+            display: inline-flex; align-items: center; gap: 6px; transition: background .12s, box-shadow .12s;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-ghost { background: #fff; color: var(--text); border-color: var(--border); }
+        .btn-ghost:hover { background: var(--panel-2); border-color: #c9cdd4; }
+        button:disabled { opacity: .5; cursor: default; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+            padding: 15px; cursor: pointer; transition: border-color .12s, background .12s;
+        }
+        .card:hover { border-color: var(--accent); background: var(--accent-soft); }
+        .card h3 { margin: 0 0 10px; font-size: 15.5px; font-weight: 600; line-height: 1.35; color: #2b2b33; }
+        .card .meta { color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+        .card .meta span { display: flex; align-items: center; gap: 7px; }
+        .pill {
+            display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em;
+            text-transform: uppercase; padding: 4px 9px; border-radius: 4px;
+            background: var(--accent-soft); color: var(--accent); margin-bottom: 10px;
+        }
+        .pill.tiene { background: #e3f4e7; color: #1e7e34; }
+
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+        .toolbar input[type=search] {
+            background: #fff; border: 1px solid var(--border); color: var(--text);
+            border-radius: 6px; padding: 9px 12px; font-family: inherit; font-size: 14px; min-width: 230px;
+        }
+        .toolbar input[type=search]:focus { outline: none; border-color: var(--accent); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; background: var(--panel-2); }
+        tbody tr:hover { background: var(--accent-soft); }
+        .tabla-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; }
+
+        .chk-inline {
+            display: flex; align-items: center; gap: 7px; color: var(--muted);
+            font-size: 13px; cursor: pointer; user-select: none;
+        }
+        .chk-inline input { width: auto; accent-color: var(--accent); }
+
+        .celda-acciones { text-align: right; white-space: nowrap; }
+        .sel-acciones { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+        .sel-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; }
+        .badge-disenio {
+            display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px;
+            background: var(--accent-soft); color: var(--accent); white-space: nowrap;
+        }
+        .btn-ghost.peligro { color: var(--err); border-color: var(--border); }
+        .btn-ghost.peligro:hover:not(:disabled) { background: #fbe3e5; border-color: var(--err); }
+        .btn-ghost.peligro:disabled { opacity: .5; cursor: not-allowed; }
+        .chk-fila, #chk-todos { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+        .btn-icono {
+            background: transparent; border: 1px solid var(--border); color: var(--muted);
+            border-radius: 6px; padding: 5px 8px; font-size: 14px; line-height: 1;
+        }
+        .btn-icono:hover { color: var(--accent); background: var(--accent-soft); border-color: #d9c9d5; }
+        .btn-icono.peligro:hover { color: var(--err); border-color: #eab6ba; background: #fbeced; }
+
+        .estado-cert { font-size: 12px; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
+        .estado-cert.si { background: #e3f4e7; color: #1e7e34; }
+        .estado-cert.no { background: #eef0f3; color: var(--muted); }
+
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .modal-bg {
+            position: fixed; inset: 0; background: rgba(40, 40, 50, .45); display: none;
+            align-items: center; justify-content: center; padding: 20px; z-index: 50;
+        }
+        .modal-bg.abierto { display: flex; }
+        .modal {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+            width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; padding: 24px;
+            box-shadow: var(--sombra-alta);
+        }
+        .modal h2 { margin: 0 0 4px; font-size: 19px; }
+        .modal .sub { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+
+        label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin: 14px 0 5px; }
+        input[type=text], input[type=date], input[type=time], input[type=url], select, textarea {
+            width: 100%; background: #fff; border: 1px solid var(--border); color: var(--text);
+            border-radius: 6px; padding: 9px 11px; font-family: inherit; font-size: 14px;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        input.invalido { border-color: var(--err); }
+        input.invalido:focus { box-shadow: 0 0 0 3px #fbe3e5; }
+        .hint-error { color: var(--err); font-size: 11.5px; margin-top: 4px; display: flex; align-items: center; gap: 5px; }
+        .chk-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px;
+            border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px;
+        }
+        .chk-grid label {
+            display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px;
+            font-weight: 400; color: var(--text); text-transform: none; cursor: pointer;
+        }
+        .chk-grid input { width: auto; accent-color: var(--accent); }
+        @media (max-width: 520px) { .chk-grid { grid-template-columns: 1fr; } }
+        td.celda-mal { color: var(--err); font-weight: 500; }
+        textarea { min-height: 80px; resize: vertical; }
+        .fila { display: flex; gap: 10px; }
+        .fila > div { flex: 1; }
+        .sesion { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 8px; }
+        .sesion > div { flex: 1; }
+        .sesion button { padding: 9px 11px; background: transparent; border: 1px solid var(--border); color: var(--err); }
+
+        fieldset { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 16px; margin: 16px 0 0; }
+        legend { font-size: 12px; color: var(--muted); padding: 0 5px; }
+
+        .firma-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: var(--panel-2); }
+        .firma-top { display: flex; gap: 14px; }
+        .firma-previa {
+            flex: 0 0 130px; height: 96px; border: 1px dashed var(--border); border-radius: 6px;
+            background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+        .firma-previa img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .firma-sin { font-size: 12px; color: var(--muted); }
+        .firma-campos { flex: 1; min-width: 0; }
+        .firma-campos label:first-child { margin-top: 0; }
+        .firma-campos textarea { min-height: 66px; }
+        .firma-num { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+        .firma-num label { margin: 0 0 3px; }
+        .firma-num input { padding: 7px 9px; }
+        .firma-acc { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-file { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; font-size: 13px;
+            font-weight: 500; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; width: auto; text-transform: none; }
+        .firma-acc .f-del { color: var(--err); }
+        @media (max-width: 560px) {
+            .firma-top { flex-direction: column; }
+            .firma-previa { flex-basis: auto; width: 100%; }
+        }
+
+        .acciones { display: flex; gap: 10px; margin-top: 22px; }
+        .msg { margin-top: 14px; font-size: 13px; white-space: pre-wrap; line-height: 1.55; }
+        .msg.ok { color: #1e7e34; }
+        .msg.err { color: var(--err); }
+
+        .barra { height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+        .barra > div { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+
+        .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+        .tabs button {
+            background: transparent; border: 0; border-bottom: 2px solid transparent;
+            color: var(--muted); border-radius: 0; padding: 9px 13px;
+        }
+        .tabs button.activo { color: var(--text); border-bottom-color: var(--accent); }
+
+        /* ---------------------------- CALENDARIO ---------------------------- */
+        .cal-nav { display: flex; align-items: center; gap: 6px; }
+        .cal-nav h3 { margin: 0; font-size: 15px; font-weight: 600; min-width: 130px; text-align: center; }
+        .cal-nav button { padding: 7px 11px; min-width: 38px; justify-content: center; font-size: 14px; }
+
+        .cal-cabecera, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+        .cal-cabecera {
+            gap: 1px; background: var(--border); border: 1px solid var(--border);
+            border-radius: 8px 8px 0 0; overflow: hidden;
+        }
+        .cal-cabecera span {
+            background: var(--panel-2); padding: 6px 5px; text-align: center;
+            font-size: 10.5px; font-weight: 600; letter-spacing: .05em; color: var(--muted);
+        }
+        .cal-grid {
+            gap: 1px; background: var(--border); border: 1px solid var(--border);
+            border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden;
+        }
+        .cal-dia {
+            background: var(--panel); min-height: 80px; padding: 4px 4px 6px;
+            display: flex; flex-direction: column; gap: 3px;
+        }
+        .cal-dia.fuera { background: #fafbfc; }
+        .cal-dia.fuera .cal-num { color: #c2c6cd; }
+        .cal-num { font-size: 11px; color: var(--muted); font-weight: 500; }
+        .cal-dia.hoy .cal-num {
+            background: var(--accent); color: #fff; border-radius: 999px;
+            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Chip con degradado de color completo y texto blanco (estilo tarjeta vibrante). */
+        .cal-chip {
+            background: linear-gradient(135deg, #1a9ba1, #017e84);
+            border-radius: 8px; padding: 7px 9px 8px; cursor: pointer;
+            font-size: 10.5px; line-height: 1.3; color: rgba(255, 255, 255, .88);
+            transition: filter .12s;
+        }
+        .cal-chip:hover { filter: brightness(1.06); }
+        .cal-chip strong { display: block; font-weight: 700; margin-bottom: 3px; font-size: 11.5px; color: #fff; }
+        .cal-chip small { display: flex; align-items: center; gap: 4px; color: rgba(255, 255, 255, .82); }
+        .cal-chip small i { font-size: 11px; opacity: .85; }
+
+        .cal-chip.c1 { background: linear-gradient(135deg, #855f79, #6a4661); }
+        .cal-chip.c2 { background: linear-gradient(135deg, #5199ee, #2c6fd6); }
+        .cal-chip.c3 { background: linear-gradient(135deg, #f4a15a, #e8833a); }
+        .cal-chip.c4 { background: linear-gradient(135deg, #d96caa, #c4468a); }
+
+        /* -------------------- FICHA DEL EVENTO EN DETALLE -------------------- */
+        .ficha {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+            padding: 18px 20px; margin-bottom: 4px;
+        }
+        .ficha-datos {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px 22px;
+        }
+        .ficha-datos div span { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+        .ficha-datos div strong { font-weight: 500; font-size: 14px; }
+        .ficha p.desc { margin: 16px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+
+        /* ------------------- VISTA PREVIA DE LA CONSTANCIA ------------------- */
+        .previa-cert {
+            background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px; margin-top: 4px;
+        }
+        .previa-cert img { width: 100%; display: block; border-radius: 4px; }
+        .ayuda-modelo { color: var(--muted); font-size: 12px; align-self: center; }
+        code {
+            background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px;
+            padding: 2px 6px; font-size: 11.5px; display: inline-block; margin: 3px 3px 0 0;
+        }
+
+        .vacio { text-align: center; color: var(--muted); padding: 50px 20px; }
+        .evid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 14px; }
+        .evid-item { position: relative; background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--sombra); aspect-ratio: 16 / 10; }
+        .evid-item img { width: 100%; height: 100%; object-fit: contain; background: #eef0f4; display: block; cursor: zoom-in; }
+        .evid-item button { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,.92); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; color: var(--err); font-size: 13px; }
+        .evid-item .num { position: absolute; left: 8px; bottom: 8px; background: rgba(0,0,0,.55); color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+        .oculto { display: none !important; }
+        #cert-canvas { display: none; }
+
+        @media (max-width: 720px) {
+            .cal-dia { min-height: 76px; }
+            .cal-chip small { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="barra-inicio">
+            <a href="https://eduardoaeges.github.io/repositorio_cot/index.html" class="btn-volver-inicio" title="Volver a la página principal">
+                <i class="ph ph-house"></i> Volver a Inicio
+            </a>
+        </div>
+
+        <!-- ======================= LISTA DE EVENTOS ======================= -->
+        <section id="vista-eventos">
+            <header class="top">
+                <div>
+                    <h1>Gestor de Eventos y Constancias</h1>
+                    <p>Crea eventos y emite sus constancias. Todo queda guardado en Supabase.</p>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn-ghost" id="btn-hoja-interna" style="background-color: #dcfce7; color: #166534; border-color: #bbf7d0;">
+                        <i class="ph ph-microsoft-excel-logo"></i> Plan de Trabajo
+                    </button>
+                    <button class="btn-ghost" id="btn-hoja-oficial" style="background-color: #166534; color: white; border-color: #166534;">
+                        <i class="ph ph-microsoft-excel-logo"></i> Hoja oficial
+                    </button>
+                    <button class="btn-ghost" id="btn-portal">
+                        <i class="ph ph-graduation-cap"></i> Portal de constancias
+                    </button>
+                    <button class="btn-ghost" id="btn-reporte" style="background-color: #3b82f6; color: white; border-color: #3b82f6;">
+                        <i class="ph ph-presentation-chart"></i> Generar Reporte
+                    </button>
+                    <button class="btn-ghost" id="btn-encuesta-general" style="background-color: #8b5cf6; color: white; border-color: #8b5cf6;">
+                        <i class="ph ph-list-numbers"></i> Encuesta
+                    </button>
+                    <button class="btn-primary" id="btn-nuevo-evento">
+                        <i class="ph ph-plus-circle"></i> Crear evento
+                    </button>
+                </div>
+            </header>
+
+            <div class="toolbar">
+                <div class="cal-nav">
+                    <button class="btn-ghost" id="mes-anterior" title="Mes anterior" aria-label="Mes anterior"><i class="ph ph-caret-left"></i></button>
+                    <h3 id="mes-label"></h3>
+                    <button class="btn-ghost" id="mes-siguiente" title="Mes siguiente" aria-label="Mes siguiente"><i class="ph ph-caret-right"></i></button>
+                    <button class="btn-ghost" id="btn-hoy">Hoy</button>
+                </div>
+                <input type="search" id="buscar" placeholder="Buscar evento...">
+                <button class="btn-ghost" id="btn-vista"><i class="ph ph-list"></i> Ver como lista</button>
+                <button class="btn-ghost" id="btn-recargar"><i class="ph ph-arrow-clockwise"></i> Recargar</button>
+                <span id="conteo-eventos" style="color:var(--muted);font-size:13px;"></span>
+            </div>
+
+            <div id="calendario">
+                <div class="cal-cabecera">
+                    <span>LUN</span><span>MAR</span><span>MIÉ</span><span>JUE</span>
+                    <span>VIE</span><span>SÁB</span><span>DOM</span>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+            </div>
+
+            <div class="grid oculto" id="grid-eventos"></div>
+            <div class="vacio" id="eventos-cargando">Cargando eventos...</div>
+        </section>
+
+        <!-- ==================== GESTOR DE CONSTANCIAS ==================== -->
+        <section id="vista-constancias" class="oculto">
+            <header class="top">
+                <div>
+                    <button class="btn-ghost" id="btn-volver" style="margin-bottom:12px;">
+                        Volver a eventos
+                    </button>
+                    <h1 id="titulo-evento"></h1>
+                    <p id="subtitulo-evento"></p>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+                    <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                        <label style="font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: bold;">Alcance Manual</label>
+                        <input type="number" id="input-alcance" style="width: 80px; padding: 4px; font-size: 14px; text-align: center; border-radius: 4px; border: 1px solid var(--border);" onchange="guardarAlcance(this.value)" placeholder="Auto">
+                    </div>
+                    <button class="btn-primary" id="btn-ver-dashboard" onclick="window.open('reporte.html?evento_id=' + EVENTO_ACTUAL.id, '_blank')"><i class="ph ph-chart-bar"></i> Ver Dashboard</button>
+                    <button class="btn-ghost" id="btn-encuesta-evento" style="background-color: #8b5cf6; color: white; border-color: #8b5cf6;" onclick="abrirModalEnlaceEncuesta()">
+                        <i class="ph ph-link"></i> Encuesta
+                    </button>
+                    <button class="btn-ghost" id="btn-editar-evento">
+                        <i class="ph ph-pencil-simple"></i> Editar evento
+                    </button>
+                    <button class="btn-ghost" id="btn-eliminar-evento" style="color:#fca5a5;border-color:#7f1d1d;">
+                        <i class="ph ph-trash"></i> Eliminar evento
+                    </button>
+                </div>
+            </header>
+
+            <div class="ficha">
+                <div class="ficha-datos" id="ficha-datos"></div>
+                <p class="desc" id="ficha-descripcion"></p>
+            </div>
+
+            <div class="tabs" style="margin-top: 20px;">
+                <button class="activo" id="tab-btn-participantes">Constancias y Participantes</button>
+                <button id="tab-btn-encuestas">Resultados de Encuestas</button>
+                <button id="tab-btn-evidencias">Evidencias (fotos)</button>
+            </div>
+
+            <!-- TAB 1: PARTICIPANTES -->
+            <div id="tab-participantes">
+                <div class="toolbar" style="margin-top:10px;">
+                    <button class="btn-ghost" id="btn-agregar-manual"><i class="ph ph-user-plus"></i> Agregar participante</button>
+                    <button class="btn-ghost" id="btn-importar" onclick="abrirModalImportar('participantes')"><i class="ph ph-table"></i> Importar (Sheets/Excel)</button>
+                    <button class="btn-ghost" onclick="copiarMarcadosAResultados()" title="Copia los participantes marcados a la pestaña Resultados"><i class="ph ph-copy"></i> Copiar a Resultados</button>
+                    <button class="btn-ghost" id="btn-disenio"><i class="ph ph-note-pencil"></i> Diseño de la constancia</button>
+                    <label class="chk-inline" title="Con la casilla marcada solo se emiten las que faltan. Desmárcala para regenerar también las existentes con el diseño actual.">
+                        <input type="checkbox" id="chk-pendientes" checked> Solo pendientes
+                    </label>
+                    <button class="btn-primary" id="btn-generar"
+                        title="Emite las que falten; desmarca «Solo pendientes» para regenerar también las existentes">
+                        <i class="ph ph-certificate"></i> Generar / actualizar constancias</button>
+                    <span id="conteo-participantes" style="color:var(--muted);font-size:13px;"></span>
+                </div>
+
+                <div class="barra oculto" id="barra-generacion"><div id="progreso"></div></div>
+                <div class="msg" id="msg-generacion"></div>
+
+                <div class="sel-acciones oculto" id="sel-acciones">
+                    <button class="btn-ghost peligro" id="btn-eliminar-sel" disabled>
+                        <i class="ph ph-trash"></i> Eliminar seleccionados (<span id="sel-conteo">0</span>)
+                    </button>
+                    <button class="btn-ghost peligro" id="btn-eliminar-todos">
+                        <i class="ph ph-trash"></i> Eliminar todos
+                    </button>
+                    <button class="btn-primary" id="btn-generar-sel" disabled
+                        title="Emite o actualiza la constancia solo de las personas marcadas">
+                        <i class="ph ph-certificate"></i> Generar seleccionados
+                    </button>
+                    <span class="sel-sep"></span>
+                    <label style="margin:0;color:var(--muted);font-size:13px;">Diseño:</label>
+                    <select id="sel-diseno-asignar" style="width:auto;"></select>
+                    <button class="btn-ghost" id="btn-asignar-diseno" disabled>
+                        <i class="ph ph-swap"></i> Asignar a seleccionados
+                    </button>
+                </div>
+
+                <div class="tabla-wrap" style="margin-top:16px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:34px;text-align:center;">
+                                    <input type="checkbox" id="chk-todos" title="Seleccionar todos">
+                                </th>
+                                <th>DNI</th>
+                                <th>Apellidos y nombres</th>
+                                <th>Correo</th>
+                                <th>Diseño</th>
+                                <th>Constancia</th>
+                                <th></th>
+                                <th style="text-align:right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-participantes"></tbody>
+                    </table>
+                </div>
+                <div class="vacio oculto" id="participantes-vacio">
+                    Todavía no hay participantes. Agrégalos manualmente o impórtalos desde una hoja de Google.
+                </div>
+            </div>
+
+            <!-- TAB 2: ENCUESTAS -->
+            <div id="tab-encuestas" class="oculto">
+                <div class="toolbar" style="margin-top:10px;">
+                    <button class="btn-ghost" onclick="abrirModalEncuestaManual()"><i class="ph ph-plus"></i> Agregar manual</button>
+                    <button class="btn-ghost" onclick="abrirModalImportar('encuestas')"><i class="ph ph-file-csv"></i> Importar (Sheets/Excel)</button>
+                    <button class="btn-ghost" onclick="completarDatosEncuestas()" title="Completa DNI, correo, nombres, sede y tipo desde la base de estudiantes, y comentarios vacíos con otra respuesta de la misma persona. Solo llena campos vacíos." style="background-color:#2563eb;color:#fff;border-color:#2563eb;">
+                        <i class="ph ph-magic-wand"></i> Completar datos
+                    </button>
+                    <button class="btn-ghost" onclick="autogenerarFechasEncuestas()" title="Completa la fecha y hora de las respuestas que no la tienen"><i class="ph ph-clock-clockwise"></i> Autogenerar fecha/hora</button>
+                    <button class="btn-ghost" onclick="exportarEncuestasExcel()"><i class="ph ph-microsoft-excel-logo"></i> Exportar Excel</button>
+                    <button class="btn-ghost" onclick="copiarMarcadosAConstancias()" title="Agrega a Constancias a quienes respondieron (las marcadas o, si no marcas ninguna, todas). No repite personas." style="background-color:#017e84;color:#fff;border-color:#017e84;">
+                        <i class="ph ph-paper-plane-tilt"></i> Enviar a Constancias
+                    </button>
+                    <button class="btn-primary" onclick="window.open('reporte.html?evento_id=' + EVENTO_ACTUAL.id, '_blank')">
+                        <i class="ph ph-chart-pie-slice"></i> Ver Dashboard
+                    </button>
+                    <span id="conteo-encuestas" style="color:var(--muted);font-size:13px; margin-left: 10px;">0 respuestas</span>
+                </div>
+
+                <div class="sel-acciones oculto" id="sel-acciones-encuestas" style="margin-top: 10px;">
+                    <button class="btn-ghost peligro" onclick="eliminarEncuestasSeleccionadas()">
+                        <i class="ph ph-trash"></i> Eliminar seleccionados (<span id="sel-conteo-encuestas">0</span>)
+                    </button>
+                    <span class="sel-sep"></span>
+                    <label style="margin:0;color:var(--muted);font-size:13px;">Copiar a:</label>
+                    <select id="sel-sesion-copiar" style="width:auto;"></select>
+                    <button class="btn-ghost" id="btn-copiar-encuestas" onclick="copiarEncuestasSeleccionadas()">
+                        <i class="ph ph-copy"></i> Copiar seleccionados
+                    </button>
+                    <span class="sel-sep"></span>
+                    <button class="btn-ghost" onclick="copiarMarcadosAConstancias()">
+                        <i class="ph ph-paper-plane-tilt"></i> Enviar seleccionados a Constancias
+                    </button>
+                </div>
+                
+                <div class="tabla-wrap" style="margin-top:16px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:34px;text-align:center;">
+                                    <input type="checkbox" id="chk-todos-encuestas" title="Seleccionar todos">
+                                </th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>DNI</th>
+                                <th>Participante</th>
+                                <th>Tipo</th>
+                                <th>Sede</th>
+                                <th>Sesión</th>
+                                <th>NPS</th>
+                                <th>Satisfacción</th>
+                                <th>Comentarios</th>
+                                <th style="text-align:right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-encuestas"></tbody>
+                    </table>
+                </div>
+                <div class="vacio oculto" id="encuestas-vacio">
+                    Aún no hay respuestas de encuestas para este evento.
+                </div>
+            </div>
+
+            <!-- TAB 3: EVIDENCIAS -->
+            <div id="tab-evidencias" class="oculto">
+                <div class="toolbar" style="margin-top:10px;">
+                    <label class="btn-primary btn-file" style="cursor:pointer;"><i class="ph ph-upload-simple"></i> Subir fotos / capturas
+                        <input type="file" accept="image/*" multiple id="evid-file" hidden></label>
+                    <span id="evid-conteo" style="color:var(--muted);font-size:13px;"></span>
+                    <span style="color:var(--muted);font-size:13px;margin-left:auto;">Aparecen en el reporte con el nombre del evento (4 por diapositiva). También puedes pegar una captura con Ctrl+V.</span>
+                </div>
+                <div id="evid-msg" style="margin-top:8px;font-size:13px;"></div>
+                <div class="evid-grid" id="evid-grid"></div>
+                <div class="vacio oculto" id="evid-vacio">
+                    Aún no hay fotos para este evento. Sube capturas de la sesión (Zoom/Teams) o fotos del evento.
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ======================= MODAL: CREAR EVENTO ======================= -->
+    <div class="modal-bg" id="modal-evento">
+        <div class="modal">
+            <h2 id="titulo-modal-evento">Crear evento</h2>
+            <p class="sub">Se guarda en Supabase y queda disponible para emitir constancias.</p>
+
+            <div class="fila">
+                <div>
+                    <label>Tipo</label>
+                    <select id="ev-tipo"></select>
+                </div>
+                <div>
+                    <label>Responsable</label>
+                    <select id="ev-responsable"></select>
+                </div>
+            </div>
+            
+            <div class="fila oculto" id="grupo-asesoria">
+                <div style="flex: 1;">
+                    <label>Tema de Asesoría Especializada</label>
+                    <select id="ev-asesoria-tema"></select>
+                </div>
+            </div>
+
+            <label>Nombre de la actividad</label>
+            <input type="text" id="ev-nombre" placeholder="Ej: Costos y su incidencia contable y tributaria">
+
+            <label>Ponente</label>
+            <input type="text" id="ev-ponente" placeholder="Nombre completo del expositor">
+
+            <div class="fila">
+                <div>
+                    <label>Modalidad</label>
+                    <select id="ev-modalidad">
+                        <option>Virtual</option>
+                        <option>Presencial</option>
+                        <option>Ambas</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Sede</label>
+                    <select id="ev-sedes"></select>
+                </div>
+            </div>
+
+            <label>Público objetivo <span style="font-weight:400;text-transform:none;color:var(--muted);">(puedes marcar varias)</span></label>
+            <div class="chk-grid" id="ev-audiencia"></div>
+
+            <fieldset>
+                <legend>Sesiones</legend>
+                <div id="ev-sesiones"></div>
+                <button class="btn-ghost" id="btn-agregar-sesion" style="margin-top:4px;">+ Agregar sesión</button>
+            </fieldset>
+
+
+            <label>Descripción breve</label>
+            <textarea id="ev-descripcion" placeholder="Se completa sola con los datos de arriba; puedes editarla."></textarea>
+
+            <label>Portada del formulario <span style="font-weight:400;text-transform:none;color:var(--muted);">(imagen que se ve arriba de la encuesta)</span></label>
+            <div class="firma-card" style="margin-top:4px;">
+                <div class="firma-top">
+                    <div class="firma-previa" style="flex-basis:180px;height:90px;">
+                        <img id="ev-portada-prev" alt="Portada">
+                        <span class="firma-sin" id="ev-portada-sin">Sin portada</span>
+                    </div>
+                    <div class="firma-campos">
+                        <div class="firma-acc">
+                            <label class="btn-ghost btn-file"><i class="ph ph-image"></i> Subir portada
+                                <input type="file" accept="image/*" id="ev-portada-file" hidden></label>
+                            <button type="button" class="btn-ghost" id="ev-portada-quitar"><i class="ph ph-trash"></i> Quitar</button>
+                        </div>
+                        <p class="sub" style="margin:8px 0 0;">Se guarda al crear/guardar el evento. Recomendado ~1200×400 px.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="acciones">
+                <button class="btn-primary" id="btn-guardar-evento">Crear evento</button>
+                <button class="btn-ghost" data-cerrar>Cancelar</button>
+            </div>
+            <div class="msg" id="msg-evento"></div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: PARTICIPANTE MANUAL ==================== -->
+    <div class="modal-bg" id="modal-participante">
+        <div class="modal" style="max-width:480px;">
+            <h2 id="titulo-modal-participante">Agregar participante</h2>
+            <p class="sub">Se añade al evento seleccionado.</p>
+
+            <label>DNI</label>
+            <input type="text" id="pa-dni" placeholder="8 dígitos" maxlength="12" autocomplete="off">
+            <div class="hint-error oculto" id="hint-dni"><i class="ph ph-warning-circle"></i> El DNI debería tener 8 dígitos. Se guardará igual.</div>
+
+            <div class="fila">
+                <div>
+                    <label>Apellidos</label>
+                    <input type="text" id="pa-apellidos" autocomplete="off">
+                </div>
+                <div>
+                    <label>Nombres</label>
+                    <input type="text" id="pa-nombres" autocomplete="off">
+                </div>
+            </div>
+
+            <label>Correo</label>
+            <input type="text" id="pa-correo" placeholder="opcional" autocomplete="off">
+            <div class="hint-error oculto" id="hint-correo"><i class="ph ph-warning-circle"></i> Formato de correo inválido (ej. nombre@dominio.com). Se guardará igual.</div>
+
+            <div class="acciones">
+                <button class="btn-primary" id="btn-guardar-participante">Agregar</button>
+                <button class="btn-ghost" data-cerrar>Cancelar</button>
+            </div>
+            <div class="msg" id="msg-participante"></div>
+        </div>
+    </div>
+
+    <!-- ======================= MODAL: IMPORTAR ======================= -->
+    <div class="modal-bg" id="modal-importar">
+        <div class="modal">
+            <h2>Importar participantes</h2>
+            <p class="sub">Desde la hoja de respuestas de cualquier formulario de Google.</p>
+
+            <div class="tabs">
+                <button class="activo" data-tab="link">Link de Google Sheets</button>
+                <button data-tab="archivo">Subir CSV / Excel</button>
+            </div>
+
+            <div id="tab-link">
+                <label>Pega el link de la hoja</label>
+                <input type="url" id="im-url" placeholder="https://docs.google.com/spreadsheets/d/...">
+                <p class="sub" style="margin-top:8px;">
+                    La hoja debe estar compartida como <strong>"Cualquier persona con el enlace"</strong>,
+                    aunque sea solo lectura. Si no, Google bloquea la lectura y no podré traer los datos.
+                </p>
+            </div>
+
+            <div id="tab-archivo" class="oculto">
+                <label>Archivo CSV o Excel (.csv, .xlsx, .xls)</label>
+                <input type="file" id="im-archivo"
+                    accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+                <p class="sub" style="margin-top:8px;">
+                    Sube el Excel tal cual, o en la hoja: Archivo &rarr; Descargar &rarr; CSV / Excel (.xlsx)
+                </p>
+            </div>
+
+            <div class="acciones">
+                <button class="btn-primary" id="btn-leer">Leer datos</button>
+                <button class="btn-ghost" data-cerrar>Cancelar</button>
+            </div>
+            <div class="msg" id="msg-importar"></div>
+
+            <div id="im-previa" class="oculto">
+                <fieldset>
+                    <legend>Cómo se arma el nombre</legend>
+
+                    <div class="fila">
+                        <div><label>DNI</label><select id="map-dni"></select></div>
+                        <div><label>Correo</label><select id="map-correo"></select></div>
+                    </div>
+
+                    <label style="margin-top:14px;">Los nombres vienen como…</label>
+                    <select id="map-modo">
+                        <option value="separado">Nombres + Apellido paterno + Apellido materno</option>
+                        <option value="nom-ape">Nombres + Apellidos (juntos)</option>
+                        <option value="completo">Un solo campo con el nombre completo</option>
+                    </select>
+
+                    <div id="modo-separado" style="margin-top:10px;">
+                        <div class="fila">
+                            <div><label>Nombres</label><select id="map-nombres"></select></div>
+                        </div>
+                        <div class="fila">
+                            <div><label>Apellido paterno</label><select id="map-paterno"></select></div>
+                            <div><label>Apellido materno</label><select id="map-materno"></select></div>
+                        </div>
+                    </div>
+
+                    <div id="modo-nom-ape" class="oculto" style="margin-top:10px;">
+                        <div class="fila">
+                            <div><label>Nombres</label><select id="map-nombres2"></select></div>
+                            <div><label>Apellidos</label><select id="map-apellidos"></select></div>
+                        </div>
+                    </div>
+
+                    <div id="modo-completo" class="oculto" style="margin-top:10px;">
+                        <div class="fila">
+                            <div><label>Columna con el nombre completo</label><select id="map-completo"></select></div>
+                            <div><label>Orden</label><select id="map-orden">
+                                <option value="AN">Apellidos, luego Nombres</option>
+                                <option value="NA">Nombres, luego Apellidos</option>
+                            </select></div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset style="margin-top:14px;">
+                    <legend>Opcional: Importar también datos de Encuesta de Satisfacción</legend>
+                    <p class="sub">Si tu Excel tiene las respuestas de NPS y Satisfacción, mapea las columnas aquí para guardarlas en la base de datos (deja "ninguna" si no tienes estos datos).</p>
+                    <div class="fila">
+                        <div>
+                            <label>Satisfacción (1 a 5)</label>
+                            <select id="map-satisfaccion"></select>
+                        </div>
+                        <div>
+                            <label>Recomendación NPS (0 a 10)</label>
+                            <select id="map-nps"></select>
+                        </div>
+                        <div>
+                            <label>Comentarios</label>
+                            <select id="map-comentarios"></select>
+                        </div>
+                    <div class="fila" style="margin-top: 10px;">
+                        <div>
+                            <label>Sede</label>
+                            <select id="map-sede"></select>
+                        </div>
+                        <div>
+                            <label>Sesión</label>
+                            <select id="map-sesion"></select>
+                        </div>
+                    </div>
+                    <div class="fila" style="margin-top: 10px;">
+                        <div>
+                            <label>Tipo (Estudiante/Docente/Egresado/Invitado)</label>
+                            <select id="map-tipo"></select>
+                        </div>
+                        <div>
+                            <label>Fecha o Marca temporal</label>
+                            <select id="map-fecha"></select>
+                        </div>
+                        <div>
+                            <label>Hora (si va aparte)</label>
+                            <select id="map-hora"></select>
+                        </div>
+                    </div>
+                    <p class="sub">Si no hay columna de fecha, la fecha y hora de llenado se autogeneran con el fin de la sesión.</p>
+                </fieldset>
+
+                <div class="tabla-wrap" style="margin-top:14px;max-height:260px;overflow-y:auto;">
+                    <table>
+                        <thead>
+                            <tr><th>DNI</th><th>Apellidos</th><th>Nombres</th><th>Correo</th></tr>
+                        </thead>
+                        <tbody id="im-tbody"></tbody>
+                    </table>
+                </div>
+
+                <div class="acciones">
+                    <button class="btn-primary" id="btn-confirmar-import">Importar al evento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: DISEÑO DE LA CONSTANCIA ==================== -->
+    <div class="modal-bg" id="modal-disenio">
+        <div class="modal" style="max-width:1000px;">
+            <h2>Diseño de la constancia</h2>
+            <p class="sub">Puedes tener hasta 4 diseños distintos (p. ej. Ponentes, Organizadores,
+                Certificado) y asignarlos a cada persona desde la tabla de participantes.
+                Edita los textos y mira el resultado al instante.</p>
+
+            <div class="fila" style="align-items:flex-end;">
+                <div style="flex:0 0 200px;">
+                    <label>Diseño</label>
+                    <select id="pl-diseno"></select>
+                </div>
+                <div>
+                    <label>Nombre de este diseño</label>
+                    <input type="text" id="pl-nombre" autocomplete="off" placeholder="Ej. Ponentes">
+                </div>
+            </div>
+            
+            <div class="fila" style="align-items:flex-end; margin-top: 10px;">
+                <div style="flex: 1;">
+                    <label>Fondo de la constancia</label>
+                    <select id="pl-fondo">
+                        <option value="cert_fondo.png">Fondo CERTUS (Por defecto)</option>
+                        <option value="produce_docente.png">Fondo PRODUCE Docente</option>
+                        <option value="produce_mype.png">Fondo PRODUCE Mype</option>
+                    </select>
+                </div>
+            </div>
+            <p class="sub" style="margin:6px 0 0;">Guarda antes de cambiar de diseño; al cambiar se
+                cargan los datos guardados de ese diseño.</p>
+
+            <div class="previa-cert" style="margin-top:12px;">
+                <img id="previa-img" alt="Vista previa de la constancia">
+            </div>
+
+            <div class="acciones" style="margin-top:12px;">
+                <button class="btn-ghost" id="btn-ver-modelo">
+                    <i class="ph ph-eye"></i> Ver estructura del modelo
+                </button>
+                <span class="ayuda-modelo" id="aviso-modelo"></span>
+            </div>
+
+            <fieldset>
+                <legend>Logo de este evento</legend>
+                <p class="sub" id="logo-evento-nota" style="margin:0 0 12px;">
+                    Sube un logo que aparecerá solo en las constancias de este evento, arriba a la derecha.
+                </p>
+                <div class="firma-card">
+                    <div class="firma-top">
+                        <div class="firma-previa">
+                            <img id="logo-ev-img" alt="Logo del evento">
+                            <span class="firma-sin" id="logo-ev-sin">Sin logo</span>
+                        </div>
+                        <div class="firma-campos">
+                            <div class="firma-num">
+                                <div><label>X</label><input type="number" id="logo-ev-x"></div>
+                                <div><label>Y</label><input type="number" id="logo-ev-y"></div>
+                                <div><label>Ancho</label><input type="number" id="logo-ev-w"></div>
+                                <div><label>Alto</label><input type="number" id="logo-ev-h"></div>
+                            </div>
+                            <div class="firma-acc">
+                                <label class="btn-ghost btn-file"><i class="ph ph-image"></i> Subir logo
+                                    <input type="file" accept="image/*" id="logo-ev-file" hidden></label>
+                                <button type="button" class="btn-ghost" id="logo-ev-quitar"><i class="ph ph-trash"></i> Quitar</button>
+                                <button type="button" class="btn-primary" id="logo-ev-guardar">Guardar logo del evento</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="msg" id="msg-logo-ev"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Marcadores disponibles</legend>
+                <p class="sub" style="margin:0;">
+                    Escríbelos tal cual dentro de cualquier texto y se reemplazan por los datos reales:<br>
+                    <code>&lt;&lt;Apellidos_y_Nombres&gt;&gt;</code>
+                    <code>&lt;&lt;Nombre_del_Webinar&gt;&gt;</code>
+                    <code>&lt;&lt;Dia_de_Mes_de_Año1&gt;&gt;</code>
+                    <code>&lt;&lt;Dia_de_Mes_de_Año2&gt;&gt;</code><br>
+                    <strong>Especiales PRODUCE:</strong>
+                    <code>&lt;&lt;Nombres_Mype&gt;&gt;</code>
+                    <code>&lt;&lt;Nombres_Docente&gt;&gt;</code>
+                    <code>&lt;&lt;Tipo_Asesoria&gt;&gt;</code>
+                    <code>&lt;&lt;Fecha_Actividad&gt;&gt;</code>
+                </p>
+            </fieldset>
+
+            <label>Título</label>
+            <input type="text" id="pl-titulo" autocomplete="off">
+
+            <label>Línea de entrega</label>
+            <input type="text" id="pl-otorgado" autocomplete="off">
+
+            <label>Cuerpo</label>
+            <textarea id="pl-cuerpo"></textarea>
+
+            <label>Ciudad y fecha</label>
+            <input type="text" id="pl-ciudad" autocomplete="off">
+
+            <fieldset>
+                <legend>Firmas</legend>
+                <p class="sub" style="margin:0 0 12px;">
+                    Sube la firma como imagen (PNG o JPG, idealmente con fondo blanco o
+                    transparente). Ajusta su posición (X, Y) y tamaño (Ancho, Alto) en el
+                    lienzo de 1123 × 794. El texto se centra automáticamente debajo de cada firma.
+                </p>
+                <div id="firmas-lista"></div>
+                <button class="btn-ghost" id="btn-agregar-firma" style="margin-top:10px;">
+                    <i class="ph ph-plus"></i> Agregar firma
+                </button>
+            </fieldset>
+
+            <div class="acciones">
+                <button class="btn-primary" id="btn-guardar-disenio">Guardar diseño</button>
+                <button class="btn-ghost" id="btn-restablecer-disenio">Restablecer</button>
+                <button class="btn-ghost" data-cerrar>Cerrar</button>
+            </div>
+            <div class="msg" id="msg-disenio"></div>
+        </div>
+    </div>
+
+    <canvas id="cert-canvas" width="1123" height="794"></canvas>
+
+
+    <!-- MODAL ENLACE ENCUESTA -->
+    <div class="modal-bg" id="modal-link-encuesta">
+        <div class="modal">
+            <h2 style="margin-bottom:20px;">Generar enlace de encuesta</h2>
+            <div class="form-group" id="grupo-enlace-sesion">
+                <label>Selecciona la sesión *</label>
+                <select id="sel-enlace-sesion" onchange="actualizarEnlaceInput()">
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Enlace</label>
+                <input type="text" id="input-enlace-encuesta" readonly style="width:100%; padding:10px;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-ghost" onclick="document.getElementById('modal-link-encuesta').classList.remove('abierto')">Cerrar</button>
+                <button class="btn-primary" style="background: #0f172a;" onclick="window.open(document.getElementById('input-enlace-encuesta').value, '_blank')"><i class="ph ph-arrow-square-out"></i> Abrir</button>
+                <button class="btn-primary" onclick="copiarEnlaceEncuesta()"><i class="ph ph-copy"></i> Copiar</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- MODAL AGREGAR ENCUESTA MANUAL -->
+    <div class="modal-bg" id="modal-encuesta-manual">
+        <div class="modal" style="max-width:500px;">
+            <h2 style="margin-bottom:20px;" id="titulo-modal-encuesta">Agregar Respuesta Manual</h2>
+            <form id="form-encuesta-manual">
+                <input type="hidden" id="encuesta-manual-id">
+                <div class="form-group">
+                    <label>DNI</label>
+                    <input type="text" id="em-dni">
+                </div>
+                <div class="form-group">
+                    <label>Apellidos *</label>
+                    <input type="text" id="em-apellidos" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombres *</label>
+                    <input type="text" id="em-nombres" required>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico (opcional)</label>
+                    <input type="email" id="em-correo">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de participante</label>
+                    <select id="em-tipo">
+                        <option value="">— Sin especificar —</option>
+                        <option value="Estudiante">Estudiante</option>
+                        <option value="Docente">Docente</option>
+                        <option value="Egresado">Egresado</option>
+                        <option value="Invitado">Invitado</option>
+                    </select>
+                </div>
+                <div class="radio-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label>Fecha de llenado</label>
+                        <input type="date" id="em-fecha">
+                    </div>
+                    <div class="form-group">
+                        <label>Hora de llenado</label>
+                        <input type="time" id="em-hora">
+                    </div>
+                </div>
+                <p class="sub" style="margin-top:-6px;">Si dejas la fecha vacía se autogenera con la fecha y hora de fin de la sesión.</p>
+                <div class="form-group">
+                    <label>Sede</label>
+                    <select id="em-sede" required>
+                        <option value="Ate">Ate</option>
+                        <option value="Chiclayo">Chiclayo</option>
+                        <option value="Arequipa">Arequipa</option>
+                        <option value="San Juan de Lurigancho">San Juan de Lurigancho</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Sur">Sur</option>
+                        <option value="Virtual">Virtual</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sesión</label>
+                    <select id="em-sesion" required></select>
+                </div>
+                <div class="radio-grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="form-group">
+                        <label>NPS (0-10) (Opcional)</label>
+                        <input type="number" id="em-nps" min="0" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label>Satisfacción (1-5) (Opcional)</label>
+                        <input type="number" id="em-facilidad" min="1" max="5">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Comentarios</label>
+                    <textarea id="em-comentarios" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost" onclick="document.getElementById('modal-encuesta-manual').classList.remove('abierto')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Respuesta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="evidencias.js?v=20261011a"></script>
+    <script src="gestor.js?v=20261012a"></script>
+</body>
+
+
+</html>
