@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EFSRT Produce MPE NAF - EQUIPO-COT-PLN</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css?v=6">
+    <link rel="stylesheet" href="dashboard_primer_ciclo.css?v=3">
+    <link rel="stylesheet" href="estudiantes.css?v=4">
+    <link rel="stylesheet" href="efsrt.css?v=2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="LOGO_CERTUS.png" alt="Certus Logo" class="certus-logo">
+            <div class="site-title">EQUIPO-COT-PLN</div>
+        </div>
+        <a href="index.html" class="btn-inicio" title="Volver a la página principal">
+            <i class="fas fa-house"></i> <span class="lg">Volver a Inicio</span><span class="sm">Inicio</span>
+        </a>
+    </header>
+
+    <main class="dash-main">
+        <div class="dash-head">
+            <h1><i class="fas fa-briefcase"></i> EFSRT Produce MPE NAF</h1>
+            <div class="dash-actions">
+                <div class="search-box search-dark">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="q" placeholder="Docente, DNI, correo, NRC, sección..." autocomplete="off">
+                </div>
+                <button id="btnClear" class="btn btn-ghost" title="Quitar todos los filtros"><i class="fas fa-eraser"></i> Limpiar</button>
+                <button id="btnMail" class="btn btn-ghost" title="Copiar los correos de los docentes del filtro"><i class="fas fa-envelope"></i> Correos</button>
+                <button id="btnXls" class="btn btn-ghost" title="Descargar lo filtrado en Excel"><i class="fas fa-file-excel"></i> Excel</button>
+                <button id="btnImp" class="btn btn-solid" title="Cargar los Excel de EFSRT (se conserva el seguimiento ya editado)"><i class="fas fa-file-import"></i> Importar Excel</button>
+                <input type="file" id="fileImp" accept=".xlsx,.xls" multiple hidden>
+            </div>
+        </div>
+
+        <div id="status" class="dash-status"></div>
+
+        <div class="ef-tabs" id="tabs">
+            <button class="ef-tab on" data-t="sec"><i class="fas fa-chalkboard-user"></i> Docentes y secciones <span class="n" id="nSec"></span></button>
+            <button class="ef-tab" data-t="mpe"><i class="fas fa-list-check"></i> Seguimiento MPE <span class="n" id="nMpe"></span></button>
+            <span class="ef-autor">
+                <i class="fas fa-user-pen"></i>
+                <input type="text" id="autor" placeholder="Tu nombre (para registrar cambios)" autocomplete="name">
+            </span>
+        </div>
+
+        <!-- ============ DOCENTES Y SECCIONES ============ -->
+        <section id="vSec">
+            <section class="filters">
+                <div class="f-row">
+                    <div class="f-group g-wide">
+                        <span class="f-label">Docente</span>
+                        <div class="ms" id="msDocente"></div>
+                    </div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-wide">
+                        <span class="f-label">Vertical</span>
+                        <div class="chips" id="fVertical"></div>
+                    </div>
+                </div>
+                <div class="f-row">
+                    <div class="f-group g-nar"><span class="f-label">Línea</span><div class="chips" id="fLinea"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-nar"><span class="f-label">Ciclo</span><div class="chips" id="fCiclo"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-nar"><span class="f-label">Periodo</span><div class="chips" id="fPeriodo"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-nar"><span class="f-label">Modalidad</span><div class="chips" id="fModalidad"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-nar"><span class="f-label">Turno</span><div class="chips" id="fTurno"></div></div>
+                </div>
+                <div class="f-row">
+                    <div class="f-group g-wide"><span class="f-label">Sede</span><div class="chips" id="fSede"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-wide"><span class="f-label">Día</span><div class="chips" id="fDia"></div></div>
+                </div>
+                <div class="f-row">
+                    <div class="f-group g-wide"><span class="f-label">Contrato</span><div class="chips" id="fContrato"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-nar"><span class="f-label">MPE</span><div class="chips" id="fMpe"></div></div>
+                </div>
+            </section>
+
+            <section class="kpis" id="kpisSec"></section>
+
+            <section class="panel">
+                <div class="panel-h">
+                    <h3><i class="fas fa-table-list"></i> Resultados <span class="hint" id="cntSec"></span></h3>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                        <button class="btn-mini" data-agregar="seccion"><i class="fas fa-plus"></i> Agregar sección</button>
+                        <button class="btn-mini" data-borradas="seccion"></button>
+                        <span class="f-label" style="min-width:auto">Ver</span>
+                        <div class="chips" id="vista">
+                            <button class="chip on" data-v="seccion">Una fila por sección</button>
+                            <button class="chip" data-v="docente">Una fila por docente</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tbl-scroll">
+                    <table class="dash-tbl" id="tblSec">
+                        <thead id="hSec"></thead>
+                        <tbody id="bSec"><tr><td><div class="loading"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</div></td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+
+        <!-- ============ SEGUIMIENTO MPE ============ -->
+        <section id="vMpe" hidden>
+            <section class="filters">
+                <div class="f-row">
+                    <div class="f-group g-wide"><span class="f-label">Monitor</span><div class="chips" id="fMonitor"></div></div>
+                </div>
+                <div class="f-row">
+                    <div class="f-group g-wide"><span class="f-label">Estado</span><div class="chips" id="fEstado"></div></div>
+                    <div class="f-sep"></div>
+                    <div class="f-group g-wide"><span class="f-label">Falta</span><div class="chips" id="fFalta"></div></div>
+                </div>
+            </section>
+
+            <section class="ef-monitores" id="monitores"></section>
+
+            <section class="panel">
+                <div class="panel-h">
+                    <h3><i class="fas fa-list-check"></i> Seguimiento por sección <span class="hint" id="cntMpe"></span></h3>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                        <span class="hint">Los cambios se guardan solos y los ve todo el equipo. Nota mínima: 13.</span>
+                        <button class="btn-mini" data-agregar="mpe"><i class="fas fa-plus"></i> Agregar</button>
+                        <button class="btn-mini" data-borradas="mpe"></button>
+                    </div>
+                </div>
+                <div class="tbl-scroll">
+                    <table class="dash-tbl ef-edit" id="tblMpe">
+                        <thead id="hMpe"></thead>
+                        <tbody id="bMpe"></tbody>
+                    </table>
+                </div>
+                <div class="tbl-foot">
+                    <span>SI / NO: clic para cambiar · Verificación: escribe la nota (ej. 18) o el estado</span>
+                    <span id="actInfo">—</span>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <!-- ============ CLAVE ============ -->
+    <div class="modal-bg" id="mdClave">
+        <div class="modal ef-clave">
+            <div class="modal-h"><h3><i class="fas fa-lock"></i> Acceso del equipo</h3></div>
+            <form class="modal-b" id="frmClave">
+                <p>Esta página tiene datos de contacto de docentes. Escribe la contraseña del equipo.</p>
+                <input type="password" id="inClave" placeholder="Contraseña" autocomplete="current-password">
+                <div class="ef-err" id="errClave"></div>
+                <button class="btn btn-solid" type="submit"><i class="fas fa-unlock"></i> Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ FICHA DEL DOCENTE ============ -->
+    <div class="modal-bg" id="mdDoc">
+        <div class="modal">
+            <div class="modal-h">
+                <h3 id="docTitulo">Docente</h3>
+                <button class="modal-x" data-close title="Cerrar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-b" id="docCuerpo"></div>
+        </div>
+    </div>
+
+    <!-- ============ EDITAR / AGREGAR ============ -->
+    <div class="modal-bg" id="mdEdit">
+        <div class="modal">
+            <div class="modal-h">
+                <h3 id="edTitulo">Editar</h3>
+                <button class="modal-x" data-close title="Cerrar"><i class="fas fa-times"></i></button>
+            </div>
+            <form class="modal-b" id="frmEdit">
+                <p class="hint">Para un cambio de docente, escribe o elige el nuevo docente: DNI y correo se completan solos. Los cambios se mantienen aunque se vuelva a importar el Excel.</p>
+                <div class="ef-campos" id="edCampos"></div>
+                <datalist id="dlDocentes"></datalist>
+                <div class="ef-edit-acc">
+                    <button type="button" class="btn-mini" id="edReset"><i class="fas fa-rotate-left"></i> Volver a los datos del Excel</button>
+                    <button type="submit" class="btn btn-solid"><i class="fas fa-floppy-disk"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="efsrt-parse.js?v=1"></script>
+    <script src="efsrt.js?v=2"></script>
+</body>
+</html>

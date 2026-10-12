@@ -1,0 +1,101 @@
+/* ===== EFSRT Produce MPE NAF =====
+   Reutiliza dashboard.css, dashboard_primer_ciclo.css y estudiantes.css; aquí solo lo propio. */
+
+/* ---- pestañas ---- */
+.ef-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.ef-tab{border:1px solid var(--od-border);background:#fff;color:var(--od-text);padding:6px 12px;border-radius:3px;
+  font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.ef-tab i{color:var(--od-purple)}
+.ef-tab .n{font-size:.66rem;color:var(--od-muted);font-weight:600}
+.ef-tab:hover{border-color:var(--od-purple)}
+.ef-tab.on{background:var(--od-purple);border-color:var(--od-purple);color:#fff}
+.ef-tab.on i,.ef-tab.on .n{color:rgba(255,255,255,.85)}
+.ef-autor{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--od-border);
+  border-radius:3px;padding:0 8px;min-width:0}
+.ef-autor i{color:var(--od-muted);font-size:.72rem}
+.ef-autor input{border:none;outline:none;font-family:inherit;font-size:.74rem;padding:5px 0;width:230px;max-width:100%;background:transparent}
+.ef-autor.falta{border-color:var(--od-amber);box-shadow:0 0 0 2px #fdf0b8}
+
+/* ---- tarjetas por monitor ---- */
+.ef-monitores{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-bottom:8px}
+.ef-mon{background:var(--od-panel);border:1px solid var(--od-border);border-left:3px solid var(--od-teal);border-radius:3px;
+  padding:6px 10px;cursor:pointer;text-align:left;font-family:inherit;color:var(--od-text)}
+.ef-mon:hover{border-color:var(--od-purple)}
+.ef-mon.on{border-color:var(--od-purple);box-shadow:0 0 0 2px #efe9ee}
+.ef-mon.total{border-left-color:var(--od-purple)}
+.ef-mon .nm{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--od-muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ef-mon .jf{font-size:.6rem;color:var(--od-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ef-mon .vl{display:flex;align-items:baseline;gap:6px;margin-top:2px}
+.ef-mon .vl b{font-size:1.15rem;color:var(--od-purple);line-height:1.2}
+.ef-mon .vl span{font-size:.66rem;color:var(--od-muted)}
+.ef-mon .bar-track{margin-top:4px}
+.ef-mon .det{display:flex;gap:8px;flex-wrap:wrap;font-size:.6rem;color:var(--od-muted);margin-top:3px}
+
+/* ---- estados ---- */
+.st{display:inline-block;padding:0 6px;border-radius:3px;font-size:.64rem;font-weight:700;line-height:1.7;white-space:nowrap}
+.st-ok{background:#e3f4e7;color:#1e7b34}
+.st-bad{background:#fdecea;color:#a12}
+.st-mid{background:#fff4d6;color:#8a6500}
+.st-no{background:#f1f1f1;color:#6b6b6b}
+.st-out{background:#e9eef7;color:var(--od-blue)}
+
+/* ---- tabla editable ---- */
+table.ef-edit tbody td{vertical-align:middle}
+.ef-in{width:100%;min-width:120px;border:1px solid transparent;border-radius:3px;padding:2px 5px;font-family:inherit;
+  font-size:.72rem;background:transparent;color:var(--od-text)}
+.ef-in:hover{border-color:var(--od-border)}
+.ef-in:focus{border-color:var(--od-purple);background:#fff;outline:none}
+.ef-in.nota{min-width:90px;width:120px}
+.ef-in.obs{min-width:200px}
+select.ef-in{cursor:pointer;min-width:130px}
+.ef-tg{border:1px solid var(--od-border);background:#fff;border-radius:3px;font-family:inherit;font-size:.64rem;font-weight:700;
+  min-width:34px;padding:1px 5px;cursor:pointer;color:var(--od-muted)}
+.ef-tg.si{background:#e3f4e7;border-color:#a8dbb4;color:#1e7b34}
+.ef-tg.no{background:#fdecea;border-color:#f5c6cb;color:#a12}
+td.saving{background:#fffbe6 !important}
+td.saved{background:#ecf8ef !important;transition:background 1s}
+td.err{background:#fdecea !important}
+td.ed{font-size:.62rem;color:var(--od-muted);white-space:normal;min-width:90px;line-height:1.3}
+.wa{color:#1e9e4a;text-decoration:none;font-size:.7rem;font-weight:600;white-space:nowrap}
+.wa:hover{text-decoration:underline}
+td.name a.lnk{color:inherit;text-decoration:none;cursor:pointer}
+td.name a.lnk:hover{color:var(--od-purple);text-decoration:underline}
+td.name .sub{font-size:.63rem;color:var(--od-muted);font-weight:400}
+td.wrap{white-space:normal;min-width:160px}
+.campus{color:var(--od-teal);font-size:.7rem}
+
+/* ---- acceso ---- */
+.ef-clave{width:min(380px,100%)}
+.ef-clave form{display:flex;flex-direction:column;gap:10px}
+.ef-clave p{margin:0;font-size:.78rem;color:var(--od-muted)}
+.ef-clave input{border:1px solid var(--od-border);border-radius:3px;padding:7px 9px;font-size:.85rem;font-family:inherit}
+.ef-clave input:focus{border-color:var(--od-purple);outline:none}
+.ef-clave .btn{justify-content:center;padding:7px 12px}
+.ef-err{color:var(--od-red);font-size:.74rem;min-height:1em}
+
+/* ---- ficha ---- */
+.ef-ficha-secs{margin-top:8px}
+.ef-ficha-secs table{width:100%}
+
+@media(max-width:768px){
+  .ef-autor{margin-left:0;flex:1 1 100%}
+  .ef-autor input{width:100%}
+  .ef-tab{flex:1 1 auto;justify-content:center}
+}
+
+/* ---- edición manual ---- */
+.ef-ac{border:1px solid var(--od-border);background:#fff;color:var(--od-muted);border-radius:3px;width:24px;height:22px;
+  cursor:pointer;font-size:.66rem;margin-right:3px}
+.ef-ac:hover{border-color:var(--od-purple);color:var(--od-purple)}
+.ef-ac.del:hover{border-color:var(--od-red);color:var(--od-red)}
+.btn-mini.on{background:var(--od-purple);border-color:var(--od-purple);color:#fff}
+.btn-mini .n{font-size:.64rem;color:var(--od-muted)}
+#frmEdit .hint{margin:0 0 10px;font-size:.72rem;color:var(--od-muted)}
+.ef-campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px 12px}
+.ef-campo{display:flex;flex-direction:column;gap:3px;font-size:.66rem;font-weight:700;color:var(--od-muted);text-transform:uppercase}
+.ef-campo em{font-style:normal;font-weight:500;text-transform:none;color:var(--od-amber)}
+.ef-campo input,.ef-campo select{border:1px solid var(--od-border);border-radius:3px;padding:5px 7px;font-family:inherit;font-size:.78rem;
+  color:var(--od-text);text-transform:none;font-weight:400;background:#fff}
+.ef-campo input:focus,.ef-campo select:focus{border-color:var(--od-purple);outline:none}
+.ef-edit-acc{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap}
