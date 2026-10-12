@@ -38,7 +38,7 @@
         <div class="nf-stats" id="stats">
             <div class="nf-stat"><i class="fas fa-layer-group"></i><b id="cSec">0</b><span>Secciones</span></div>
             <div class="nf-stat"><i class="fas fa-user-graduate"></i><b id="cEst">0</b><span>Estudiantes</span></div>
-            <div class="nf-stat alerta"><i class="fas fa-triangle-exclamation"></i><b id="cSin">0</b><span>Secciones sin notas</span></div>
+            <div class="nf-stat alerta"><i class="fas fa-triangle-exclamation"></i><b id="cSin">0</b><span>Secciones con notas pendientes</span></div>
             <div class="nf-stat"><i class="fas fa-circle-xmark"></i><b id="cRep">0</b><span>Notas reprobadas</span></div>
         </div>
         <div class="nf-status" id="estado"><span class="nf-spinner"></span> Preparando...</div>
@@ -144,12 +144,13 @@
                     <div class="ev-fila"><span class="ev-label">Modalidad</span><div class="ev-chips" id="fModalidad"></div></div>
                     <div class="ev-fila"><span class="ev-label">Sede</span><div class="ev-chips" id="fCampus"></div></div>
                     <div class="ev-fila"><span class="ev-label">Ccl Lvo</span><div class="ev-chips" id="fCiclo"></div></div>
+                    <div class="ev-fila"><span class="ev-label">Corte</span><div class="ev-chips" id="fCorte"></div></div>
                     <p class="ev-nota">Puedes marcar varias opciones en cada fila. Sin nada marcado en una fila = todas. El Excel y el PDF llevan solo lo filtrado.
-                        El promedio de cada evaluación no cuenta a los alumnos con nota 1 (abandono); sí se cuentan como reprobados.</p>
+                        <b>Corte</b>: evaluaciones que ya deben tener nota (ciclo I y Experiencias formativas solo EV1 y EV2). El promedio de cada evaluación no cuenta a los alumnos con nota 1 (abandono); sí se cuentan como reprobados.</p>
                 </div>
                 <div class="ev-vistas" role="tablist">
                     <button class="nf-chip on" data-vista="secciones">Por sección</button>
-                    <button class="nf-chip" data-vista="sinnotas">Secciones sin notas</button>
+                    <button class="nf-chip" data-vista="sinnotas">Notas pendientes</button>
                     <button class="nf-chip" data-vista="docentes">Por docente</button>
                     <button class="nf-chip" data-vista="reprobados">Reprobados</button>
                 </div>
@@ -239,6 +240,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <script src="evaldo-core.js"></script>
-    <script src="evaldo.js"></script>
+    <script src="evaldo.js?v=2"></script>
 </body>
 </html>

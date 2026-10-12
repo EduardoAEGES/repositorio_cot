@@ -29,6 +29,7 @@ const st = {
     hoja: null,                 // {fecha, filas, cache}
     datos: null,                // {registros, evaluaciones, secciones, reprobados, porSeccion, texto}
     vista: 'secciones',
+    corte: 3,                   // corte de control: evaluaciones que ya deben tener nota
     cargandoHoja: false,        // mientras se lee la hoja, el análisis espera
     memoria: false              // true si el navegador no deja usar IndexedDB
 };
@@ -78,7 +79,7 @@ const DB = {
 function guardarPrefs() {
     try {
         const sets = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, [...v]]));
-        localStorage.setItem(PREF_KEY, JSON.stringify({ filtro: sets(filtro), dsel: sets(dsel), vista: st.vista }));
+        localStorage.setItem(PREF_KEY, JSON.stringify({ filtro: sets(filtro), dsel: sets(dsel), vista: st.vista, corte: st.corte }));
     } catch (e) { /* sin almacenamiento */ }
 }
 function leerPrefs() {
@@ -88,6 +89,7 @@ function leerPrefs() {
         for (const k in filtro) if (p.filtro && p.filtro[k]) filtro[k] = new Set(p.filtro[k]);
         for (const k in dsel) if (p.dsel && p.dsel[k]) dsel[k] = new Set(p.dsel[k]);
         if (p.vista) st.vista = p.vista;
+        if ([1, 2, 3].includes(p.corte)) st.corte = p.corte;
     } catch (e) { /* preferencias dañadas: se ignoran */ }
 }
 
@@ -103,6 +105,7 @@ async function init() {
     try { master = localStorage.getItem(MASTER_KEY) === '1'; } catch (e) { /* sin almacenamiento */ }
     ponerMaster(master, true);
     bind();
+    pintarCorte();
     pintarDescarga();
     if (!window.XLSX) {
         estado('No se pudo cargar la librería de Excel (sin internet o bloqueada). Recarga la página.', true);
@@ -542,6 +545,29 @@ function resumenFiltros() {
     return partes.length ? 'Filtros · ' + partes.join(' · ') : 'Sin filtros: todas las secciones';
 }
 
+// ---- corte de control: qué evaluaciones ya deberían tener nota ----
+// Con corte EV3 se exige EV1, EV2 y EV3; ciclo I y Experiencias formativas solo llegan a EV2.
+const LIMITE_EVAL = { 'Ciclo I': 2, 'Experiencia formativa': 2 };
+const numEval = (ev) => { const m = String(ev).toUpperCase().match(/^EVALUACI[OÓ]N\s+(\d+)$/); return m ? +m[1] : 0; };
+function faltan(s) {
+    const nums = Object.keys(s.evals).map(numEval).filter(Boolean);
+    if (!nums.length && Object.keys(s.evals).length) return s.sin_notas ? ['notas'] : [];   // evaluaciones sin número (FINAL...)
+    const hasta = Math.min(st.corte, LIMITE_EVAL[s.TipoEval] || 4);
+    const out = [];
+    for (let k = 1; k <= hasta; k++) {
+        const ev = Object.keys(s.evals).find((x) => numEval(x) === k);
+        if (!ev || !s.evals[ev].calificados) out.push('EV' + k);
+    }
+    return out;
+}
+const pendiente = (s) => faltan(s).length > 0;
+const etiquetaFalta = (s) => (s.sin_notas ? 'SIN NOTAS' : 'FALTA ' + faltan(s).join(', '));
+function pintarCorte() {
+    const cont = $('fCorte'); if (!cont) return;
+    cont.innerHTML = [1, 2, 3].map((k) => `<button class="nf-chip ${st.corte === k ? 'on' : ''}" data-k="${k}">Hasta EV${k}</button>`).join('');
+    cont.querySelectorAll('button').forEach((b) => { b.onclick = () => { st.corte = +b.dataset.k; guardarPrefs(); pintarCorte(); pintarResultados(); }; });
+}
+
 const textoBusqueda = () => ($('buscar').value || '').trim().toLowerCase();
 
 // Secciones que pasan los chips y el buscador.
@@ -555,7 +581,7 @@ function statsDe(secs) {
     for (const s of secs) for (const r of st.datos.porSeccion.get(claveSec(s)) || []) if (r.ID) ids.add(r.ID);
     return {
         sec: secs.length, est: ids.size,
-        sin: secs.filter((s) => s.sin_notas).length,
+        sin: secs.filter(pendiente).length,
         rep: secs.reduce((a, s) => a + s.reprobados_total, 0)
     };
 }
@@ -583,7 +609,7 @@ function pintarResultados() {
     pintarStats(secs);
     if (st.vista === 'reprobados') return pintarReprobados(secs);
     if (st.vista === 'docentes') return pintarDocentes(secs);
-    pintarSecciones(st.vista === 'sinnotas' ? secs.filter((s) => s.sin_notas) : secs);
+    pintarSecciones(st.vista === 'sinnotas' ? secs.filter(pendiente) : secs);
 }
 
 const avance = (s) => {
@@ -609,7 +635,7 @@ const evalsDe = (secs) => st.datos.evaluaciones.filter((ev) => secs.some((s) => 
 
 function pintarSecciones(secs) {
     $('tituloTabla').textContent = st.vista === 'sinnotas'
-        ? `Secciones sin notas (${fmt(secs.length)})` : `Resumen por sección (${fmt(secs.length)})`;
+        ? `Notas pendientes hasta EV${st.corte} (${fmt(secs.length)})` : `Resumen por sección (${fmt(secs.length)})`;
     if (!secs.length) return sinFilas('Sin secciones con estos filtros.');
     const evals = evalsDe(secs);
     const cab = evals.map((ev) => `<th class="num">${esc(evCorta(ev))}<span class="ev-sub">prom · rep</span></th>`).join('');
@@ -620,7 +646,7 @@ function pintarSecciones(secs) {
             const titulo = e.abandonos ? ` title="${e.abandonos} con nota 1 (abandono): no entran al promedio"` : '';
             return `<td class="num"${titulo}>${notaHtml(e.promedio)}${e.reprobados ? ` · <span class="ev-bad">${e.reprobados}</span>` : ''}</td>`;
         }).join('');
-        return `<tr class="clic ${s.sin_notas ? 'alarma' : ''}" data-sec="${esc(claveSec(s))}">
+        return `<tr class="clic ${pendiente(s) ? 'alarma' : ''}" data-sec="${esc(claveSec(s))}">
             <td class="num">${i + 1}</td>
             <td class="c-sec"><b>${esc(s.Seccion)}</b><span class="ev-sub">${detalleSeccion(s)}</span></td>
             <td class="c-curso">${esc(s.Curso)}</td>
@@ -628,7 +654,7 @@ function pintarSecciones(secs) {
             <td class="num">${s.Estudiantes}</td>
             <td class="num">${avance(s)}</td>
             ${celdas}
-            <td class="num">${s.sin_notas ? '<span class="ev-badge sin">SIN NOTAS</span>' : (s.reprobados_total ? `<span class="ev-bad">${s.reprobados_total}</span>` : '0')}</td>
+            <td class="num">${pendiente(s) ? `<span class="ev-badge sin">${esc(etiquetaFalta(s))}</span>${s.reprobados_total ? ` <span class="ev-bad">${s.reprobados_total}</span>` : ''}` : (s.reprobados_total ? `<span class="ev-bad">${s.reprobados_total}</span>` : '0')}</td>
         </tr>`;
     }).join('');
     $('tabla').innerHTML = `<div class="ev-tabla-wrap"><table class="ev-tabla">
@@ -642,7 +668,7 @@ function porDocente(secs) {
     for (const s of secs) {
         if (!por.has(s.Docente)) por.set(s.Docente, { docente: s.Docente, area: s.Area, secs: 0, est: 0, sin: 0, sub: 0, esp: 0, rep: 0, cursos: new Set() });
         const d = por.get(s.Docente);
-        d.secs++; d.est += s.Estudiantes; d.sin += s.sin_notas ? 1 : 0;
+        d.secs++; d.est += s.Estudiantes; d.sin += pendiente(s) ? 1 : 0;
         d.sub += s.Subidas || 0; d.esp += s.Esperadas || 0; d.rep += s.reprobados_total;
         d.cursos.add(s.Curso);
         if (!d.area && s.Area) d.area = s.Area;
@@ -668,7 +694,7 @@ function pintarDocentes(secs) {
         </tr>`;
     }).join('');
     $('tabla').innerHTML = `<div class="ev-tabla-wrap"><table class="ev-tabla">
-        <thead><tr><th class="num">#</th><th>Docente</th><th class="num">Secciones</th><th class="num">Estudiantes</th><th class="num">Sin notas</th><th class="num">Avance</th><th class="num">Reprob.</th></tr></thead>
+        <thead><tr><th class="num">#</th><th>Docente</th><th class="num">Secciones</th><th class="num">Estudiantes</th><th class="num">Notas pendientes</th><th class="num">Avance</th><th class="num">Reprob.</th></tr></thead>
         <tbody>${filas}</tbody></table></div>${avisoMas(lista.length)}`;
     $('tabla').querySelectorAll('tr[data-doc]').forEach((tr) => {
         tr.onclick = () => {
@@ -884,13 +910,13 @@ async function exportar(tipo, btn) {
 }
 
 // La vista actual como tabla de texto para el PDF: {titulo, cols: [{t, num}], filas: [[...]], alarma: Set(índices)}.
-const NOMBRE_VISTA = { secciones: 'Resumen por sección', sinnotas: 'Secciones sin notas', docentes: 'Por docente', reprobados: 'Reprobados' };
+const NOMBRE_VISTA = { secciones: 'Resumen por sección', sinnotas: 'Notas pendientes', docentes: 'Por docente', reprobados: 'Reprobados' };
 function tablaVista(secs) {
     const t = (txt, num) => ({ t: txt, num: !!num });
     if (st.vista === 'docentes') {
         const lista = porDocente(secs);
         return {
-            cols: [t('#', 1), t('Docente'), t('Cursos'), t('Secciones', 1), t('Estudiantes', 1), t('Sin notas', 1), t('Avance', 1), t('Reprob.', 1)],
+            cols: [t('#', 1), t('Docente'), t('Cursos'), t('Secciones', 1), t('Estudiantes', 1), t('Notas pendientes', 1), t('Avance', 1), t('Reprob.', 1)],
             filas: lista.map((d, i) => [i + 1, d.docente + (d.area ? ` (${d.area})` : ''), [...d.cursos].join(' · '), d.secs, fmt(d.est), d.sin,
                 `${d.esp ? Math.round((d.sub / d.esp) * 100) : 0}%\n${d.sub} de ${d.esp}`, fmt(d.rep)]),
             alarma: new Set(lista.map((d, i) => (d.sin ? i : -1)))
@@ -904,7 +930,7 @@ function tablaVista(secs) {
             alarma: new Set()
         };
     }
-    const lista = st.vista === 'sinnotas' ? secs.filter((s) => s.sin_notas) : secs;
+    const lista = st.vista === 'sinnotas' ? secs.filter(pendiente) : secs;
     const evals = evalsDe(lista);
     return {
         cols: [t('#', 1), t('Sección'), t('Curso'), t('Docente'), t('Est.', 1), t('Notas subidas', 1),
@@ -916,8 +942,8 @@ function tablaVista(secs) {
                 if (!e) return '·';
                 return `${e.promedio == null ? '-' : e.promedio}${e.reprobados ? ` · ${e.reprobados}` : ''}`;
             }),
-            s.sin_notas ? 'SIN NOTAS' : s.reprobados_total]),
-        alarma: new Set(lista.map((s, i) => (s.sin_notas ? i : -1)))
+            pendiente(s) ? etiquetaFalta(s) : s.reprobados_total]),
+        alarma: new Set(lista.map((s, i) => (pendiente(s) ? i : -1)))
     };
 }
 
@@ -933,7 +959,7 @@ async function exportarPdf(btn) {
         const logoAlto = 10, logoAncho = logoAlto * LOGO.ancho / LOGO.alto;
         const x = logo ? M + logoAncho + 6 : M;
         const n = statsDe(secs);
-        const resumen = `${fmt(n.sec)} secciones · ${fmt(n.est)} estudiantes · ${fmt(n.sin)} secciones sin notas · ${fmt(n.rep)} notas reprobadas`;
+        const resumen = `${fmt(n.sec)} secciones · ${fmt(n.est)} estudiantes · ${fmt(n.sin)} secciones con notas pendientes (hasta EV${st.corte}) · ${fmt(n.rep)} notas reprobadas`;
         const filtros = doc.setFontSize(8).splitTextToSize(resumenFiltros(), W - x - M).slice(0, 2);
         const generado = textoGenerado();
         const encabezado = () => {
