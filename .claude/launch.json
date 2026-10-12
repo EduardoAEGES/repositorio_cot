@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5599"],
       "port": 5599
+    },
+    {
+      "name": "eventos",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5610", "--directory", "C:\\Users\\Usuario\\Desktop\\DISTRIBUIR ABRIL\\Proyectos 2026\\Automatizar_certificados"],
+      "port": 5610
     }
   ]
 }
