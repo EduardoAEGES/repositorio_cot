@@ -352,7 +352,7 @@
 
                 <div class="form-group">
                     <label>Correo Electrónico <span style="color:#ef4444">*</span></label>
-                    <input type="email" id="correo" placeholder="ejemplo@correo.com" required style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text-main); outline: none; transition: border-color 0.2s;">
+                    <input type="text" id="correo" placeholder="ejemplo@correo.com" required style="width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text-main); outline: none; transition: border-color 0.2s;">
                     <span id="correo-error" style="color:#ef4444; font-size:12px; display:none;">El correo debe terminar en @certus.edu.pe</span>
                 </div>
 
@@ -383,7 +383,7 @@
                         </div>
                         <div class="form-group">
                             <label>Número de celular <span style="color:#ef4444">*</span></label>
-                            <input type="tel" id="c_celular" placeholder="9 dígitos" inputmode="numeric">
+                            <input type="tel" id="c_celular" placeholder="Tu número de celular">
                         </div>
                     </div>
                     <div class="seccion-titulo solo-estudiante" hidden>Información académica del estudiante</div>
@@ -740,7 +740,7 @@
                 const esEst = document.getElementById('tipo_usuario').value === 'estudiante';
                 const faltan = [];
                 if (!document.getElementById('c_tipo_doc').value) faltan.push('tipo de documento');
-                if (document.getElementById('c_celular').value.replace(/\D/g, '').length < 9) faltan.push('celular (9 dígitos)');
+                if (!document.getElementById('c_celular').value.trim()) faltan.push('celular');
                 if (esEst && !resp.carrera) faltan.push('carrera');
                 if (esEst && resp.carrera === 'Otra' && !document.getElementById('c_carrera_otra').value.trim()) faltan.push('nombre de tu carrera');
                 if (esEst && !resp.ciclo) faltan.push('ciclo');
@@ -771,22 +771,6 @@
                     valid = false;
                 } else {
                     document.getElementById('dni-error').style.display = 'none';
-                }
-                const correoValLower = correoVal.toLowerCase();
-                if (!correoValLower.endsWith('@certus.edu.pe')) {
-                    document.getElementById('correo-error').style.display = 'block';
-                    valid = false;
-                } else {
-                    document.getElementById('correo-error').style.display = 'none';
-                }
-            } else if (tipoUsuarioVal === 'docente') {
-                document.getElementById('dni-error').style.display = 'none'; // Sin validación estricta de digitos
-                const correoValLower = correoVal.toLowerCase();
-                if (!correoValLower.endsWith('@certus.edu.pe')) {
-                    document.getElementById('correo-error').style.display = 'block';
-                    valid = false;
-                } else {
-                    document.getElementById('correo-error').style.display = 'none';
                 }
             } else {
                 // Egresado / Invitado: sin validación de correo institucional
@@ -841,7 +825,7 @@
                     rol: TIPOS_PARTICIPANTE[tipoUsuarioVal] || '',
                     tipo_documento: document.getElementById('c_tipo_doc').value,
                     documento: dniVal,
-                    celular: document.getElementById('c_celular').value.replace(/\D/g, ''),
+                    celular: document.getElementById('c_celular').value.trim(),
                     sede: sedeVal,
                     carrera: esEst ? (resp.carrera === 'Otra' ? document.getElementById('c_carrera_otra').value.trim() : resp.carrera) : null,
                     ciclo: esEst ? resp.ciclo : null,
