@@ -336,7 +336,9 @@ async function agente(ruta, opc) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), (opc && opc.espera) || 4000);
     try {
-        const r = await fetch(AGENTE + ruta, Object.assign({ signal: ctl.signal, cache: 'no-store' }, opc || {}));
+        const r = await fetch(AGENTE + ruta, Object.assign({ signal: ctl.signal, cache: 'no-store' },
+            // Chrome/Brave piden permiso de "red local" para que una web pública llame a 127.0.0.1
+            AGENTE === location.origin ? {} : { targetAddressSpace: 'loopback' }, opc || {}));
         return r.json();
     } finally { clearTimeout(t); }
 }
@@ -363,7 +365,9 @@ async function refrescarAgente() {
     const e = await agente(`/estado?desde=${st.nlog}`).catch(() => null);
     st.agente = e;
     if (!e) {
-        paso(1, 'activo', 'No responde. En tu PC: doble clic en <b>tools\\Virtual_Agente.bat</b> (carpeta del repositorio). Se marca solo.');
+        paso(1, 'activo', 'No responde. En tu PC: doble clic en <b>tools\\Virtual_Agente.bat</b> (carpeta del repositorio). Se marca solo.' +
+            (AGENTE === location.origin ? '' : '<br>¿Ya está abierto? El navegador bloquea el acceso a tu PC: permite <b>«Acceso a la red local»</b> en el ícono de la izquierda de la barra de direcciones, ' +
+                'o abre la página desde el agente: <a href="' + AGENTE + '/virtual.html" target="_blank" rel="noopener"><b>' + AGENTE + '/virtual.html</b></a>'));
         paso(2, 'bloq', 'Después del paso 1.');
         paso(3, 'bloq', 'Después del paso 2.');
         $('agenteInfo').textContent = '';

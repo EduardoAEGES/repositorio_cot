@@ -1049,7 +1049,9 @@ async function agente(ruta, opc) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), (opc && opc.espera) || 4000);
     try {
-        const r = await fetch(AGENTE + ruta, Object.assign({ signal: ctl.signal, cache: 'no-store' }, opc || {}));
+        const r = await fetch(AGENTE + ruta, Object.assign({ signal: ctl.signal, cache: 'no-store' },
+            // Chrome/Brave piden permiso de "red local" para que una web pública llame a 127.0.0.1
+            AGENTE === location.origin ? {} : { targetAddressSpace: 'loopback' }, opc || {}));
         return ruta.startsWith('/archivo/') ? r : r.json();
     } finally { clearTimeout(t); }
 }

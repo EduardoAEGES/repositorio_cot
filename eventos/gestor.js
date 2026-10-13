@@ -585,6 +585,7 @@ async function abrirGestor(eventoId) {
     });
     // Default to participantes tab
     $('tab-btn-participantes').click();
+    if ($('tab-link-metricas')) $('tab-link-metricas').href = 'metricas.html?e=' + EVENTO_ACTUAL.id;
 }
 
 /* ------------------------------------------------------------------ *
@@ -2690,6 +2691,8 @@ function actualizarEnlaceInput() {
     // Link corto: encuesta.html?e=<id>&s=<n° sesión | t = Taller Completo>. El nombre lo carga la encuesta desde Supabase.
     const url = new URL('encuesta.html', window.location.href);
     url.searchParams.set('e', EVENTO_ACTUAL.id);
+    // f=c: formulario completo para actividades académicas (sin f: breve)
+    if ($('sel-enlace-tipo') && $('sel-enlace-tipo').value) url.searchParams.set('f', $('sel-enlace-tipo').value);
     if(sesion) {
         url.searchParams.set('s', sesion === 'Taller Completo' ? 't' : sesion.replace('Sesión ', ''));
     }

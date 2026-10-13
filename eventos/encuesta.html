@@ -214,6 +214,18 @@
             gap: 12px;
         }
         .pregunta label { font-size: 15px; }
+        /* ---- formulario completo (actividades académicas) ---- */
+        .seccion-titulo { background: var(--primary); color: #fff; font-weight: 600; font-size: 14px; padding: 10px 14px; border-radius: 8px; margin-top: 4px; }
+        .opciones { display: flex; flex-wrap: wrap; gap: 8px; }
+        .opciones button { border: 1px solid var(--border); background: #fff; color: var(--text-main); border-radius: 8px; padding: 9px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+        .opciones button:hover { border-color: var(--accent); }
+        .opciones button.sel { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .escala { align-items: center; }
+        .escala button { width: 44px; height: 40px; padding: 0; }
+        .escala-txt { font-size: 12px; color: var(--text-muted); }
+        .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text-main); cursor: pointer; line-height: 1.4; }
+        .check input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+        [hidden] { display: none !important; }
         .pregunta textarea { background: white; }
 
         .nps-labels {
@@ -359,6 +371,47 @@
                     </select>
                 </div>
 
+                <!-- Datos extra del formulario completo (?f=c). Ocultos en el breve. -->
+                <div id="bloque-completo-datos" class="bloque-completo" hidden style="display:flex; flex-direction:column; gap:24px;">
+                    <div class="radio-grid" style="grid-template-columns: 1fr 1fr;">
+                        <div class="form-group">
+                            <label>Tipo de documento <span style="color:#ef4444">*</span></label>
+                            <select id="c_tipo_doc">
+                                <option value="">-- Selecciona --</option>
+                                <option>DNI</option><option>Carnet de Extranjería</option><option>Pasaporte</option><option>Permiso Temporal de Permanencia</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Número de celular <span style="color:#ef4444">*</span></label>
+                            <input type="tel" id="c_celular" placeholder="9 dígitos" inputmode="numeric">
+                        </div>
+                    </div>
+                    <div class="seccion-titulo solo-estudiante" hidden>Información académica del estudiante</div>
+                    <div class="form-group solo-estudiante" hidden>
+                        <label>Carrera <span style="color:#ef4444">*</span></label>
+                        <div class="opciones" data-campo="carrera">
+                            <button type="button" data-v="Contabilidad y Tributación">Contabilidad y Tributación</button>
+                            <button type="button" data-v="Otra">Otra</button>
+                        </div>
+                        <input type="text" id="c_carrera_otra" placeholder="Escribe tu carrera" hidden style="margin-top:8px;">
+                    </div>
+                    <div class="form-group solo-estudiante" hidden>
+                        <label>Ciclo académico <span style="color:#ef4444">*</span></label>
+                        <div class="opciones" data-campo="ciclo">
+                            <button type="button" data-v="I">I</button><button type="button" data-v="II">II</button><button type="button" data-v="III">III</button><button type="button" data-v="IV">IV</button>
+                            <button type="button" data-v="V">V</button><button type="button" data-v="VI">VI</button><button type="button" data-v="VII">VII</button><button type="button" data-v="VIII">VIII</button>
+                        </div>
+                    </div>
+                    <div class="form-group solo-estudiante" hidden>
+                        <label>Turno <span style="color:#ef4444">*</span></label>
+                        <div class="opciones" data-campo="turno">
+                            <button type="button" data-v="Mañana">Mañana</button><button type="button" data-v="Diurno">Diurno</button>
+                            <button type="button" data-v="Tarde">Tarde</button><button type="button" data-v="Noche">Noche</button>
+                        </div>
+                    </div>
+                    <div class="seccion-titulo">Encuesta de satisfacción</div>
+                </div>
+
                 <div class="form-group pregunta">
                     <label>¿Qué tan satisfecho(a) quedaste con <span id="txt-actividad">la actividad</span>? <span style="color:#ef4444">*</span></label>
                     <div class="stars-container" id="stars-group">
@@ -384,10 +437,46 @@
                     <input type="hidden" id="nps" required>
                 </div>
 
+                <div id="bloque-completo-encuesta" class="bloque-completo" hidden style="display:flex; flex-direction:column; gap:24px;">
+                    <div class="form-group pregunta">
+                        <label>El contenido fue útil para mi formación profesional <span style="color:#ef4444">*</span></label>
+                        <div class="opciones" data-campo="utilidad">
+                            <button type="button" data-v="Muy de acuerdo">Muy de acuerdo</button><button type="button" data-v="De acuerdo">De acuerdo</button>
+                            <button type="button" data-v="Neutral">Neutral</button><button type="button" data-v="En desacuerdo">En desacuerdo</button>
+                            <button type="button" data-v="Muy en desacuerdo">Muy en desacuerdo</button>
+                        </div>
+                    </div>
+                    <div class="form-group pregunta">
+                        <label>El ponente demostró dominio del tema <span style="color:#ef4444">*</span></label>
+                        <div class="opciones escala" data-campo="ponente">
+                            <span class="escala-txt">Nada</span><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button><span class="escala-txt">Totalmente</span>
+                        </div>
+                    </div>
+                    <div class="form-group pregunta">
+                        <label>Organización del evento (puntualidad, plataforma o ambiente) <span style="color:#ef4444">*</span></label>
+                        <div class="opciones escala" data-campo="organizacion">
+                            <span class="escala-txt">Mala</span><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button><span class="escala-txt">Excelente</span>
+                        </div>
+                    </div>
+                    <div class="form-group pregunta">
+                        <label>¿Qué fue lo más valioso que aprendiste? <span class="optional-txt">(opcional)</span></label>
+                        <textarea id="c_aprendizaje" placeholder="Una idea, herramienta o concepto..."></textarea>
+                    </div>
+                    <div class="form-group pregunta">
+                        <label>¿Sobre qué temas te gustaría otro evento? <span class="optional-txt">(opcional)</span></label>
+                        <input type="text" id="c_temas" placeholder="Ej. tributación digital, NIIF, finanzas personales...">
+                    </div>
+                </div>
+
                 <div class="form-group pregunta">
                     <label>Comentarios <span class="optional-txt">(opcional)</span></label>
                     <textarea id="comentarios" placeholder="¿Qué podríamos mejorar?"></textarea>
                 </div>
+            </div>
+
+            <div id="bloque-completo-final" class="bloque-completo" hidden style="display:flex; flex-direction:column; gap:14px; margin:20px 0 4px;">
+                <label class="check"><input type="checkbox" id="c_confirma"> <span>Confirmo que la información registrada es correcta y será utilizada para la emisión de la constancia de participación. <span style="color:#ef4444">*</span></span></label>
+                <label class="check"><input type="checkbox" id="c_autoriza"> <span>Autorizo a CERTUS el uso de mis datos de contacto para el envío de comunicaciones sobre eventos académicos y actividades formativas. <span class="optional-txt">(opcional)</span></span></label>
             </div>
 
             <button type="submit" class="btn-submit" id="btn-submit">Enviar Respuestas</button>
@@ -415,6 +504,24 @@
         const sesionPredefinida = sesionCorta
             ? (sesionCorta === 't' ? 'Taller Completo' : `Sesión ${sesionCorta}`)
             : urlParams.get('sesion');
+
+        // ?f=c -> formulario completo (actividades académicas); sin f -> breve (actividad interna)
+        const COMPLETO = urlParams.get('f') === 'c';
+        const resp = {};   // respuestas de los botones de opción del formulario completo
+        if (COMPLETO) {
+            document.querySelectorAll('.bloque-completo').forEach(el => el.hidden = false);
+            document.querySelectorAll('.opciones[data-campo]').forEach(g => {
+                g.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+                    g.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b));
+                    resp[g.dataset.campo] = b.dataset.v;
+                    if (g.dataset.campo === 'carrera') document.getElementById('c_carrera_otra').hidden = b.dataset.v !== 'Otra';
+                }));
+            });
+            document.getElementById('tipo_usuario').addEventListener('change', () => {
+                const est = document.getElementById('tipo_usuario').value === 'estudiante';
+                document.querySelectorAll('.solo-estudiante').forEach(el => el.hidden = !est);
+            });
+        }
 
         if(eventoId) {
             document.getElementById('evento_id').value = eventoId;
@@ -629,6 +736,22 @@
                 return;
             }
 
+            if (COMPLETO) {
+                const esEst = document.getElementById('tipo_usuario').value === 'estudiante';
+                const faltan = [];
+                if (!document.getElementById('c_tipo_doc').value) faltan.push('tipo de documento');
+                if (document.getElementById('c_celular').value.replace(/\D/g, '').length < 9) faltan.push('celular (9 dígitos)');
+                if (esEst && !resp.carrera) faltan.push('carrera');
+                if (esEst && resp.carrera === 'Otra' && !document.getElementById('c_carrera_otra').value.trim()) faltan.push('nombre de tu carrera');
+                if (esEst && !resp.ciclo) faltan.push('ciclo');
+                if (esEst && !resp.turno) faltan.push('turno');
+                if (!resp.utilidad) faltan.push('utilidad del contenido');
+                if (!resp.ponente) faltan.push('dominio del ponente');
+                if (!resp.organizacion) faltan.push('organización del evento');
+                if (!document.getElementById('c_confirma').checked) faltan.push('confirmación de tus datos');
+                if (faltan.length) { alert('Completa: ' + faltan.join(', ') + '.'); return; }
+            }
+
             const btnSubmit = document.getElementById('btn-submit');
             btnSubmit.disabled = true;
             btnSubmit.textContent = 'Enviando...';
@@ -704,7 +827,37 @@
             if (docenteVal) payload.docente = docenteVal;
 
             // 1. Guardar la encuesta
-            const { error: errorEncuesta } = await sbClient.from('asistencia_encuesta').insert([payload]);
+            const { data: encGuardada, error: errorEncuesta } = COMPLETO
+                ? await sbClient.from('asistencia_encuesta').insert([payload]).select('id').single()
+                : await sbClient.from('asistencia_encuesta').insert([payload]);
+
+            // Formulario completo: lo adicional va a encuesta_academica (no cambia los reportes actuales)
+            if (COMPLETO && !errorEncuesta) {
+                const esEst = tipoUsuarioVal === 'estudiante';
+                const { error: errAcad } = await sbClient.from('encuesta_academica').insert([{
+                    evento_id: eventoIdVal ? parseInt(eventoIdVal, 10) : null,
+                    encuesta_id: encGuardada ? encGuardada.id : null,
+                    modulo_sesion: moduloSesionVal,
+                    rol: TIPOS_PARTICIPANTE[tipoUsuarioVal] || '',
+                    tipo_documento: document.getElementById('c_tipo_doc').value,
+                    documento: dniVal,
+                    celular: document.getElementById('c_celular').value.replace(/\D/g, ''),
+                    sede: sedeVal,
+                    carrera: esEst ? (resp.carrera === 'Otra' ? document.getElementById('c_carrera_otra').value.trim() : resp.carrera) : null,
+                    ciclo: esEst ? resp.ciclo : null,
+                    turno: esEst ? resp.turno : null,
+                    calificacion: parseInt(starInput.value, 10),
+                    nps: parseInt(npsInput.value, 10),
+                    utilidad: resp.utilidad,
+                    dominio_ponente: parseInt(resp.ponente, 10),
+                    organizacion: parseInt(resp.organizacion, 10),
+                    aprendizaje: document.getElementById('c_aprendizaje').value.trim() || null,
+                    temas_futuros: document.getElementById('c_temas').value.trim() || null,
+                    confirma_datos: document.getElementById('c_confirma').checked,
+                    autoriza_comunicaciones: document.getElementById('c_autoriza').checked
+                }]);
+                if (errAcad) console.error(errAcad);
+            }
 
             // 2. Registrar/Actualizar al participante en Supabase (Opcional, pero muy recomendado)
             // Se asume que existe la tabla 'participantes' y/o 'asistencias' basada en el DNI y evento.

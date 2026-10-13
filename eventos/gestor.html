@@ -410,6 +410,7 @@
                 <button class="activo" id="tab-btn-participantes">Constancias y Participantes</button>
                 <button id="tab-btn-encuestas">Resultados de Encuestas</button>
                 <button id="tab-btn-evidencias">Evidencias (fotos)</button>
+                <a id="tab-link-metricas" href="metricas.html" target="_blank" rel="noopener" style="margin-left:auto;align-self:center;font-size:13px;font-weight:600;color:#714b67;text-decoration:none;"><i class="ph ph-chart-bar"></i> Reportes y métricas</a>
             </div>
 
             <!-- TAB 1: PARTICIPANTES -->
@@ -940,6 +941,13 @@
     <div class="modal-bg" id="modal-link-encuesta">
         <div class="modal">
             <h2 style="margin-bottom:20px;">Generar enlace de encuesta</h2>
+            <div class="form-group">
+                <label>Tipo de formulario *</label>
+                <select id="sel-enlace-tipo" onchange="actualizarEnlaceInput()">
+                    <option value="">Breve: actividad interna (asistencia + satisfacción)</option>
+                    <option value="c">Completo: actividad académica (datos académicos y encuesta ampliada)</option>
+                </select>
+            </div>
             <div class="form-group" id="grupo-enlace-sesion">
                 <label>Selecciona la sesión *</label>
                 <select id="sel-enlace-sesion" onchange="actualizarEnlaceInput()">
@@ -1040,7 +1048,7 @@
         </div>
     </div>
     <script src="evidencias.js?v=20261011a"></script>
-    <script src="gestor.js?v=20261012a"></script>
+    <script src="gestor.js?v=20261013a"></script>
 </body>
 
 

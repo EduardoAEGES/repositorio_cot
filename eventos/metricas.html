@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes y métricas de eventos - CERTUS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Panel de métricas del formulario COMPLETO (tabla encuesta_academica). */
+        :root {
+            --bg: #f4f5f8; --panel: #fff; --ink: #1f2430; --ink-2: #5b6170; --muted: #8a90a0;
+            --line: #e4e6ec; --grid: #eef0f4; --brand: #714b67; --brand-d: #5c3d54;
+            --bar: #714b67; --bar-track: #f0ebef;
+            --good: #2e8b57; --mid: #a0a6b2; --bad: #c8463d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+        header { background: var(--brand); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        header h1 { font-size: 18px; font-weight: 600; flex: 1 1 auto; display: flex; align-items: center; gap: 8px; }
+        header a, .btn { font: inherit; font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 12px; cursor: pointer;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; }
+        header a { color: #fff; border-color: rgba(255,255,255,.4); background: rgba(255,255,255,.12); }
+        main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+        .filtros { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+        .filtros .lab { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+        .chip:hover { border-color: var(--brand); }
+        .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .chip .n { opacity: .7; font-size: 11px; margin-left: 4px; }
+        .barra { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .barra .info { font-size: 13px; color: var(--ink-2); }
+        .btn-solid { background: var(--brand); color: #fff; }
+        .btn-solid:hover { background: var(--brand-d); }
+        .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+        .btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
+        #dash { background: var(--bg); padding: 2px; }
+        .titulo-rep { display: none; font-size: 17px; font-weight: 700; margin: 4px 2px 12px; }
+        .captura .titulo-rep { display: block; }
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+        .kpi .l { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+        .kpi .v { font-size: 28px; font-weight: 700; line-height: 1.15; margin-top: 2px; }
+        .kpi .s { font-size: 11px; color: var(--muted); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+        .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; position: relative; }
+        .panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 2px; padding-right: 34px; }
+        .panel .sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+        .copiar { position: absolute; top: 10px; right: 10px; border: 1px solid var(--line); background: #fff; color: var(--ink-2);
+            width: 28px; height: 28px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; font-size: 15px; }
+        .copiar:hover { border-color: var(--brand); color: var(--brand); }
+        .captura .copiar { display: none; }
+        .barras { display: flex; flex-direction: column; gap: 8px; }
+        .fila { display: grid; grid-template-columns: minmax(90px, 38%) 1fr auto; align-items: center; gap: 8px; font-size: 13px; }
+        .fila .et { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fila .tr { height: 12px; background: var(--bar-track); border-radius: 4px; overflow: hidden; }
+        .fila .fi { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; }
+        .fila .va { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 64px; text-align: right; }
+        .nps-col { display: flex; align-items: flex-end; gap: 4px; height: 120px; margin-top: 6px; }
+        .nps-col .c { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+        .nps-col .b { width: 100%; border-radius: 4px 4px 0 0; min-height: 2px; }
+        .nps-col .n { font-size: 10px; color: var(--ink-2); }
+        .nps-col .x { font-size: 11px; color: var(--muted); }
+        .leyenda { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); margin-top: 8px; }
+        .leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+        .lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+        .captura .lista { max-height: none; }
+        .lista p { font-size: 13px; background: var(--bg); border-radius: 8px; padding: 7px 10px; line-height: 1.4; }
+        .vacio { padding: 40px; text-align: center; color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; }
+        .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1f2430; color: #fff; padding: 9px 16px;
+            border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 50; }
+        .toast.show { opacity: 1; }
+        .ancho { grid-column: 1 / -1; }
+        @media (max-width: 600px) { .kpi .v { font-size: 22px; } .fila { grid-template-columns: 34% 1fr auto; } }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><i class="ph ph-chart-bar"></i> Reportes y métricas · formulario completo</h1>
+        <a href="gestor.html"><i class="ph ph-arrow-left"></i> Gestor de eventos</a>
+    </header>
+    <main>
+        <section class="filtros">
+            <div class="lab">Eventos con formulario completo</div>
+            <div class="chips" id="eventos"><span class="info">Cargando...</span></div>
+        </section>
+        <div class="barra">
+            <span class="info" id="info"></span>
+            <span style="display:flex; gap:8px; flex-wrap:wrap">
+                <button class="btn btn-ghost" id="btnDesc"><i class="ph ph-download-simple"></i> Descargar PNG</button>
+                <button class="btn btn-solid" id="btnTodo"><i class="ph ph-copy"></i> Copiar todo como imagen</button>
+            </span>
+        </div>
+        <div id="dash"></div>
+    </main>
+    <div class="toast" id="toast"></div>
+
+<script>
+const sb = window.supabase.createClient('https://klmjmlhwuzhymrplemgw.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E');
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const prom = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+const f1 = n => (n == null ? '—' : n.toFixed(1).replace('.', ','));
+const pct = (a, b) => (b ? Math.round(a / b * 100) : 0);
+const ORDEN = {
+    rol: ['Estudiante', 'Docente', 'Egresado', 'Invitado'],
+    ciclo: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'],
+    turno: ['Mañana', 'Diurno', 'Tarde', 'Noche'],
+    utilidad: ['Muy de acuerdo', 'De acuerdo', 'Neutral', 'En desacuerdo', 'Muy en desacuerdo']
+};
+let FILAS = [], EVENTOS = new Map(), SEL = new Set();
+
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200); }
+
+async function cargar() {
+    const [{ data: filas, error }, { data: evs }] = await Promise.all([
+        sb.rpc('ev_metricas', { p_eventos: null }),
+        sb.from('eventos').select('id, nombre, tipo, horario').order('created_at', { ascending: false })
+    ]);
+    if (error) { $('dash').innerHTML = '<div class="vacio">No se pudieron cargar los datos: ' + esc(error.message) + '</div>'; return; }
+    FILAS = filas || [];
+    EVENTOS = new Map((evs || []).map(e => [e.id, e]));
+    const pre = parseInt(new URLSearchParams(location.search).get('e'), 10);
+    if (pre) SEL.add(pre);
+    pintarEventos(); pintar();
+}
+
+function pintarEventos() {
+    const cuenta = new Map();
+    FILAS.forEach(f => cuenta.set(f.evento_id, (cuenta.get(f.evento_id) || 0) + 1));
+    [...SEL].forEach(id => { if (!cuenta.has(id)) cuenta.set(id, 0); });
+    const ids = [...cuenta.keys()].sort((a, b) => (b || 0) - (a || 0));
+    $('eventos').innerHTML = ids.length ? ids.map(id => {
+        const e = EVENTOS.get(id);
+        return '<button class="chip' + (SEL.has(id) ? ' on' : '') + '" data-id="' + id + '">' + esc(e ? e.nombre : 'Sin evento') +
+            '<span class="n">' + cuenta.get(id) + '</span></button>';
+    }).join('') : '<span class="info">Aún no hay respuestas del formulario completo. Genera el enlace en el gestor eligiendo «Completo».</span>';
+    $('eventos').querySelectorAll('.chip').forEach(b => b.onclick = () => {
+        const id = parseInt(b.dataset.id, 10) || null;
+        SEL.has(id) ? SEL.delete(id) : SEL.add(id);
+        pintarEventos(); pintar();
+    });
+}
+
+function conteo(filas, campo) {
+    const m = new Map();
+    filas.forEach(f => { const v = f[campo]; if (v != null && v !== '') m.set(String(v), (m.get(String(v)) || 0) + 1); });
+    const orden = ORDEN[campo];
+    return [...m.entries()].sort((a, b) => orden ? (orden.indexOf(a[0]) + 99 * (orden.indexOf(a[0]) < 0)) - (orden.indexOf(b[0]) + 99 * (orden.indexOf(b[0]) < 0)) : b[1] - a[1]);
+}
+
+function barras(titulo, sub, datos, total, clase) {
+    const max = Math.max(1, ...datos.map(d => d[1]));
+    return '<div class="panel ' + (clase || '') + '"><button class="copiar" title="Copiar como imagen"><i class="ph ph-copy"></i></button><h3>' + esc(titulo) + '</h3><div class="sub">' + esc(sub) + '</div>' +
+        (datos.length ? '<div class="barras">' + datos.map(([k, n]) =>
+            '<div class="fila" title="' + esc(k) + ': ' + n + ' (' + pct(n, total) + '%)"><span class="et">' + esc(k) + '</span><span class="tr"><span class="fi" style="width:' + (n / max * 100) + '%;display:block"></span></span>' +
+            '<span class="va">' + n + ' · ' + pct(n, total) + '%</span></div>').join('') + '</div>' : '<div class="sub">Sin datos</div>') + '</div>';
+}
+function escala(titulo, filas, campo) {
+    const vals = filas.map(f => f[campo]).filter(v => v != null);
+    const datos = [5, 4, 3, 2, 1].map(k => [k + (k === 5 ? ' (máx.)' : ''), vals.filter(v => v === k).length]);
+    return barras(titulo, 'Promedio ' + f1(prom(vals)) + ' de 5 · ' + vals.length + ' respuestas', datos, vals.length);
+}
+
+function pintar() {
+    const filas = SEL.size ? FILAS.filter(f => SEL.has(f.evento_id)) : FILAS;
+    const nombres = SEL.size ? [...SEL].map(id => (EVENTOS.get(id) || {}).nombre || 'Sin evento') : ['Todos los eventos'];
+    $('info').textContent = filas.length + ' respuestas · ' + nombres.join(', ');
+    if (!filas.length) { $('dash').innerHTML = '<div class="vacio">Sin respuestas para esta selección.</div>'; return; }
+
+    const n = filas.length;
+    const nps = filas.map(f => f.nps).filter(v => v != null);
+    const prom9 = nps.filter(v => v >= 9).length, det = nps.filter(v => v <= 6).length;
+    const npsScore = nps.length ? Math.round((prom9 - det) / nps.length * 100) : null;
+    const util = filas.filter(f => f.utilidad === 'Muy de acuerdo' || f.utilidad === 'De acuerdo').length;
+    const est = filas.filter(f => f.rol === 'Estudiante');
+    const kpi = (l, v, s) => '<div class="kpi"><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="s">' + s + '</div></div>';
+
+    const npsDist = Array.from({ length: 11 }, (_, i) => nps.filter(v => v === i).length);
+    const maxN = Math.max(1, ...npsDist);
+    const color = i => (i >= 9 ? 'var(--good)' : i >= 7 ? 'var(--mid)' : 'var(--bad)');
+    const panelNps = '<div class="panel"><button class="copiar" title="Copiar como imagen"><i class="ph ph-copy"></i></button><h3>¿Recomendaría el evento? (0 a 10)</h3>' +
+        '<div class="sub">NPS ' + (npsScore ?? '—') + ' = % promotores (9-10) − % detractores (0-6)</div><div class="nps-col">' +
+        npsDist.map((c, i) => '<div class="c" title="' + i + ': ' + c + ' respuestas"><span class="n">' + (c || '') + '</span><span class="b" style="height:' + (c / maxN * 85) + '%;background:' + color(i) + '"></span><span class="x">' + i + '</span></div>').join('') +
+        '</div><div class="leyenda"><span><i style="background:var(--bad)"></i>Detractores ' + det + '</span><span><i style="background:var(--mid)"></i>Pasivos ' + (nps.length - det - prom9) +
+        '</span><span><i style="background:var(--good)"></i>Promotores ' + prom9 + '</span></div></div>';
+
+    const textos = (titulo, campo) => {
+        const t = filas.map(f => f[campo]).filter(v => v && String(v).trim());
+        return '<div class="panel"><button class="copiar" title="Copiar como imagen"><i class="ph ph-copy"></i></button><h3>' + titulo + '</h3><div class="sub">' + t.length + ' respuestas</div>' +
+            '<div class="lista">' + (t.map(v => '<p>' + esc(v) + '</p>').join('') || '<span class="sub">Sin respuestas</span>') + '</div></div>';
+    };
+
+    $('dash').innerHTML = '<div class="titulo-rep">' + esc(nombres.join(' · ')) + '</div>' +
+        '<div class="kpis">' +
+        kpi('Respuestas', n, est.length + ' estudiantes') +
+        kpi('Satisfacción', f1(prom(filas.map(f => f.calificacion).filter(v => v != null))) + '<small style="font-size:14px;color:var(--muted)"> /5</small>', 'promedio de estrellas') +
+        kpi('NPS', npsScore ?? '—', prom9 + ' promotores · ' + det + ' detractores') +
+        kpi('Contenido útil', pct(util, n) + '%', 'de acuerdo o muy de acuerdo') +
+        kpi('Dominio del ponente', f1(prom(filas.map(f => f.ponente).filter(v => v != null))) + '<small style="font-size:14px;color:var(--muted)"> /5</small>', 'promedio') +
+        kpi('Organización', f1(prom(filas.map(f => f.organizacion).filter(v => v != null))) + '<small style="font-size:14px;color:var(--muted)"> /5</small>', 'promedio') +
+        kpi('Autorizan contacto', pct(filas.filter(f => f.autoriza).length, n) + '%', filas.filter(f => f.autoriza).length + ' personas') +
+        '</div><div class="grid">' +
+        barras('Participantes por rol', n + ' respuestas', conteo(filas, 'rol'), n) +
+        barras('Participantes por sede', n + ' respuestas', conteo(filas, 'sede'), n) +
+        barras('Estudiantes por carrera', est.length + ' estudiantes', conteo(est, 'carrera'), est.length) +
+        barras('Estudiantes por ciclo', est.length + ' estudiantes', conteo(est, 'ciclo'), est.length) +
+        barras('Estudiantes por turno', est.length + ' estudiantes', conteo(est, 'turno'), est.length) +
+        escala('Satisfacción (estrellas)', filas, 'calificacion') +
+        panelNps +
+        barras('El contenido fue útil para mi formación', n + ' respuestas', conteo(filas, 'utilidad'), n) +
+        escala('Dominio del tema del ponente', filas, 'ponente') +
+        escala('Organización del evento', filas, 'organizacion') +
+        textos('Lo más valioso que aprendieron', 'aprendizaje') +
+        textos('Temas que piden para próximos eventos', 'temas') +
+        '</div>';
+    $('dash').querySelectorAll('.copiar').forEach(b => b.onclick = () => copiarImagen(b.closest('.panel')));
+}
+
+async function aCanvas(el) {
+    const raiz = $('dash');
+    raiz.classList.add('captura');
+    try { return await html2canvas(el, { backgroundColor: '#f4f5f8', scale: 2, useCORS: true }); }
+    finally { raiz.classList.remove('captura'); }
+}
+async function copiarImagen(el) {
+    try {
+        const canvas = await aCanvas(el);
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        toast('Imagen copiada: pégala con Ctrl+V');
+    } catch (e) {
+        toast('No se pudo copiar; se descarga como PNG');
+        descargar(el);
+    }
+}
+async function descargar(el) {
+    const canvas = await aCanvas(el);
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'metricas_evento_' + new Date().toISOString().slice(0, 10) + '.png';
+    a.click();
+}
+$('btnTodo').onclick = () => copiarImagen($('dash'));
+$('btnDesc').onclick = () => descargar($('dash'));
+cargar();
+</script>
+</body>
+</html>
