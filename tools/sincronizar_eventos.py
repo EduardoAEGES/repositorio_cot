@@ -18,7 +18,7 @@ DESTINO = RAIZ / 'eventos'
 
 # Páginas, scripts e imágenes que usan el gestor, el reporte y la encuesta.
 ARCHIVOS = [
-    'gestor.html', 'gestor.js', 'reporte.html', 'encuesta.html', 'evidencias.js',
+    'gestor.html', 'gestor.js', 'reporte.html', 'encuesta.html', 'evidencias.js', 'metricas.html',
     'LOGO_CERTUS.png', 'Logo_RS.png',
     'REPORTE_INICIO.png', 'REPORTE_FONDO.png', 'REPORTE_FINAL.png',
     'cert_fondo.png', 'cert_logo.png', 'cert_firma1.png', 'cert_firma2.jpg', 'constancia_base.png',
