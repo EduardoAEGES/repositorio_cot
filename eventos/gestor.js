@@ -24,7 +24,7 @@ const AUDIENCIAS = ['Todos los estudiantes', 'Todos los estudiantes y egresados'
     'Público en General'];
 
 const SEDES = ['Todas', 'AREQUIPA', 'SURCO', 'NORTE', 'ATE', 'SJL', 'VILLA'];
-const RESPONSABLES = ['Eduardo', 'Carlos', 'José', 'Luis', 'Jorge', 'Mirko', 'Todos'];
+const RESPONSABLES = ['Eduardo', 'Carlos', 'José', 'Luis', 'Fernando', 'Mirko', 'Todos'];
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
