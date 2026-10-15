@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="docentes.css">
+    <link rel="stylesheet" href="docentes.css?v=2">
 </head>
 <body>
     <header class="nf-nav">
@@ -41,6 +41,15 @@
             <button class="nf-chip" data-f="observado">Observados</button>
             <button class="nf-chip" data-f="desvinculado">Desvinculados</button>
         </div>
+        <div class="nf-filters nf-filters-sm">
+            <span class="nf-periodos-label"><i class="fas fa-file-signature"></i> Contrato:</span>
+            <div id="contratos" class="nf-periodos-list"></div>
+        </div>
+        <div class="nf-filters nf-filters-sm" id="vista">
+            <span class="nf-periodos-label"><i class="fas fa-eye"></i> Vista:</span>
+            <button class="nf-chip sm on" data-v="tarjetas">Tarjetas</button>
+            <button class="nf-chip sm" data-v="contrato"><i class="fas fa-table-list"></i> Reporte: contratos y horas libres</button>
+        </div>
         <div class="nf-stats" id="stats"></div>
         <div class="nf-status" id="estado"><span class="nf-spinner"></span> Cargando docentes...</div>
     </section>
@@ -61,6 +70,6 @@
         </div>
     </div>
 
-    <script src="docentes.js"></script>
+    <script src="docentes.js?v=2"></script>
 </body>
 </html>

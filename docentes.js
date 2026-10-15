@@ -34,6 +34,15 @@ const FILAS = [
 let DOCENTES = [];          // lista unificada
 let CURSOS_POR_DNI = null;  // { dni: [{periodo, modulo, nrc, start, end, day}] }
 let FILTRO = 'todos';
+let CONTRATOS = new Set();  // filtro por tipo de contrato (códigos de contrato())
+let VISTA = 'tarjetas';     // 'tarjetas' | 'contrato'
+let AJUSTES = new Map();    // dni -> ajuste manual compartido (Supabase docentes_contrato)
+
+// Ajustes de contrato compartidos por el equipo (vacío = se usa el Excel / Horarios)
+const SB_URL = 'https://klmjmlhwuzhymrplemgw.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E';
+const SB_HEAD = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+const AUTOR_KEY = 'cot_autor';
 let periodosActivos = {};
 
 const $ = (id) => document.getElementById(id);
@@ -378,6 +387,7 @@ function grad(dni) {
 }
 
 function enFiltro(d, f) {
+    if (CONTRATOS.size && !CONTRATOS.has(contrato(d.tipo).code)) return false;
     if (f === 'todos') return true;
     if (f === 'conta') return d.estado === 'activo' && d.areas.includes('CONTA');
     if (f === 'pln') return d.estado === 'activo' && d.areas.includes('PLN');
@@ -394,16 +404,24 @@ function coincide(d, q) {
     return nq.split(' ').every((w) => norm(d.nombre).includes(w));
 }
 
-function horasHtml(d, compacto) {
+// Horas logradas: el valor editado a mano o, si no hay, las asignadas según Horarios
+function logrado(d) {
+    if (d.logradoManual != null) return d.logradoManual;
     const a = horasAsignadas(d);
-    if (!a) return `<div class="nf-hours loading"><span class="nf-spinner sm"></span> horas...</div>`;
+    return a ? a.horas : null;
+}
+
+function horasHtml(d, compacto) {
+    const auto = horasAsignadas(d);
+    if (!auto && d.logradoManual == null) return `<div class="nf-hours loading"><span class="nf-spinner sm"></span> horas...</div>`;
+    const a = { horas: logrado(d), cursos: auto ? auto.cursos : [] };
     const c = d.horasContrato;
     const libres = c ? Math.max(0, Math.round((c - a.horas) * 10) / 10) : null;
     const pct = c ? Math.min(100, (a.horas / c) * 100) : 0;
     const cls = !c ? '' : a.horas > c * 1.05 ? 'over' : a.horas >= c * 0.9 ? 'ok' : 'under';
     if (compacto) {
         return `<div class="nf-hours"><div class="nf-bar ${cls}"><i style="width:${pct}%"></i></div>
-            <span>${a.horas} h asig.${libres != null ? ` · ${libres} h libres` : ''}</span></div>`;
+            <span>${a.horas}${c ? ' de ' + c : ''} h${d.logradoManual != null ? ' (editado)' : ' asig.'}${libres != null ? ` · ${libres} h libres` : ''}</span></div>`;
     }
     return { a, libres, pct, cls };
 }
@@ -430,6 +448,9 @@ function tarjeta(d) {
 }
 
 function render() {
+    pintarContratos();
+    $('filas').classList.toggle('nf-vista-tabla', VISTA === 'contrato');
+    if (VISTA === 'contrato') { renderContrato(); renderStats(); return; }
     const q = $('buscar').value.trim();
     const visibles = DOCENTES.filter((d) => coincide(d, q));
     const cont = $('filas');
@@ -447,6 +468,145 @@ function render() {
         </section>`;
     }).join('') || '<div class="nf-empty nf-empty-all">No se encontraron docentes con esa búsqueda.</div>';
     renderStats();
+}
+
+// ---------------------------------------------------------- filtro y vista de contratos
+function pintarContratos() {
+    const m = new Map();
+    DOCENTES.filter((d) => d.estado === 'activo').forEach((d) => { const c = contrato(d.tipo); m.set(c.code, (m.get(c.code) || 0) + 1); });
+    CONTRATOS.forEach((c) => { if (!m.has(c)) m.set(c, 0); });
+    $('contratos').innerHTML = [...m.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) =>
+        `<button class="nf-chip sm ${CONTRATOS.has(c) ? 'on' : ''}" data-c="${esc(c)}">${esc(c)} <small>${n}</small></button>`).join('');
+}
+
+// Reporte: docentes activos agrupados por sede / contrato / área, con horas libres y edición en línea
+let AGRUPAR = 'sede';        // 'sede' | 'contrato' | 'area'
+let SOLO_LIBRES = false;
+const r1 = (n) => Math.round(n * 10) / 10;
+const libresDe = (d) => { const l = logrado(d); return d.horasContrato && l != null ? r1(d.horasContrato - l) : null; };
+const areaTxt = (d) => d.areas.map((a) => (a === 'PLN' ? 'PLN' : 'COT')).join(' / ') || '—';
+function gruposDe(d) {
+    if (AGRUPAR === 'contrato') return [contrato(d.tipo).code];
+    if (AGRUPAR === 'area') return d.areas.length ? d.areas.map((a) => (a === 'PLN' ? 'Pensamiento Lógico (PLN)' : 'Contabilidad (COT)')) : ['Sin área'];
+    return [d.sedePrincipal || 'Sin sede'];
+}
+
+function renderContrato() {
+    const q = $('buscar').value.trim();
+    let filas = DOCENTES.filter((d) => d.estado === 'activo' && enFiltro(d, FILTRO === 'observado' || FILTRO === 'desvinculado' ? 'todos' : FILTRO) && coincide(d, q));
+    if (SOLO_LIBRES) filas = filas.filter((d) => (libresDe(d) || 0) > 0);
+    const tot = filas.reduce((t, d) => { t.c += d.horasContrato || 0; t.l += logrado(d) || 0; t.lib += Math.max(0, libresDe(d) || 0); t.nl += (libresDe(d) || 0) > 0 ? 1 : 0; return t; }, { c: 0, l: 0, lib: 0, nl: 0 });
+    const tipos = [...new Set(DOCENTES.map((d) => contrato(d.tipo).code).filter((c) => c !== '—'))].sort();
+
+    const grupos = new Map();
+    filas.forEach((d) => gruposDe(d).forEach((g) => { if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(d); }));
+    const orden = [...grupos.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'es'));
+
+    const chip = (grupo, v, txt, on) => `<button class="nf-chip sm ${on ? 'on' : ''}" data-${grupo}="${v}">${txt}</button>`;
+    const bloque = ([g, ds]) => {
+        ds.sort((a, b) => (libresDe(b) ?? -999) - (libresDe(a) ?? -999) || a.nombre.localeCompare(b.nombre, 'es'));
+        const c = ds.reduce((s, d) => s + (d.horasContrato || 0), 0), l = ds.reduce((s, d) => s + (logrado(d) || 0), 0);
+        const lib = ds.reduce((s, d) => s + Math.max(0, libresDe(d) || 0), 0), nl = ds.filter((d) => (libresDe(d) || 0) > 0).length;
+        return `<section class="nf-grupo">
+            <div class="nf-grupo-h"><h3>${esc(g)}</h3>
+                <span><b>${ds.length}</b> docentes</span><span><b>${nl}</b> con horas libres</span>
+                <span><b>${r1(lib)} h</b> libres</span><span>Cumplimiento <b>${c ? Math.round(l / c * 100) : 0}%</b> (${r1(l)} de ${r1(c)} h)</span>
+            </div>
+            <div class="nf-tabla-scroll"><table class="nf-tabla">
+                <thead><tr><th>Docente</th><th>Área</th><th>Sede</th><th>Contrato</th><th class="num">Horas contrato</th><th class="num">Logrado</th><th class="num">Libres</th><th>Avance</th><th>Nota</th><th>Último cambio</th></tr></thead>
+                <tbody>${ds.map(filaContrato).join('')}</tbody>
+            </table></div>
+        </section>`;
+    };
+
+    $('filas').innerHTML = `<section class="nf-tabla-wrap">
+        <div class="nf-tabla-head">
+            <h2><i class="fas fa-file-signature"></i> Reporte de contratos y horas libres</h2>
+            <label class="nf-autor"><i class="fas fa-user-pen"></i><input id="autor" placeholder="Tu nombre (registra quién edita)" value="${esc(localStorage.getItem(AUTOR_KEY) || '')}"></label>
+        </div>
+        <div class="nf-reporte-ctrl">
+            <span class="nf-periodos-label">Agrupar por:</span>
+            <div id="agrupar">${chip('g', 'sede', 'Sede', AGRUPAR === 'sede')}${chip('g', 'contrato', 'Contrato', AGRUPAR === 'contrato')}${chip('g', 'area', 'COT / PLN', AGRUPAR === 'area')}</div>
+            <div>${chip('libres', '1', '<i class="fas fa-clock"></i> Solo con horas libres', SOLO_LIBRES)}</div>
+        </div>
+        <div class="nf-tabla-kpis">
+            <div><small>Docentes</small><b>${filas.length}</b></div>
+            <div><small>Con horas libres</small><b>${tot.nl}</b></div>
+            <div><small>Horas libres</small><b>${r1(tot.lib)}</b></div>
+            <div><small>Horas de contrato</small><b>${r1(tot.c)}</b></div>
+            <div><small>Horas logradas</small><b>${r1(tot.l)}</b></div>
+            <div><small>Cumplimiento</small><b>${tot.c ? Math.round(tot.l / tot.c * 100) : 0}%</b></div>
+        </div>
+        <p class="nf-note">Libres = horas de contrato − logradas. «Logrado» vacío = horas asignadas según Horarios (periodos marcados arriba). Contrato, horas y nota se editan aquí: se guardan solos y los ve todo el equipo.</p>
+        <datalist id="dl-tipos">${tipos.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
+        ${orden.map(bloque).join('') || '<div class="nf-empty">Sin docentes con estos filtros</div>'}
+    </section>`;
+}
+
+function filaContrato(d) {
+    const c = contrato(d.tipo);
+    const auto = horasAsignadas(d);
+    const l = logrado(d), hc = d.horasContrato, lib = libresDe(d);
+    const pct = hc && l != null ? Math.round(l / hc * 100) : null;
+    const cls = pct == null ? '' : pct > 105 ? 'over' : pct >= 90 ? 'ok' : 'under';
+    const aj = AJUSTES.get(limpiaDni(d.dni));
+    return `<tr data-dni="${esc(limpiaDni(d.dni))}" data-noabrir>
+        <td class="nf-td-nombre"><b>${esc(d.nombre)}</b><small>DNI ${esc(d.dni)}</small></td>
+        <td>${esc(areaTxt(d))}</td>
+        <td>${esc(d.sedePrincipal || '—')}</td>
+        <td><input class="nf-in corto" data-k="tipo" list="dl-tipos" value="${esc(aj && aj.tipo ? aj.tipo : c.code === '—' ? '' : c.code)}" placeholder="—"></td>
+        <td class="num"><input class="nf-in num" data-k="horas_contrato" type="number" step="0.5" min="0" value="${hc || ''}" placeholder="—"></td>
+        <td class="num"><input class="nf-in num" data-k="horas_logradas" type="number" step="0.5" min="0" value="${d.logradoManual != null ? d.logradoManual : ''}" placeholder="${auto ? auto.horas : '…'}" title="Vacío = ${auto ? auto.horas + ' h según Horarios' : 'según Horarios'}"></td>
+        <td class="num"><span class="nf-libres ${lib > 0 ? 'si' : lib < 0 ? 'exc' : ''}">${lib == null ? '—' : lib > 0 ? lib + ' h' : lib < 0 ? '+' + (-lib) + ' h' : '0'}</span></td>
+        <td><div class="nf-bar ${cls}"><i style="width:${Math.min(100, pct || 0)}%"></i></div><small>${pct != null ? pct + '%' : '—'}</small></td>
+        <td><input class="nf-in" data-k="nota" value="${esc(d.notaContrato || '')}" placeholder="Agregar nota"></td>
+        <td class="nf-td-ed">${aj ? esc(new Date(aj.editado_en).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })) + (aj.editado_por ? '<br>' + esc(aj.editado_por) : '') : ''}</td>
+    </tr>`;
+}
+
+// Original del Excel guardado aparte para poder volver a él (campo vacío)
+function aplicarAjustes() {
+    DOCENTES.forEach((d) => {
+        if (d.tipoExcel === undefined) { d.tipoExcel = d.tipo; d.horasExcel = d.horasContrato; }
+        const a = AJUSTES.get(limpiaDni(d.dni)) || {};
+        d.tipo = a.tipo || d.tipoExcel;
+        d.horasContrato = a.horas_contrato != null ? Number(a.horas_contrato) : d.horasExcel;
+        d.logradoManual = a.horas_logradas != null ? Number(a.horas_logradas) : null;
+        d.notaContrato = a.nota || '';
+    });
+}
+async function cargarAjustes() {
+    try {
+        const r = await fetch(SB_URL + '/rest/v1/docentes_contrato?select=*', { headers: SB_HEAD, cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        AJUSTES = new Map((await r.json()).map((a) => [a.dni, a]));
+        aplicarAjustes();
+        render();
+    } catch (e) { console.error('Ajustes de contrato:', e); }
+}
+async function guardarAjuste(dni, k, valor, td) {
+    const previo = AJUSTES.get(dni) || { dni };
+    const fila = Object.assign({}, previo, { [k]: valor, editado_por: (localStorage.getItem(AUTOR_KEY) || '').trim() || null, editado_en: new Date().toISOString() });
+    delete fila.created_at;
+    td.classList.remove('ok', 'err'); td.classList.add('guardando');
+    try {
+        const r = await fetch(SB_URL + '/rest/v1/docentes_contrato?on_conflict=dni', {
+            method: 'POST', headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, SB_HEAD), body: JSON.stringify(fila)
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || 'HTTP ' + r.status);
+        AJUSTES.set(dni, (await r.json())[0] || fila);
+        aplicarAjustes();
+        td.classList.remove('guardando'); td.classList.add('ok');
+        const tr = td.closest('tr'), d = DOCENTES.find((x) => limpiaDni(x.dni) === dni);
+        if (d && tr) {   // repinta la fila sin perder el foco del siguiente campo
+            const tmp = document.createElement('tbody'); tmp.innerHTML = filaContrato(d);
+            const nueva = tmp.firstElementChild;
+            [...nueva.children].forEach((celda, i) => { if (!celda.querySelector('input')) tr.children[i].innerHTML = celda.innerHTML; });
+        }
+    } catch (e) {
+        td.classList.remove('guardando'); td.classList.add('err');
+        alert('No se guardó: ' + e.message);
+    }
 }
 
 function renderStats() {
@@ -510,10 +670,10 @@ function abrir(dni) {
             const per = PERIODOS.filter((p) => periodosActivos[p.id]).map((p) => p.label).join(', ') || 'ningún periodo';
             horasBlock = `<div class="nf-hours-big">
                 <div class="nf-kpi"><small>Horas según contrato</small><b>${d.horasContrato || '—'}</b></div>
-                <div class="nf-kpi"><small>Horas asignadas</small><b>${h.a.horas}</b></div>
+                <div class="nf-kpi"><small>Horas logradas${d.logradoManual != null ? ' (editado)' : ''}</small><b>${h.a.horas}</b></div>
                 <div class="nf-kpi"><small>Horas libres</small><b>${h.libres != null ? h.libres : '—'}</b></div>
                 <div class="nf-bar big ${h.cls}"><i style="width:${h.pct}%"></i></div>
-                <p class="nf-note">Según Horarios (${esc(per)}).${d.horasLibresHoja ? ` Horas libres en el Excel: ${esc(d.horasLibresHoja)}.` : ''}</p>
+                <p class="nf-note">${d.notaContrato ? 'Nota: ' + esc(d.notaContrato) + '. ' : ''}Según Horarios (${esc(per)}).${d.horasLibresHoja ? ` Horas libres en el Excel: ${esc(d.horasLibresHoja)}.` : ''}</p>
                 ${cursosHtml(h.a.cursos)}
             </div>`;
         }
@@ -579,6 +739,7 @@ async function cargarBasicos() {
         const c = JSON.parse(localStorage.getItem(CACHE_KEY));
         if (c && Array.isArray(c.docentes) && c.docentes.length) {
             DOCENTES = c.docentes;
+            aplicarAjustes();
             render();
             $('estado').innerHTML = '<span class="nf-spinner sm"></span> Actualizando datos...';
         }
@@ -608,6 +769,7 @@ async function cargarBasicos() {
         });
 
         try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), docentes: DOCENTES })); } catch (e) { /* lleno */ }
+        aplicarAjustes();
         $('estado').textContent = `${DOCENTES.length} docentes · actualizado ${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
         render();
     } catch (e) {
@@ -625,7 +787,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
         const cp = e.target.closest('.nf-copy');
         if (cp) { copiar(cp); return; }
-        const item = e.target.closest('[data-dni]');
+        const chC = e.target.closest('#contratos .nf-chip');
+        if (chC) { const c = chC.dataset.c; CONTRATOS.has(c) ? CONTRATOS.delete(c) : CONTRATOS.add(c); render(); return; }
+        const chV = e.target.closest('#vista .nf-chip');
+        if (chV) {
+            VISTA = chV.dataset.v;
+            document.querySelectorAll('#vista .nf-chip').forEach((b) => b.classList.toggle('on', b === chV));
+            render(); return;
+        }
+        const chG = e.target.closest('#agrupar .nf-chip');
+        if (chG) { AGRUPAR = chG.dataset.g; render(); return; }
+        if (e.target.closest('[data-libres]')) { SOLO_LIBRES = !SOLO_LIBRES; render(); return; }
+        if (e.target.closest('.nf-tabla input')) return;
+        const nom = e.target.closest('.nf-td-nombre');
+        if (nom) { abrir(nom.closest('tr').dataset.dni); return; }
+        const item = e.target.closest('[data-dni]:not([data-noabrir])');
         if (item) { $('sugerencias').hidden = true; abrir(item.dataset.dni); return; }
         if (!e.target.closest('.nf-search-wrap')) $('sugerencias').hidden = true;
 
@@ -648,6 +824,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (e.target === $('modal') || e.target.closest('#modal-cerrar')) cerrar();
     });
+    // Edición en la tabla de contratos (se guarda al salir del campo)
+    $('filas').addEventListener('change', (e) => {
+        const inp = e.target.closest('.nf-in');
+        if (inp) {
+            const v = inp.value.trim();
+            const valor = inp.type === 'number' ? (v === '' ? null : Number(v)) : (v || null);
+            guardarAjuste(inp.closest('tr').dataset.dni, inp.dataset.k, valor, inp.closest('td'));
+        } else if (e.target.id === 'autor') localStorage.setItem(AUTOR_KEY, e.target.value.trim());
+    });
+    $('filas').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.nf-in')) e.target.blur(); });
     $('buscar').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const first = $('sugerencias').querySelector('[data-dni]');
@@ -657,5 +843,5 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { cerrar(); $('sugerencias').hidden = true; } });
 
     // Primero los datos básicos; luego, las horas asignadas
-    cargarBasicos().then(cargarHoras);
+    cargarBasicos().then(() => Promise.all([cargarHoras(), cargarAjustes()])).then(render);
 });
