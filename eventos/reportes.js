@@ -1,12 +1,10 @@
 /* ============================================================================
-   Reportes varios · analítica interactiva de encuestas, NPS y asistencia.
-   Fuentes: archivo JSON del alineamiento docente, tablas de Supabase
-   (asistencia_encuesta / asistencias) o un Excel/CSV que suba el usuario.
+   Reportes varios · analítica interactiva de la encuesta de alineamiento
+   docente. Los datos salen de datos/alineamiento_docente_2026_20_m2.json y se
+   pueden editar, agregar y eliminar desde la pestaña «Datos (editables)»; las
+   ediciones quedan guardadas en el navegador.
+   La pestaña «Desempeño docente» muestra el reporte del Evaldo (carpeta evaldo/).
    ========================================================================== */
-
-const SUPABASE_URL = 'https://klmjmlhwuzhymrplemgw.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const $ = id => document.getElementById(id);
 const COLORES = {
@@ -24,7 +22,6 @@ const COLOR_LIKERT = {
     'regular': '#d9b23c', 'buena': '#5aa469', 'muy buena': '#2e8b57', 'excelente': '#2e8b57'
 };
 
-let FUENTE = 'alineamiento';
 let DATASET = null;          // { nombre, descripcion, columnas, filas, modo, tabla }
 let ORIGINALES = [];         // copia intacta de las filas recién cargadas
 let FILTROS = {};
@@ -61,49 +58,14 @@ function slug(s) {
     return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').toLowerCase().slice(0, 48) || 'col';
 }
 
-/* --------------------- inferencia de tipos de columna -------------------- */
-function inferirColumnas(encabezados, filas) {
-    const usadas = new Set();
-    return encabezados.map((h, i) => {
-        let key = slug(h), n = 2;
-        while (usadas.has(key)) { key = slug(h) + '_' + n; n++; }
-        usadas.add(key);
-        const vals = filas.map(f => f[i]).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
-        const distintos = unico(vals.map(v => String(v).trim()));
-        const col = { key, label: String(h).trim(), tipo: 'texto' };
-        const esFecha = vals.length && vals.every(v => v instanceof Date || (/^\d{4}-\d{2}-\d{2}/.test(String(v)) && !isNaN(new Date(v))));
-        if (esFecha) col.tipo = 'fecha';
-        else if (/correo|email|e-mail/i.test(h) || (vals.length && vals.every(v => String(v).includes('@')))) col.tipo = 'email';
-        else if (/escala de 0 a 10|recomend|nps/i.test(h)) col.tipo = 'nps';
-        else if (vals.length && vals.every(v => ESCALA_LIKERT.some(e => normalizar(e) === normalizar(v)))) {
-            col.tipo = 'likert';
-            col.escala = ['Muy deficiente', 'Deficiente', 'Regular', 'Buena', 'Muy buena'].filter(e => distintos.some(d => normalizar(d) === normalizar(e)));
-        }
-        else if (/dni|celular|tel[eé]fono|documento/i.test(h)) col.tipo = 'texto';
-        else if (/programa|carrera|sede|modalidad|turno|ciclo|[áa]rea|tipo/i.test(h)) col.tipo = 'categoria';
-        else if (vals.length && vals.every(v => num(v) !== null) && distintos.length <= 12) col.tipo = 'numero';
-        else if (vals.length && vals.reduce((a, v) => a + String(v).length, 0) / vals.length > 45) col.tipo = 'comentario';
-        else if (vals.length && distintos.length <= 8) { col.tipo = 'opcion'; col.opciones = distintos.sort(); }
-        if (col.tipo === 'texto' && /influy|recomendac|comentario|consulta|sugerenc|opini[oó]n|observac/i.test(h)) col.tipo = 'comentario';
-        if (col.tipo === 'opcion' && /^(¿|que|cual|cu[aá]l|qu[eé])/i.test(col.label.trim())) {
-            const cuenta = {};
-            vals.forEach(v => { const k = String(v).trim(); cuenta[k] = (cuenta[k] || 0) + 1; });
-            col.correcta = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0][0];
-        }
-        return col;
-    });
-}
-
-/* ============================ CARGA DE FUENTES =========================== */
-async function cargarFuente(fuente, archivo) {
-    FUENTE = fuente;
+/* ============================== CARGA DE DATOS =========================== */
+async function cargarDatos() {
     $('paneles').innerHTML = '<div class="cargando">Cargando datos…</div>';
     $('kpis').innerHTML = '';
     try {
-        if (fuente === 'alineamiento') DATASET = await cargarAlineamiento();
-        else if (fuente === 'encuestas') DATASET = await cargarEncuestas();
-        else if (fuente === 'asistencias') DATASET = await cargarAsistencias();
-        else if (fuente === 'archivo') DATASET = await cargarArchivo(archivo);
+        const r = await fetch('datos/alineamiento_docente_2026_20_m2.json');
+        if (!r.ok) throw new Error('no se encontró datos/alineamiento_docente_2026_20_m2.json');
+        DATASET = { ...(await r.json()), modo: 'local', clave: 'alineamiento_m2' };
     } catch (e) {
         console.error(e);
         $('paneles').innerHTML = `<div class="vacio">No se pudieron cargar los datos: ${escapar(e.message || e)}</div>`;
@@ -114,7 +76,6 @@ async function cargarFuente(fuente, archivo) {
     ORIGINALES = JSON.parse(JSON.stringify(DATASET.filas));
     PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
     FILTROS = {};
-    CONFIG.titulo = CONFIG.titulo || DATASET.nombre;
     CONFIG.titulo = DATASET.nombre;
     CONFIG.subtitulo = DATASET.descripcion || '';
     CONFIG.conclusiones = '';
@@ -124,111 +85,12 @@ async function cargarFuente(fuente, archivo) {
     refrescar();
 }
 
-async function cargarAlineamiento() {
-    const r = await fetch('datos/alineamiento_docente_2026_20_m2.json');
-    if (!r.ok) throw new Error('no se encontró datos/alineamiento_docente_2026_20_m2.json');
-    const d = await r.json();
-    return { ...d, modo: 'local', clave: 'alineamiento_m2' };
-}
-
-async function cargarArchivo(archivo) {
-    const buf = await archivo.arrayBuffer();
-    const wb = XLSX.read(buf, { cellDates: true });
-    const hoja = wb.Sheets[wb.SheetNames[0]];
-    const matriz = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: '', raw: true });
-    const encabezados = (matriz[0] || []).map(h => String(h || '').trim());
-    const cuerpo = matriz.slice(1).filter(f => f.some(c => String(c ?? '').trim() !== ''));
-    const columnas = inferirColumnas(encabezados, cuerpo);
-    const filas = cuerpo.map((f, i) => {
-        const o = { _id: 'f' + (i + 1) };
-        columnas.forEach((c, j) => {
-            let v = f[j];
-            if (v instanceof Date) v = v.toISOString().slice(0, 19);
-            o[c.key] = c.tipo === 'nps' || c.tipo === 'numero' ? (num(v) ?? '') : String(v ?? '').trim();
-        });
-        return o;
-    });
-    return {
-        nombre: archivo.name.replace(/\.[^.]+$/, ''), descripcion: 'Archivo importado por el usuario',
-        origen: archivo.name, columnas, filas, modo: 'local', clave: 'archivo_' + slug(archivo.name)
-    };
-}
-
-async function cargarEncuestas() {
-    const [{ data: enc, error }, { data: eventos }] = await Promise.all([
-        sb.from('asistencia_encuesta').select('*').order('fecha_llenado', { ascending: false }).limit(5000),
-        sb.from('eventos').select('id,nombre')
-    ]);
-    if (error) throw error;
-    const mapa = Object.fromEntries((eventos || []).map(e => [e.id, e.nombre]));
-    const columnas = [
-        { key: 'fecha_llenado', label: 'Fecha de respuesta', tipo: 'fecha', db: true },
-        { key: 'evento', label: 'Evento', tipo: 'categoria', db: false },
-        { key: 'participante_nombre', label: 'Participante', tipo: 'texto', db: true },
-        { key: 'dni', label: 'DNI', tipo: 'texto', db: true },
-        { key: 'correo', label: 'Correo', tipo: 'email', db: true },
-        { key: 'tipo_participante', label: 'Tipo de participante', tipo: 'categoria', db: true },
-        { key: 'sede', label: 'Sede', tipo: 'categoria', db: true },
-        { key: 'modulo_sesion', label: 'Módulo / sesión', tipo: 'categoria', db: true },
-        { key: 'nps', label: 'NPS (0 a 10)', tipo: 'nps', db: true },
-        { key: 'facilidad', label: 'Facilidad (1 a 5)', tipo: 'numero', db: true },
-        { key: 'cumplio_expectativas', label: 'Cumplió expectativas', tipo: 'opcion', db: true },
-        { key: 'comentarios', label: 'Comentarios', tipo: 'comentario', db: true }
-    ];
-    const filas = (enc || []).map(e => ({
-        _id: e.id, _evento_id: e.evento_id, evento: mapa[e.evento_id] || ('Evento ' + (e.evento_id ?? '—')),
-        fecha_llenado: e.fecha_llenado || e.created_at || '',
-        participante_nombre: e.participante_nombre || '', dni: e.dni || '', correo: e.correo || '',
-        tipo_participante: e.tipo_participante || '', sede: e.sede || '', modulo_sesion: e.modulo_sesion || '',
-        nps: e.nps ?? '', facilidad: e.facilidad ?? '', cumplio_expectativas: e.cumplio_expectativas || '',
-        comentarios: e.comentarios || ''
-    }));
-    return {
-        nombre: 'Encuestas de eventos', descripcion: 'Respuestas registradas en Supabase (asistencia_encuesta)',
-        origen: 'Supabase · asistencia_encuesta', columnas, filas, modo: 'supabase', tabla: 'asistencia_encuesta', clave: 'encuestas_sb'
-    };
-}
-
-async function cargarAsistencias() {
-    const [{ data: asis, error }, { data: eventos }] = await Promise.all([
-        sb.from('asistencias').select('*').order('created_at', { ascending: false }).limit(8000),
-        sb.from('eventos').select('id,nombre')
-    ]);
-    if (error) throw error;
-    const mapa = Object.fromEntries((eventos || []).map(e => [e.id, e.nombre]));
-    const columnas = [
-        { key: 'created_at', label: 'Fecha de registro', tipo: 'fecha', db: true },
-        { key: 'evento', label: 'Evento', tipo: 'categoria', db: false },
-        { key: 'nombre_completo', label: 'Participante', tipo: 'texto', db: false },
-        { key: 'dni', label: 'DNI', tipo: 'texto', db: true },
-        { key: 'correo', label: 'Correo', tipo: 'email', db: true },
-        { key: 'ciclo', label: 'Ciclo', tipo: 'categoria', db: true },
-        { key: 'turno', label: 'Turno', tipo: 'categoria', db: true },
-        { key: 'condicion', label: 'Condición', tipo: 'opcion', db: false },
-        { key: 'calificacion', label: 'Calificación (1 a 5)', tipo: 'numero', db: true },
-        { key: 'constancia', label: 'Constancia autorizada', tipo: 'opcion', db: false },
-        { key: 'comentario', label: 'Comentario', tipo: 'comentario', db: true }
-    ];
-    const filas = (asis || []).map(a => ({
-        _id: a.id, _evento_id: a.evento_id, evento: mapa[a.evento_id] || ('Evento ' + (a.evento_id ?? '—')),
-        created_at: a.created_at || '', nombre_completo: `${a.apellidos || ''} ${a.nombres || ''}`.trim(),
-        dni: a.dni || '', correo: a.correo || '', ciclo: a.ciclo || '', turno: a.turno || '',
-        condicion: a.es_egresado ? 'Egresado' : 'Estudiante', calificacion: a.calificacion ?? '',
-        constancia: a.certificado_autorizado ? 'Sí' : 'No', comentario: a.comentario || ''
-    }));
-    return {
-        nombre: 'Asistencias de eventos', descripcion: 'Registros de asistencia guardados en Supabase',
-        origen: 'Supabase · asistencias', columnas, filas, modo: 'supabase', tabla: 'asistencias', clave: 'asistencias_sb'
-    };
-}
-
 /* --------------------- persistencia en el navegador ---------------------- */
 const claveLocal = () => 'reportes_cot_' + (DATASET?.clave || 'x');
 function guardarLocal() {
     try { localStorage.setItem(claveLocal(), JSON.stringify(DATASET.filas)); } catch (e) { /* cuota llena */ }
 }
 function aplicarGuardadoLocal() {
-    if (DATASET.modo !== 'local') return;
     try {
         const guardado = localStorage.getItem(claveLocal());
         if (guardado) {
@@ -687,7 +549,7 @@ function refrescar() {
 /* ============================ TABLA EDITABLE ============================= */
 function pintarTabla() {
     const filas = filasFiltradas();
-    $('info-tabla').innerHTML = `<strong>${filas.length}</strong> fila(s) · ${DATASET.modo === 'supabase' ? 'los cambios se guardan en Supabase' : 'los cambios se guardan en este navegador'}`;
+    $('info-tabla').innerHTML = `<strong>${filas.length}</strong> fila(s) · los cambios se guardan en este navegador`;
     $('thead-datos').innerHTML = `<tr>
         <th style="width:28px;"><input type="checkbox" id="chk-todas"></th>
         ${DATASET.columnas.map(c => `<th>${escapar(c.label)}<span class="chip-tipo">${c.tipo}</span></th>`).join('')}
@@ -695,7 +557,7 @@ function pintarTabla() {
     $('tbody-datos').innerHTML = filas.map(f => `<tr data-id="${escapar(f._id)}">
         <td style="text-align:center;"><input type="checkbox" class="chk-fila" data-id="${escapar(f._id)}"></td>
         ${DATASET.columnas.map(c => {
-            const editable = c.db !== false || DATASET.modo === 'local';
+            const editable = true;
             const val = c.tipo === 'fecha' ? (f[c.key] ? String(f[c.key]).slice(0, 16).replace('T', ' ') : '') : (f[c.key] ?? '');
             return `<td class="celda${PENDIENTES.editadas.has(f._id) ? '' : ''}" ${editable ? 'contenteditable="true"' : 'style="color:var(--muted);"'} data-id="${escapar(f._id)}" data-col="${c.key}">${escapar(val)}</td>`;
         }).join('')}
@@ -723,9 +585,9 @@ function editarCelda(td) {
     fila[col] = valor;
     PENDIENTES.editadas.add(fila._id);
     td.classList.add('editada');
-    if (DATASET.modo === 'local') guardarLocal();
+    guardarLocal();
     refrescar();
-    toast('Celda actualizada · recuerda «Guardar cambios»');
+    toast('Celda actualizada');
 }
 
 function eliminarFilas(ids) {
@@ -740,7 +602,7 @@ function eliminarFilas(ids) {
             PENDIENTES.nuevas.delete(f._id);
         }
     });
-    if (DATASET.modo === 'local') guardarLocal();
+    guardarLocal();
     refrescar();
     toast(`${ids.length} registro(s) eliminado(s)`, 'ok');
 }
@@ -748,68 +610,25 @@ function eliminarFilas(ids) {
 function nuevaFila() {
     const f = { _id: 'nuevo_' + Date.now() };
     DATASET.columnas.forEach(c => { f[c.key] = c.tipo === 'fecha' ? new Date().toISOString().slice(0, 19) : ''; });
-    if (DATASET.modo === 'supabase') {
-        const ev = DATASET.filas[0]?._evento_id;
-        if (ev) f._evento_id = ev;
-    }
     DATASET.filas.unshift(f);
     PENDIENTES.nuevas.add(f._id);
-    if (DATASET.modo === 'local') guardarLocal();
+    guardarLocal();
     cambiarVista('datos');
     refrescar();
     toast('Fila agregada: completa los datos y guarda');
 }
 
 async function guardarCambios() {
-    if (DATASET.modo === 'local') {
-        guardarLocal();
-        PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
-        toast('Cambios guardados en este navegador', 'ok');
-        return;
-    }
-    const tabla = DATASET.tabla;
-    const campos = DATASET.columnas.filter(c => c.db !== false).map(c => c.key);
-    const aPayload = f => {
-        const p = {};
-        campos.forEach(k => {
-            const c = DATASET.columnas.find(x => x.key === k);
-            let v = f[k];
-            if (v === '' || v === undefined) v = null;
-            else if (c.tipo === 'nps' || c.tipo === 'numero') v = num(v);
-            else if (c.tipo === 'fecha') { const d = new Date(v); v = isNaN(d) ? null : d.toISOString(); }
-            p[k] = v;
-        });
-        if (f._evento_id) p.evento_id = f._evento_id;
-        return p;
-    };
-    let errores = 0, ok = 0;
-    for (const id of PENDIENTES.editadas) {
-        if (PENDIENTES.nuevas.has(id)) continue;
-        const f = DATASET.filas.find(x => String(x._id) === String(id));
-        if (!f) continue;
-        const { error } = await sb.from(tabla).update(aPayload(f)).eq('id', id);
-        error ? errores++ : ok++;
-    }
-    for (const id of PENDIENTES.nuevas) {
-        const f = DATASET.filas.find(x => String(x._id) === String(id));
-        if (!f) continue;
-        const { error } = await sb.from(tabla).insert(aPayload(f));
-        error ? errores++ : ok++;
-    }
-    if (PENDIENTES.eliminadas.length) {
-        const { error } = await sb.from(tabla).delete().in('id', PENDIENTES.eliminadas);
-        error ? errores++ : ok += PENDIENTES.eliminadas.length;
-    }
+    guardarLocal();
     PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
-    if (errores) toast(`${ok} cambio(s) guardado(s), ${errores} con error`, 'error');
-    else { toast(`${ok} cambio(s) guardado(s) en Supabase`, 'ok'); await cargarFuente(FUENTE); }
+    toast('Cambios guardados en este navegador', 'ok');
 }
 
 function restaurarOriginales() {
     if (!confirm('¿Restaurar los datos tal como se cargaron y descartar las ediciones locales?')) return;
     DATASET.filas = JSON.parse(JSON.stringify(ORIGINALES));
     PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
-    if (DATASET.modo === 'local') { try { localStorage.removeItem(claveLocal()); } catch (e) { } }
+    try { localStorage.removeItem(claveLocal()); } catch (e) { }
     refrescar();
     toast('Datos restaurados', 'ok');
 }
@@ -1043,23 +862,16 @@ function cambiarVista(v) {
     document.querySelectorAll('.pestanas button').forEach(b => b.classList.toggle('on', b.dataset.vista === v));
     $('vista-dashboard').classList.toggle('oculto', v !== 'dashboard');
     $('vista-datos').classList.toggle('oculto', v !== 'datos');
+    $('vista-evaldo').classList.toggle('oculto', v !== 'evaldo');
+    // Los filtros y las exportaciones son de la encuesta, no del reporte incrustado.
+    $('tarjeta-filtros').classList.toggle('oculto', v === 'evaldo');
+    $('barra-acciones').classList.toggle('oculto', v === 'evaldo');
     if (v === 'datos') pintarTabla();
+    // El reporte de desempeño se carga la primera vez que se abre su pestaña.
+    if (v === 'evaldo' && !$('marco-evaldo').src) $('marco-evaldo').src = 'evaldo/index.html';
 }
 
 /* ================================ EVENTOS ================================ */
-document.querySelectorAll('.fuente[data-fuente]').forEach(b => b.addEventListener('click', () => {
-    document.querySelectorAll('.fuente').forEach(x => x.classList.remove('on'));
-    b.classList.add('on');
-    cargarFuente(b.dataset.fuente);
-}));
-$('archivo').addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    document.querySelectorAll('.fuente').forEach(x => x.classList.remove('on'));
-    e.target.closest('.fuente').classList.add('on');
-    cargarFuente('archivo', f);
-    e.target.value = '';
-});
 document.querySelectorAll('.pestanas button').forEach(b => b.addEventListener('click', () => cambiarVista(b.dataset.vista)));
 $('btn-limpiar').addEventListener('click', () => {
     FILTROS = {};
@@ -1067,7 +879,7 @@ $('btn-limpiar').addEventListener('click', () => {
     document.querySelectorAll('#filtros input').forEach(i => i.value = '');
     refrescar();
 });
-$('btn-recargar').addEventListener('click', () => cargarFuente(FUENTE));
+$('btn-recargar').addEventListener('click', cargarDatos);
 $('btn-excel').addEventListener('click', exportarExcel);
 $('btn-pdf').addEventListener('click', exportarPDF);
 $('btn-personalizar').addEventListener('click', abrirPersonalizar);
@@ -1089,4 +901,4 @@ $('btn-borrar-sel').addEventListener('click', () => {
     eliminarFilas([...document.querySelectorAll('#tbody-datos .chk-fila:checked')].map(c => c.dataset.id));
 });
 
-cargarFuente('alineamiento');
+cargarDatos();

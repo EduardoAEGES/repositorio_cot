@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desempeño Docente 2026</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600&family=Open+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<template id="app-markup">
+<header class="pb-top">
+  <div class="pb-top-in gut">
+    <div class="pb-brand" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="pb-titles">
+      <h1>Desempeño docente · Contabilidad y Pensamiento Lógico</h1>
+      <p>Evaldo 2023-II a 2026 · Base de docentes 2026-2 · Corte octubre 2026</p>
+    </div>
+    <div class="pb-actions">
+      <button type="button" class="pb-btn ghost" id="btn-filtros" aria-expanded="false" aria-controls="filtros">Filtros</button>
+      <span class="pb-status" id="save-status" role="status" aria-live="polite"></span>
+      <button type="button" class="pb-btn ghost" id="btn-discard" hidden>Descartar</button>
+      <button type="button" class="pb-btn save" id="btn-save" hidden>Guardar cambios</button>
+      <button type="button" class="pb-btn" id="btn-download" hidden>Descargar datos</button>
+      <button type="button" class="pb-btn" id="btn-reset">Restablecer filtros</button>
+    </div>
+  </div>
+</header>
+
+<div class="pb-body gut">
+  <aside class="pb-filters" id="filtros" aria-label="Filtros">
+    <div class="pb-fhead"><span>Filtros</span><button type="button" class="pb-link" id="clear-all">Borrar todo</button></div>
+    <section class="slicer" id="sl-linea">
+      <h2>Línea</h2>
+      <div class="tiles" role="group" aria-label="Línea">
+        <button type="button" data-v="Todas">Todas</button>
+        <button type="button" data-v="Contabilidad">Contabilidad</button>
+        <button type="button" data-v="Pensamiento Lógico">Pensamiento Lógico</button>
+      </div>
+    </section>
+    <section class="slicer" id="sl-contrato">
+      <div class="sl-h"><h2>Tipo de contrato</h2><button type="button" class="pb-link" data-clear="contratos" hidden>Borrar</button></div>
+      <div class="checks" role="group" aria-label="Tipo de contrato"></div>
+    </section>
+    <section class="slicer" id="sl-cat">
+      <div class="sl-h"><h2>Categoría Evaldo 2026</h2><button type="button" class="pb-link" data-clear="cats" hidden>Borrar</button></div>
+      <div class="checks" role="group" aria-label="Categoría Evaldo 2026"></div>
+    </section>
+    <section class="slicer" id="sl-sede">
+      <div class="sl-h"><h2>Sede</h2><button type="button" class="pb-link" data-clear="sedes" hidden>Borrar</button></div>
+      <div class="checks scroll" role="group" aria-label="Sede"></div>
+    </section>
+    <p class="pb-fnote">Clic en un gráfico también filtra. Ctrl + clic suma varias opciones.</p>
+  </aside>
+
+  <main class="pb-canvas" id="canvas">
+    <div class="pb-applied" id="applied" aria-live="polite"></div>
+
+    <!-- Página 1 -->
+    <section class="pb-page" id="p-resumen" data-page="resumen">
+      <div class="pb-grid">
+        <div class="vis kpi s2" id="kpi-doc"></div>
+        <div class="vis kpi s2" id="kpi-ev"></div>
+        <div class="vis kpi s2" id="kpi-prom"></div>
+        <div class="vis kpi s2" id="kpi-efi"></div>
+        <div class="vis kpi s2 bad" id="kpi-riesgo"></div>
+        <div class="vis kpi s2" id="kpi-fijos"></div>
+
+        <article class="vis s7" id="v-contrato">
+          <header class="vis-h"><div><h3 class="vis-t">Docentes por contrato y categoría 2026</h3><p class="vis-s">Cantidad de docentes · promedio ponderado al final de cada barra</p></div></header>
+          <div class="legend" id="lg-cat"></div>
+          <div class="chart" id="ch-contrato"></div>
+        </article>
+        <article class="vis s5" id="v-donut">
+          <header class="vis-h"><div><h3 class="vis-t">Distribución por categoría</h3><p class="vis-s">Evaldo 2026 · clic para filtrar</p></div></header>
+          <div class="chart donut" id="ch-donut"></div>
+        </article>
+
+        <article class="vis s7" id="v-trend">
+          <header class="vis-h"><div><h3 class="vis-t">Evolución del Evaldo por contrato</h3><p class="vis-s">Promedio de los docentes actuales evaluados en cada periodo</p></div></header>
+          <div class="legend" id="lg-trend"></div>
+          <div class="chart" id="ch-trend"></div>
+        </article>
+        <article class="vis s5" id="v-sede">
+          <header class="vis-h"><div><h3 class="vis-t">Promedio Evaldo 2026 por sede</h3><p class="vis-s">Línea punteada: 85 %, piso de Eficiente</p></div></header>
+          <div class="chart" id="ch-sede"></div>
+        </article>
+
+        <article class="vis s12" id="v-matriz">
+          <header class="vis-h"><div><h3 class="vis-t">Componentes del Evaldo 2026 por contrato</h3><p class="vis-s">Encuesta 50 % · Asistencia y puntualidad 15 % · Ingreso de notas 15 % · Reuniones 10 % · Capacitaciones 10 %</p></div></header>
+          <div class="tbl-wrap"><table class="matrix" id="t-matriz"></table></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Página 2 -->
+    <section class="pb-page" id="p-fijos" data-page="fijos" hidden>
+      <div class="pb-grid">
+        <div class="vis s12 bar-slicer">
+          <span class="bs-label">Contrato</span>
+          <div class="tiles wide" id="sl-fijo" role="group" aria-label="Contrato fijo">
+            <button type="button" data-v="PTC">PTC</button>
+            <button type="button" data-v="PTC IN">PTC IN</button>
+            <button type="button" data-v="PTD">PTD</button>
+            <button type="button" data-v="PPH">PPH</button>
+            <button type="button" data-v="TCxH">TCxH</button>
+          </div>
+        </div>
+        <div class="vis kpi s3" id="kf-doc"></div>
+        <div class="vis kpi s3" id="kf-ev"></div>
+        <div class="vis kpi s3" id="kf-prom"></div>
+        <div class="vis kpi s3 bad" id="kf-bajo"></div>
+
+        <article class="vis s7" id="v-rank">
+          <header class="vis-h"><div><h3 class="vis-t" id="rank-t">Ranking Evaldo 2026</h3><p class="vis-s">Del puntaje más bajo al más alto · clic en un docente para ver su ficha</p></div></header>
+          <div class="legend" id="lg-rank"></div>
+          <div class="chart" id="ch-rank"></div>
+        </article>
+        <article class="vis s5" id="v-fijos-tabla">
+          <header class="vis-h"><div><h3 class="vis-t">Evolución individual</h3><p class="vis-s">Variación 2026 frente a 2025, en puntos</p></div></header>
+          <div class="tbl-wrap tall"><table class="grid-t click" id="t-fijos"></table></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Página 3 -->
+    <section class="pb-page" id="p-detalle" data-page="detalle" hidden>
+      <div class="pb-grid">
+        <article class="vis s12" id="v-detalle">
+          <header class="vis-h wrap">
+            <div><h3 class="vis-t">Detalle de docentes</h3><p class="vis-s" id="detalle-sub">Clic en un docente para ver su ficha · clic en un encabezado para ordenar</p></div>
+            <div class="tools"><input type="search" id="q" class="pb-search" placeholder="Buscar docente o sede" aria-label="Buscar docente o sede"><span class="count" id="t-count"></span></div>
+          </header>
+          <div class="tbl-wrap tall"><table class="grid-t click sortable" id="t-detalle"></table></div>
+          <div class="del-wrap" id="del-wrap" hidden>
+            <button type="button" class="pb-link" id="del-toggle" aria-expanded="false" aria-controls="del-list">Docentes eliminados (0)</button>
+            <div class="del-list" id="del-list" hidden></div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<nav class="pb-tabs gut" aria-label="Páginas del reporte">
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-p="resumen" aria-selected="true">Resumen</button>
+    <button type="button" role="tab" data-p="fijos" aria-selected="false">PTC · PTC IN · PTD · PPH · TCxH</button>
+    <button type="button" role="tab" data-p="detalle" aria-selected="false">Detalle docentes</button>
+  </div>
+  <span class="pg" id="pg">Página 1 de 3</span>
+</nav>
+
+<!-- Ficha (drill-through) -->
+<div class="dt-ov" id="ficha" hidden>
+  <div class="dt" role="dialog" aria-modal="true" aria-labelledby="f-nom">
+    <div class="dt-bar">
+      <button type="button" class="pb-btn ghost dark" id="f-back">← Volver al reporte</button>
+      <div class="dt-bar-r"><span class="pb-status" id="f-status" role="status" aria-live="polite"></span><button type="button" class="pb-btn" id="f-edit-btn" hidden>Editar datos</button><button type="button" class="pb-btn" id="f-delete" hidden>Eliminar docente</button><button type="button" class="pb-btn save" id="f-save" hidden>Guardar cambios</button></div>
+    </div>
+    <div class="dt-body">
+      <div class="dt-head">
+        <h2 id="f-nom"></h2>
+        <div class="facts" id="f-facts"></div>
+        <p class="dt-pend" id="f-pend" hidden>Este docente tiene cambios sin guardar.</p>
+      </div>
+      <div class="dt-edit vis" id="f-edit" hidden>
+        <h3 class="vis-t">Editar datos del docente</h3>
+        <div class="ed-grid">
+          <label class="ed-f">Línea
+            <select id="e-linea"><option>Contabilidad</option><option>Pensamiento Lógico</option></select>
+          </label>
+          <label class="ed-f">Tipo de contrato
+            <select id="e-contrato"><option>PTC</option><option>PTC IN</option><option>PTD</option><option>PTP</option><option>PPH</option><option>TCxH</option><option>Otro</option></select>
+          </label>
+          <label class="ed-f">Sede
+            <input id="e-sede" list="e-sedes" autocomplete="off" placeholder="Ej. SURCO">
+            <datalist id="e-sedes"></datalist>
+          </label>
+          <label class="ed-f">Horas de contrato
+            <input id="e-horas" type="number" min="0" max="60" step="1" inputmode="numeric">
+          </label>
+          <label class="ed-f">Carga 2026-2
+            <select id="e-carga"><option value="">Sin dato</option><option>Sí</option><option>No</option></select>
+          </label>
+        </div>
+        <div class="ed-actions">
+          <button type="button" class="ed-btn primary" id="e-ok">Aplicar cambio</button>
+          <button type="button" class="ed-btn" id="e-cancel">Cancelar</button>
+          <span class="ed-note" id="e-note" role="alert"></span>
+        </div>
+      </div>
+      <div class="pb-grid">
+        <div class="vis kpi s4" id="f-k1"></div>
+        <div class="vis kpi s4" id="f-k2"></div>
+        <div class="vis kpi s4" id="f-k3"></div>
+        <article class="vis s5">
+          <header class="vis-h"><div><h3 class="vis-t">Evaldo por periodo</h3><p class="vis-s">Línea punteada: 85 %</p></div></header>
+          <div class="chart" id="f-hist"></div>
+        </article>
+        <article class="vis s7">
+          <header class="vis-h"><div><h3 class="vis-t">Componentes 2026 frente a su grupo</h3><p class="vis-s" id="f-grupo"></p></div></header>
+          <div class="legend" id="f-lg"></div>
+          <div class="chart" id="f-comp"></div>
+        </article>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pb-tip" id="tip" hidden></div>
+</template>
+<div id="app-root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="data/docentes.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
