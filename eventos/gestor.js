@@ -1025,7 +1025,7 @@ function actualizarSeleccionEncuestas() {
     const marcadas = filas.filter((c) => c.checked);
     if($('sel-conteo-encuestas')) $('sel-conteo-encuestas').textContent = marcadas.length;
     if($('btn-eliminar-sel-encuestas')) $('btn-eliminar-sel-encuestas').disabled = marcadas.length === 0;
-    if($('sel-acciones-encuestas')) mostrar($('sel-acciones-encuestas'), marcadas.length > 0);
+    if($('sel-acciones-encuestas')) { mostrar($('sel-acciones-encuestas'), marcadas.length > 0); llenarSedesLote(); }
     
     const todos = $('chk-todos-encuestas');
     if (todos) {
@@ -2855,6 +2855,49 @@ async function eliminarEncuestasSeleccionadas() {
     cargarEncuestas();
 }
 window.eliminarEncuestasSeleccionadas = eliminarEncuestasSeleccionadas;
+
+/* Asignación por lotes: pone el mismo tipo o la misma sede a todas las
+   respuestas marcadas, sin tener que editarlas una por una. */
+async function actualizarEncuestasEnLote(campo, valor, etiqueta) {
+    const marcadas = Array.from(document.querySelectorAll('#tbody-encuestas .chk-fila-encuesta:checked'));
+    if (marcadas.length === 0) { msgToast('Marca al menos una respuesta', 'error'); return; }
+    if (!confirm(`¿Poner ${etiqueta} «${valor || 'sin especificar'}» a ${marcadas.length} respuesta(s)?`)) return;
+
+    const ids = marcadas.map(c => c.dataset.id);
+    let actualizados = 0;
+    for (const lote of enLotes(ids, 100)) {
+        const { error } = await sb.from('asistencia_encuesta')
+            .update({ [campo]: valor || null })
+            .in('id', lote);
+        if (error) { msgToast('Error parcial al actualizar: ' + error.message, 'error'); break; }
+        actualizados += lote.length;
+    }
+    if (actualizados) msgToast(`Se actualizó ${etiqueta} en ${actualizados} respuesta(s)`, 'éxito');
+    cargarEncuestas();
+}
+
+async function asignarTipoEncuestas() {
+    const sel = $('sel-tipo-lote');
+    await actualizarEncuestasEnLote('tipo_participante', sel ? sel.value : '', 'el tipo');
+}
+window.asignarTipoEncuestas = asignarTipoEncuestas;
+
+async function asignarSedeEncuestas() {
+    const sel = $('sel-sede-lote');
+    if (!sel || !sel.value) { msgToast('Selecciona una sede', 'error'); return; }
+    await actualizarEncuestasEnLote('sede', sel.value, 'la sede');
+}
+window.asignarSedeEncuestas = asignarSedeEncuestas;
+
+/* El selector de sede por lotes usa las mismas opciones que el formulario manual. */
+function llenarSedesLote() {
+    const origen = $('em-sede'), destino = $('sel-sede-lote');
+    if (!origen || !destino || destino.options.length) return;
+    destino.innerHTML = Array.from(origen.options)
+        .filter(o => o.value)
+        .map(o => `<option value="${o.value}">${o.textContent}</option>`).join('');
+}
+setTimeout(llenarSedesLote, 500);
 
 async function copiarEncuestasSeleccionadas() {
     const marcadas = Array.from(document.querySelectorAll('#tbody-encuestas .chk-fila-encuesta:checked'));

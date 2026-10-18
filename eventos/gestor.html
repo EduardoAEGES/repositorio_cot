@@ -339,6 +339,9 @@
                     <button class="btn-ghost" id="btn-reporte" style="background-color: #3b82f6; color: white; border-color: #3b82f6;">
                         <i class="ph ph-presentation-chart"></i> Generar Reporte
                     </button>
+                    <button class="btn-ghost" id="btn-reportes-varios" style="background-color: #0f766e; color: white; border-color: #0f766e;" onclick="window.open('reportes.html', '_blank')">
+                        <i class="ph ph-chart-donut"></i> Reportes varios
+                    </button>
                     <button class="btn-ghost" id="btn-encuesta-general" style="background-color: #8b5cf6; color: white; border-color: #8b5cf6;">
                         <i class="ph ph-list-numbers"></i> Encuesta
                     </button>
@@ -488,6 +491,9 @@
                     <button class="btn-ghost" onclick="copiarMarcadosAConstancias()" title="Agrega a Constancias a quienes respondieron (las marcadas o, si no marcas ninguna, todas). No repite personas." style="background-color:#017e84;color:#fff;border-color:#017e84;">
                         <i class="ph ph-paper-plane-tilt"></i> Enviar a Constancias
                     </button>
+                    <button class="btn-ghost" style="background-color:#0f766e;color:#fff;border-color:#0f766e;" onclick="window.open('reportes.html', '_blank')">
+                        <i class="ph ph-chart-donut"></i> Reportes varios
+                    </button>
                     <button class="btn-primary" onclick="window.open('reporte.html?evento_id=' + EVENTO_ACTUAL.id, '_blank')">
                         <i class="ph ph-chart-pie-slice"></i> Ver Dashboard
                     </button>
@@ -507,6 +513,24 @@
                     <span class="sel-sep"></span>
                     <button class="btn-ghost" onclick="copiarMarcadosAConstancias()">
                         <i class="ph ph-paper-plane-tilt"></i> Enviar seleccionados a Constancias
+                    </button>
+                    <span class="sel-sep"></span>
+                    <label style="margin:0;color:var(--muted);font-size:13px;">Tipo:</label>
+                    <select id="sel-tipo-lote" style="width:auto;">
+                        <option value="Estudiante">Estudiante</option>
+                        <option value="Docente">Docente</option>
+                        <option value="Egresado">Egresado</option>
+                        <option value="Invitado">Invitado</option>
+                        <option value="">— Sin especificar —</option>
+                    </select>
+                    <button class="btn-ghost" onclick="asignarTipoEncuestas()" title="Pone ese tipo a todas las respuestas marcadas">
+                        <i class="ph ph-user-switch"></i> Aplicar tipo
+                    </button>
+                    <span class="sel-sep"></span>
+                    <label style="margin:0;color:var(--muted);font-size:13px;">Sede:</label>
+                    <select id="sel-sede-lote" style="width:auto;"></select>
+                    <button class="btn-ghost" onclick="asignarSedeEncuestas()" title="Pone esa sede a todas las respuestas marcadas">
+                        <i class="ph ph-map-pin"></i> Aplicar sede
                     </button>
                 </div>
                 
@@ -1018,7 +1042,8 @@
                         <option value="Arequipa">Arequipa</option>
                         <option value="San Juan de Lurigancho">San Juan de Lurigancho</option>
                         <option value="Norte">Norte</option>
-                        <option value="Sur">Sur</option>
+                        <option value="Surco">Surco</option>
+                        <option value="Villa">Villa</option>
                         <option value="Virtual">Virtual</option>
                     </select>
                 </div>

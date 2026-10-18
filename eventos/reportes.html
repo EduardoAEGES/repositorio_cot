@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes varios · Analítica de encuestas y asistencia | COT-PLN</title>
+
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #f4f5f8; --panel: #fff; --ink: #272b35; --ink-2: #5b6170; --muted: #8a90a0;
+            --line: #e3e6ec; --brand: #714b67; --brand-d: #5c3d54; --brand-soft: #f2ecf1;
+            --teal: #017e84; --ok: #2e8b57; --warn: #d9822b; --err: #c8463d;
+            --sombra: 0 1px 2px rgba(60,60,70,.06), 0 1px 3px rgba(60,60,70,.08);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Outfit, system-ui, sans-serif; background: var(--bg); color: var(--ink); font-size: 13.5px; }
+
+        header.top { background: var(--brand); color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        header.top h1 { font-size: 17px; font-weight: 700; flex: 1 1 auto; display: flex; align-items: center; gap: 9px; }
+        header.top h1 small { display: block; font-size: 11.5px; font-weight: 400; opacity: .85; }
+
+        .btn { font: inherit; font-size: 13px; font-weight: 600; border-radius: 9px; padding: 8px 13px; cursor: pointer;
+               text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; white-space: nowrap; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-claro { color: #fff; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.14); }
+        .btn-claro:hover { background: rgba(255,255,255,.26); }
+        .btn-solid { background: var(--brand); color: #fff; }
+        .btn-solid:hover { background: var(--brand-d); }
+        .btn-teal { background: var(--teal); color: #fff; }
+        .btn-teal:hover { filter: brightness(.92); }
+        .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+        .btn-ghost:hover { border-color: var(--brand); color: var(--brand); }
+        .btn-peligro { background: #fff; color: var(--err); border-color: #eec4c1; }
+        .btn-peligro:hover { background: #fbeceb; }
+
+        main { max-width: 1400px; margin: 0 auto; padding: 16px; }
+
+        .tarjeta { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 14px; box-shadow: var(--sombra); }
+        .tarjeta + .tarjeta { margin-top: 12px; }
+        .rotulo { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+
+        .fuentes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .fuente { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 9px 13px; cursor: pointer; font: inherit;
+                  font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+        .fuente:hover { border-color: var(--brand); }
+        .fuente.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+        .filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+        .campo label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+        .campo select, .campo input { width: 100%; font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid var(--line);
+                                      border-radius: 8px; background: #fff; color: var(--ink); }
+        .campo select:focus, .campo input:focus { outline: none; border-color: var(--brand); }
+
+        .barra { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 10px; }
+        .barra .info { font-size: 13px; color: var(--ink-2); }
+        .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--sombra); }
+        .kpi .l { font-size: 11.5px; color: var(--ink-2); font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        .kpi .v { font-size: 29px; font-weight: 800; line-height: 1.15; margin-top: 3px; letter-spacing: -.5px; }
+        .kpi .s { font-size: 11px; color: var(--muted); }
+        .kpi.ok .v { color: var(--ok); } .kpi.warn .v { color: var(--warn); } .kpi.err .v { color: var(--err); }
+        .kpi.brand .v { color: var(--brand); }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 12px; align-items: start; }
+        .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 14px; box-shadow: var(--sombra); }
+        .panel.ancho { grid-column: 1 / -1; }
+        .panel h3 { font-size: 14px; font-weight: 700; }
+        .panel .sub { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+        .caja { position: relative; height: 290px; }
+        .caja.alta { height: 360px; }
+
+        table.datos { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        table.datos th, table.datos td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+        table.datos thead th { position: sticky; top: 0; background: var(--brand-soft); color: var(--brand-d); font-weight: 700;
+                               font-size: 11.5px; z-index: 2; white-space: nowrap; }
+        table.datos tbody tr:hover { background: #fafafc; }
+        table.datos td.celda { cursor: text; min-width: 90px; }
+        table.datos td.celda:focus { outline: 2px solid var(--brand); background: #fff; border-radius: 4px; }
+        td.celda.editada { background: #fff7e6; }
+        .tabla-scroll { max-height: 540px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+        .chip-tipo { font-size: 9.5px; font-weight: 700; color: var(--muted); display: block; text-transform: uppercase; }
+
+        .vacio { padding: 36px 18px; text-align: center; color: var(--muted); }
+        .cargando { padding: 28px; text-align: center; color: var(--ink-2); }
+
+        .oculto { display: none !important; }
+        .pestanas { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin: 16px 0 12px; flex-wrap: wrap; }
+        .pestanas button { font: inherit; font-size: 13.5px; font-weight: 600; background: none; border: none; border-bottom: 3px solid transparent;
+                           padding: 9px 13px; cursor: pointer; color: var(--ink-2); }
+        .pestanas button.on { color: var(--brand); border-bottom-color: var(--brand); }
+
+        .modal { position: fixed; inset: 0; background: rgba(25,25,35,.5); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 60; }
+        .modal.abierto { display: flex; }
+        .modal .caja-modal { background: #fff; border-radius: 14px; width: min(620px, 100%); max-height: 88vh; overflow: auto; padding: 18px; }
+        .modal h2 { font-size: 16px; margin-bottom: 4px; }
+        .modal p.ayuda { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+        .modal .campo { margin-bottom: 10px; }
+        .modal textarea { width: 100%; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; min-height: 90px; resize: vertical; }
+        .pie-modal { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; flex-wrap: wrap; }
+        .lista-check { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; margin-bottom: 10px; }
+        .lista-check label { display: flex; gap: 7px; align-items: center; font-size: 13px; background: var(--brand-soft); padding: 7px 9px; border-radius: 8px; }
+
+        .toast { position: fixed; right: 16px; bottom: 16px; background: #272b35; color: #fff; padding: 11px 15px; border-radius: 10px;
+                 font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.22); z-index: 90; opacity: 0; transform: translateY(10px);
+                 transition: .18s; pointer-events: none; max-width: 340px; }
+        .toast.ver { opacity: 1; transform: none; }
+        .toast.error { background: var(--err); } .toast.ok { background: var(--ok); }
+
+        /* Encabezado solo visible en la exportación a PDF/imagen */
+        .panel.capturando h3, .panel.capturando .sub { display: none; }
+        .cabecera-rep { display: none; margin-bottom: 12px; }
+        .exportando .cabecera-rep { display: block; }
+        .cabecera-rep h2 { font-size: 20px; color: var(--brand-d); }
+        .cabecera-rep p { font-size: 12.5px; color: var(--ink-2); }
+
+        @media (max-width: 720px) {
+            .caja { height: 250px; }
+            header.top h1 { font-size: 15px; }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="top">
+        <h1>
+            <i class="ph ph-chart-donut"></i>
+            <span>Reportes varios
+                <small>Analítica interactiva de encuestas, NPS y asistencia</small>
+            </span>
+        </h1>
+        <a class="btn btn-claro" href="gestor.html"><i class="ph ph-arrow-left"></i> Volver al gestor</a>
+        <a class="btn btn-claro" href="https://eduardoaeges.github.io/repositorio_cot/index.html"><i class="ph ph-house"></i> Inicio</a>
+    </header>
+
+    <main>
+        <!-- ===================== FUENTES DE DATOS ===================== -->
+        <div class="tarjeta">
+            <div class="rotulo">1 · Fuente de datos</div>
+            <div class="fuentes" id="fuentes">
+                <button class="fuente on" data-fuente="alineamiento"><i class="ph ph-chalkboard-teacher"></i> Alineamiento docente 2026-20 · M2</button>
+                <button class="fuente" data-fuente="encuestas"><i class="ph ph-list-numbers"></i> Encuestas de eventos (Supabase)</button>
+                <button class="fuente" data-fuente="asistencias"><i class="ph ph-users-three"></i> Asistencias de eventos (Supabase)</button>
+                <label class="fuente" style="cursor:pointer;"><i class="ph ph-file-xls"></i> Importar Excel / CSV
+                    <input type="file" id="archivo" accept=".xlsx,.xls,.csv" class="oculto">
+                </label>
+            </div>
+            <p class="sub" id="desc-fuente" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
+        </div>
+
+        <!-- ===================== FILTROS ===================== -->
+        <div class="tarjeta">
+            <div class="rotulo">2 · Filtros</div>
+            <div class="filtros" id="filtros"></div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost" id="btn-limpiar"><i class="ph ph-eraser"></i> Limpiar filtros</button>
+                <button class="btn btn-ghost" id="btn-recargar"><i class="ph ph-arrow-clockwise"></i> Recargar datos</button>
+            </div>
+        </div>
+
+        <div class="barra">
+            <div class="info" id="info-datos">—</div>
+            <div class="acciones">
+                <button class="btn btn-ghost" id="btn-personalizar"><i class="ph ph-sliders-horizontal"></i> Personalizar reporte</button>
+                <button class="btn btn-teal" id="btn-excel"><i class="ph ph-microsoft-excel-logo"></i> Exportar Excel</button>
+                <button class="btn btn-solid" id="btn-pdf"><i class="ph ph-file-pdf"></i> Exportar PDF</button>
+            </div>
+        </div>
+
+        <div class="pestanas">
+            <button class="on" data-vista="dashboard"><i class="ph ph-chart-bar"></i> Dashboard</button>
+            <button data-vista="datos"><i class="ph ph-table"></i> Datos (editables)</button>
+        </div>
+
+        <!-- ===================== DASHBOARD ===================== -->
+        <section id="vista-dashboard">
+            <div id="dash">
+                <div class="cabecera-rep">
+                    <h2 id="rep-titulo-vista">Reporte</h2>
+                    <p id="rep-subtitulo-vista"></p>
+                </div>
+                <div class="kpis" id="kpis"></div>
+                <div class="grid" id="paneles"></div>
+            </div>
+            <div class="vacio oculto" id="dash-vacio">No hay datos que coincidan con los filtros.</div>
+        </section>
+
+        <!-- ===================== TABLA EDITABLE ===================== -->
+        <section id="vista-datos" class="oculto">
+            <div class="tarjeta">
+                <div class="barra" style="margin-top:0;">
+                    <div class="info" id="info-tabla">—</div>
+                    <div class="acciones">
+                        <button class="btn btn-ghost" id="btn-nueva-fila"><i class="ph ph-plus"></i> Agregar respuesta</button>
+                        <button class="btn btn-ghost" id="btn-deshacer"><i class="ph ph-arrow-counter-clockwise"></i> Restaurar originales</button>
+                        <button class="btn btn-peligro" id="btn-borrar-sel"><i class="ph ph-trash"></i> Eliminar seleccionadas</button>
+                        <button class="btn btn-solid" id="btn-guardar"><i class="ph ph-floppy-disk"></i> Guardar cambios</button>
+                    </div>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+                    Haz clic en cualquier celda para editarla. Los cambios se reflejan al instante en el dashboard y se guardan
+                    en este navegador; con «Guardar cambios» se envían también a Supabase cuando la fuente lo permite.
+                </p>
+                <div class="tabla-scroll">
+                    <table class="datos">
+                        <thead id="thead-datos"></thead>
+                        <tbody id="tbody-datos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===================== MODAL PERSONALIZAR ===================== -->
+    <div class="modal" id="modal-personalizar">
+        <div class="caja-modal">
+            <h2>Personalizar el reporte</h2>
+            <p class="ayuda">Define el título, el texto de conclusiones y qué paneles aparecen en el PDF y en el Excel.</p>
+            <div class="campo">
+                <label>Título del reporte</label>
+                <input id="rep-titulo" type="text">
+            </div>
+            <div class="campo">
+                <label>Subtítulo / periodo</label>
+                <input id="rep-subtitulo" type="text">
+            </div>
+            <div class="campo">
+                <label>Conclusiones y recomendaciones (aparecen en el PDF)</label>
+                <textarea id="rep-conclusiones" placeholder="Escribe aquí el análisis; déjalo vacío para usar el texto sugerido automáticamente."></textarea>
+            </div>
+            <div class="campo">
+                <label>Paneles incluidos</label>
+                <div class="lista-check" id="lista-paneles"></div>
+            </div>
+            <div class="pie-modal">
+                <button class="btn btn-ghost" data-cerrar>Cerrar</button>
+                <button class="btn btn-solid" id="btn-aplicar-personalizacion"><i class="ph ph-check"></i> Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="reportes.js"></script>
+</body>
+
+</html>
