@@ -212,6 +212,11 @@ details.ev-card[open] .ev-caret { transform: rotate(180deg); }
 .ev-asis-lista { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
 .ev-asis-item { display: flex; justify-content: space-between; gap: 10px; font-size: .8rem; padding: 6px 10px; background: #fff; border-radius: 8px; border: 1px solid var(--line); }
 .ev-asis-detalle { margin-top: 10px; font-size: .8rem; color: var(--muted); }
+.ev-guia { background: #f8f4f7; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: .86rem; }
+.ev-guia ol { margin: 8px 0 8px 20px; padding: 0; }
+.ev-guia li { margin-bottom: 5px; }
+.ev-guia code { background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: .8rem; word-break: break-all; }
+.ev-guia small { color: var(--muted); }
 .ev-asis-detalle summary { cursor: pointer; }
 .ev-combo .ev-auto-marca { font-size: .74rem; }
 
