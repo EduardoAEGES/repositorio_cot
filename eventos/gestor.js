@@ -2689,7 +2689,8 @@ function actualizarEnlaceInput() {
     if (!EVENTO_ACTUAL) return;
     const sesion = $('sel-enlace-sesion').value;
     // Link corto: encuesta.html?e=<id>&s=<n° sesión | t = Taller Completo>. El nombre lo carga la encuesta desde Supabase.
-    const url = new URL('encuesta.html', window.location.href);
+    // Siempre al dominio público de Vercel: el público no debe ver GitHub.
+    const url = new URL('encuesta.html', 'https://eventos-certus.vercel.app/');
     url.searchParams.set('e', EVENTO_ACTUAL.id);
     // f=c: formulario completo para actividades académicas (sin f: breve)
     if ($('sel-enlace-tipo') && $('sel-enlace-tipo').value) url.searchParams.set('f', $('sel-enlace-tipo').value);
