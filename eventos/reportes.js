@@ -259,7 +259,6 @@ function definirPaneles() {
     const colNPS = colsPorTipo('nps')[0];
     const colsLikert = colsPorTipo('likert');
     const colsCat = DATASET.columnas.filter(c => ['categoria', 'opcion'].includes(c.tipo));
-    const colFecha = colsPorTipo('fecha')[0];
     const colsNum = colsPorTipo('numero');
     const colsCom = colsPorTipo('comentario');
     const colsConoc = DATASET.columnas.filter(c => c.tipo === 'opcion' && c.correcta);
@@ -278,7 +277,6 @@ function definirPaneles() {
             render: panelCategoria, meta: { key: c.key, nps: colNPS?.key }
         });
     });
-    if (colFecha) PANELES.push({ id: 'tendencia', titulo: 'Evolución de respuestas', sub: 'Respuestas por día' + (colNPS ? ' y NPS acumulado del día' : ''), ancho: true, render: panelTendencia, meta: { key: colFecha.key, nps: colNPS?.key } });
     colsNum.forEach(c => PANELES.push({ id: 'num_' + c.key, titulo: c.label, sub: 'Distribución de la escala', render: panelNumero, meta: { key: c.key } }));
     if (colsConoc.length) PANELES.push({ id: 'conocimiento', titulo: 'Preguntas de conocimiento', sub: '% de respuestas que coinciden con la alternativa correcta', ancho: colsConoc.length > 2, render: panelConocimiento, meta: { keys: colsConoc.map(c => c.key) } });
     if (colsCom.length) {
@@ -455,31 +453,6 @@ function panelCategoria(p, filas) {
         titulo: `${etiquetaAspecto(p.meta.key)}: ${datos[i][0]}`,
         filtro: { [p.meta.key]: datos[i][0] }
     })));
-}
-
-function panelTendencia(p, filas) {
-    const c = $('cont-' + p.id);
-    const porDia = new Map();
-    filas.forEach(f => {
-        const d = diaISO(f[p.meta.key]); if (!d) return;
-        if (!porDia.has(d)) porDia.set(d, []);
-        porDia.get(d).push(f);
-    });
-    const dias = [...porDia.keys()].sort();
-    if (!dias.length) { c.innerHTML = '<div class="vacio">Sin fechas registradas.</div>'; return; }
-    c.innerHTML = lienzo(p.id);
-    const ds = [{ label: 'Respuestas', data: dias.map(d => porDia.get(d).length), backgroundColor: COLORES.brandClaro, borderRadius: 5, maxBarThickness: 90, order: 2 }];
-    const escalas = { y: { beginAtZero: true, ticks: { precision: 0 } } };
-    if (p.meta.nps) {
-        ds.push({
-            label: 'NPS del día', type: 'line', yAxisID: 'y2', borderColor: COLORES.teal, backgroundColor: COLORES.teal,
-            tension: .3, pointRadius: 3, data: dias.map(d => { const r = calcularNPS(porDia.get(d), p.meta.nps); return r ? r.nps : null; }), order: 1
-        });
-        escalas.y2 = { position: 'right', min: -100, max: 100, grid: { display: false }, ticks: { color: COLORES.teal } };
-    }
-    dibujar(p.id, conDetalle(
-        { type: 'bar', data: { labels: dias.map(fechaLegible), datasets: ds }, options: { scales: escalas } },
-        i => ({ titulo: `Respuestas del ${fechaLegible(dias[i])}`, filtro: { _dia: dias[i] } })));
 }
 
 function panelNumero(p, filas) {
@@ -846,60 +819,241 @@ function resumenParaExport(filas) {
     return res;
 }
 
-function exportarExcel() {
+/* --------------------------- Excel con gráficos --------------------------
+   Se arma con ExcelJS: una portada con los indicadores, una hoja con los
+   gráficos del dashboard tal como se ven en pantalla y las hojas de datos
+   con formato (encabezado de color, filas alternas, filtros y panel fijo). */
+const COL_BRAND = 'FF714B67', COL_BRAND_SUAVE = 'FFF2ECF1', COL_TEAL = 'FF017E84';
+
+function bordeFino() {
+    const l = { style: 'thin', color: { argb: 'FFE3E6EC' } };
+    return { top: l, left: l, bottom: l, right: l };
+}
+
+function hojaConTitulo(wb, nombre, titulo, subtitulo, anchoCols) {
+    const ws = wb.addWorksheet(nombre, {
+        views: [{ showGridLines: false }],
+        pageSetup: {
+            orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+            margins: { left: .4, right: .4, top: .5, bottom: .5, header: .2, footer: .2 }
+        }
+    });
+    ws.mergeCells(1, 1, 1, Math.max(4, anchoCols));
+    const c = ws.getCell(1, 1);
+    c.value = titulo;
+    c.font = { name: 'Calibri', size: 15, bold: true, color: { argb: 'FFFFFFFF' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COL_BRAND } };
+    c.alignment = { vertical: 'middle', indent: 1 };
+    ws.getRow(1).height = 26;
+    ws.mergeCells(2, 1, 2, Math.max(4, anchoCols));
+    const c2 = ws.getCell(2, 1);
+    c2.value = subtitulo;
+    c2.font = { size: 9.5, italic: true, color: { argb: 'FF8A90A0' } };
+    c2.alignment = { indent: 1 };
+    return ws;
+}
+
+function tablaConFormato(ws, filaInicio, cabecera, cuerpo, anchos) {
+    const fc = ws.getRow(filaInicio);
+    cabecera.forEach((h, i) => {
+        const c = fc.getCell(i + 1);
+        c.value = h;
+        c.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COL_BRAND } };
+        c.alignment = { vertical: 'middle', wrapText: true };
+        c.border = bordeFino();
+    });
+    fc.height = 30;
+    cuerpo.forEach((fila, n) => {
+        const r = ws.getRow(filaInicio + 1 + n);
+        fila.forEach((v, i) => {
+            const c = r.getCell(i + 1);
+            c.value = v === '' || v === undefined ? null : v;
+            c.font = { size: 10 };
+            c.alignment = { vertical: 'top', wrapText: typeof v === 'string' && v.length > 40 };
+            c.border = bordeFino();
+            if (n % 2) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF8FA' } };
+        });
+    });
+    (anchos || cabecera.map(h => Math.min(38, Math.max(12, String(h).length + 2))))
+        .forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    ws.autoFilter = {
+        from: { row: filaInicio, column: 1 },
+        to: { row: filaInicio + cuerpo.length, column: cabecera.length }
+    };
+    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: filaInicio }];
+    ws.pageSetup.printTitlesRow = `${filaInicio}:${filaInicio}`;
+    return ws;
+}
+
+async function capturarPaneles() {
+    const capturas = [];
+    for (const panel of document.querySelectorAll('#paneles .panel')) {
+        panel.classList.add('capturando');   // el título va aparte
+        const cv = await html2canvas(panel, { backgroundColor: '#ffffff', scale: 1.7, logging: false });
+        panel.classList.remove('capturando');
+        capturas.push({
+            img: cv.toDataURL('image/jpeg', 0.9), w: cv.width, h: cv.height,
+            titulo: panel.querySelector('h3').textContent.trim(),
+            sub: panel.querySelector('.sub').textContent.trim()
+        });
+    }
+    return capturas;
+}
+
+async function exportarExcel() {
     const filas = filasFiltradas();
     if (!filas.length) { toast('No hay datos para exportar', 'error'); return; }
-    const wb = XLSX.utils.book_new();
+    const btn = $('btn-excel');
+    btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> Generando…';
+    try {
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'CERTUS · COT-PLN';
+        wb.created = new Date();
 
-    const hResumen = XLSX.utils.aoa_to_sheet(resumenParaExport(filas));
-    hResumen['!cols'] = [{ wch: 32 }, { wch: 40 }, { wch: 38 }];
-    XLSX.utils.book_append_sheet(wb, hResumen, 'Resumen');
-
-    const cabecera = DATASET.columnas.map(c => c.label);
-    const cuerpo = filas.map(f => DATASET.columnas.map(c => c.tipo === 'fecha' ? fechaLegible(f[c.key]) : f[c.key]));
-    const hDatos = XLSX.utils.aoa_to_sheet([cabecera, ...cuerpo]);
-    hDatos['!cols'] = DATASET.columnas.map(c => ({ wch: c.tipo === 'comentario' ? 55 : Math.min(34, Math.max(12, c.label.length + 2)) }));
-    hDatos['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: cuerpo.length, c: cabecera.length - 1 } }) };
-    XLSX.utils.book_append_sheet(wb, hDatos, 'Datos');
-
-    const colNPS = colsPorTipo('nps')[0];
-    if (colNPS) {
-        const cats = DATASET.columnas.filter(c => ['categoria', 'opcion'].includes(c.tipo) && !c.correcta);
-        const aoa = [['Dimensión', 'Valor', 'Respuestas', 'Promotores', 'Pasivos', 'Detractores', 'NPS', 'Media (0-10)']];
-        cats.forEach(c => conteo(filas, c.key).forEach(([v, n]) => {
-            const r = calcularNPS(filas.filter(f => normalizar(f[c.key]) === normalizar(v)), colNPS.key);
-            aoa.push([c.label, v, n, r?.promotores ?? 0, r?.pasivos ?? 0, r?.detractores ?? 0, r?.nps ?? '', r ? +r.promedio.toFixed(2) : '']);
+        /* ---------- Portada con indicadores ---------- */
+        const res = hojaConTitulo(wb, 'Resumen', CONFIG.titulo, `${CONFIG.subtitulo || ''} · generado el ${new Date().toLocaleString('es-PE')}`, 6);
+        res.getColumn(1).width = 3;
+        [2, 3, 4, 5].forEach(n => { res.getColumn(n).width = 24; });
+        res.getColumn(6).width = 3;
+        let fila = 4;
+        const kpis = [...document.querySelectorAll('#kpis .kpi')].map(k => ({
+            l: k.querySelector('.l').textContent.trim(),
+            v: k.querySelector('.v').textContent.trim(),
+            s: k.querySelector('.s').textContent.trim()
         }));
-        const h = XLSX.utils.aoa_to_sheet(aoa);
-        h['!cols'] = [{ wch: 30 }, { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 14 }];
-        XLSX.utils.book_append_sheet(wb, h, 'NPS por categoría');
-    }
-    const colsLikert = colsPorTipo('likert');
-    if (colsLikert.length) {
-        const niveles = unico(colsLikert.flatMap(c => filas.map(f => String(f[c.key] ?? '').trim()).filter(Boolean)))
-            .sort((a, b) => (VALOR_LIKERT[normalizar(a)] || 0) - (VALOR_LIKERT[normalizar(b)] || 0));
-        const aoa = [['Aspecto', ...niveles, 'Respuestas', 'Promedio (1-5)']];
-        colsLikert.forEach(c => {
-            const resp = filas.filter(f => String(f[c.key] ?? '').trim());
-            aoa.push([c.label, ...niveles.map(n => resp.filter(f => normalizar(f[c.key]) === normalizar(n)).length), resp.length, +(promedioLikert(filas, c.key) || 0).toFixed(2)]);
+        kpis.forEach((k, i) => {
+            const col = 2 + (i % 4);  // columnas B a E
+            const f = fila + Math.floor(i / 4) * 4;
+            const et = res.getCell(f, col), val = res.getCell(f + 1, col), sub = res.getCell(f + 2, col);
+            et.value = k.l; et.font = { size: 9, bold: true, color: { argb: 'FF5B6170' } };
+            val.value = k.v; val.font = { size: 20, bold: true, color: { argb: COL_BRAND } };
+            sub.value = k.s; sub.font = { size: 8.5, color: { argb: 'FF8A90A0' } };
+            sub.alignment = { wrapText: true, vertical: 'top' };
+            [et, val, sub].forEach(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COL_BRAND_SUAVE } }; c.border = bordeFino(); });
+            res.getRow(f + 1).height = 26;
+            res.getRow(f + 2).height = 24;
         });
-        const h = XLSX.utils.aoa_to_sheet(aoa);
-        h['!cols'] = [{ wch: 52 }, ...niveles.map(() => ({ wch: 14 })), { wch: 12 }, { wch: 15 }];
-        XLSX.utils.book_append_sheet(wb, h, 'Valoraciones');
+        fila += Math.ceil(kpis.length / 4) * 4 + 1;
+
+        const ficha = [
+            ['Fuente', DATASET.origen || DATASET.nombre],
+            ['Registros analizados', filas.length],
+            ['Registros totales', DATASET.filas.length]
+        ];
+        Object.entries(FILTROS).filter(([k, v]) => v !== '' && v !== undefined && v !== null)
+            .forEach(([k, v]) => ficha.push(['Selección', etiquetaFiltro(k, v)]));
+        ficha.forEach(([a, b]) => {
+            const ca = res.getCell(fila, 2), cb = res.getCell(fila, 3);
+            ca.value = a; ca.font = { size: 10, bold: true, color: { argb: 'FF5B6170' } };
+            cb.value = b; cb.font = { size: 10 };
+            fila++;
+        });
+        fila++;
+        const tituloConc = res.getCell(fila, 2);
+        tituloConc.value = 'Conclusiones y recomendaciones';
+        tituloConc.font = { size: 12, bold: true, color: { argb: COL_BRAND } };
+        fila++;
+        res.mergeCells(fila, 2, fila + 5, 5);
+        const cConc = res.getCell(fila, 2);
+        cConc.value = (CONFIG.conclusiones || '').trim() || conclusionesSugeridas(filas);
+        cConc.alignment = { wrapText: true, vertical: 'top' };
+        cConc.font = { size: 10 };
+        cConc.border = bordeFino();
+        for (let n = 0; n <= 5; n++) res.getRow(fila + n).height = 15;
+
+        /* ---------- Hoja con los gráficos ---------- */
+        const capturas = await capturarPaneles();
+        if (capturas.length) {
+            const gr = hojaConTitulo(wb, 'Gráficos', 'Gráficos del reporte', 'Tal como se ven en el dashboard, con la selección aplicada', 10);
+            gr.getColumn(1).width = 110;
+            let filaImg = 4;
+            for (const it of capturas) {
+                const titulo = gr.getCell(filaImg, 1);
+                titulo.value = it.titulo;
+                titulo.font = { size: 12, bold: true, color: { argb: COL_BRAND } };
+                gr.getRow(filaImg).height = 18;
+                const sub = gr.getCell(filaImg + 1, 1);
+                sub.value = it.sub;
+                sub.font = { size: 9, color: { argb: 'FF8A90A0' } };
+                gr.getRow(filaImg + 1).height = 14;
+                const id = wb.addImage({ base64: it.img, extension: 'jpeg' });
+                const ancho = Math.min(720, it.w / 1.6), alto = Math.round(ancho * it.h / it.w);
+                gr.addImage(id, { tl: { col: 0.2, row: filaImg + 1.3 }, ext: { width: ancho, height: alto } });
+                filaImg += Math.ceil(alto / 20) + 5;   // alto de fila por defecto ≈ 20 px
+            }
+        }
+
+        /* ---------- Datos ---------- */
+        const dat = hojaConTitulo(wb, 'Datos', 'Respuestas', `${filas.length} registro(s) con la selección aplicada`, DATASET.columnas.length);
+        tablaConFormato(dat, 4,
+            DATASET.columnas.map(c => c.label),
+            filas.map(f => DATASET.columnas.map(c => c.tipo === 'fecha' ? fechaLegible(f[c.key]) : f[c.key])),
+            DATASET.columnas.map(c => c.tipo === 'comentario' ? 52 : Math.min(32, Math.max(13, c.label.length + 2))));
+
+        /* ---------- NPS por categoría ---------- */
+        const colNPS = colsPorTipo('nps')[0];
+        if (colNPS) {
+            const cats = DATASET.columnas.filter(c => ['categoria', 'opcion'].includes(c.tipo) && !c.correcta);
+            const cuerpo = [];
+            cats.forEach(c => conteo(filas, c.key).forEach(([v, n]) => {
+                const r = calcularNPS(filas.filter(f => normalizar(f[c.key]) === normalizar(v)), colNPS.key);
+                cuerpo.push([c.label, v, n, r?.promotores ?? 0, r?.pasivos ?? 0, r?.detractores ?? 0, r?.nps ?? '', r ? +r.promedio.toFixed(2) : '']);
+            }));
+            const ws = hojaConTitulo(wb, 'NPS por categoría', 'NPS por categoría', 'Promotores (9-10) menos detractores (0-6) en cada grupo', 8);
+            tablaConFormato(ws, 4, ['Dimensión', 'Valor', 'Respuestas', 'Promotores', 'Pasivos', 'Detractores', 'NPS', 'Media (0-10)'], cuerpo,
+                [30, 30, 12, 12, 10, 12, 9, 14]);
+            // color del NPS según el valor
+            cuerpo.forEach((f, i) => {
+                const c = ws.getCell(5 + i, 7);
+                const v = Number(f[6]);
+                if (!isNaN(v)) c.font = { size: 10, bold: true, color: { argb: v >= 50 ? 'FF2E8B57' : v >= 0 ? 'FFD9822B' : 'FFC8463D' } };
+            });
+        }
+
+        /* ---------- Valoraciones ---------- */
+        const colsLikert = colsPorTipo('likert');
+        if (colsLikert.length) {
+            const niveles = unico(colsLikert.flatMap(c => filas.map(f => String(f[c.key] ?? '').trim()).filter(Boolean)))
+                .sort((a, b) => (VALOR_LIKERT[normalizar(a)] || 0) - (VALOR_LIKERT[normalizar(b)] || 0));
+            const cuerpo = colsLikert.map(c => {
+                const resp = filas.filter(f => String(f[c.key] ?? '').trim());
+                return [etiquetaAspecto(c.key), ...niveles.map(n => resp.filter(f => normalizar(f[c.key]) === normalizar(n)).length),
+                    resp.length, +(promedioLikert(filas, c.key) || 0).toFixed(2)];
+            });
+            const ws = hojaConTitulo(wb, 'Valoraciones', 'Valoración por aspecto', 'Cantidad de respuestas en cada nivel y promedio sobre 5', niveles.length + 3);
+            tablaConFormato(ws, 4, ['Aspecto', ...niveles, 'Respuestas', 'Promedio (1-5)'], cuerpo,
+                [46, ...niveles.map(() => 14), 12, 15]);
+        }
+
+        /* ---------- Comentarios ---------- */
+        const colsCom = colsPorTipo('comentario');
+        if (colsCom.length) {
+            const cuerpo = [];
+            filas.forEach(f => colsCom.forEach(c => {
+                const t = String(f[c.key] ?? '').trim();
+                if (t) cuerpo.push([etiquetaFila(f), c.label, t]);
+            }));
+            if (cuerpo.length) {
+                const ws = hojaConTitulo(wb, 'Comentarios', 'Comentarios recibidos', `${cuerpo.length} comentario(s) en las preguntas abiertas`, 3);
+                tablaConFormato(ws, 4, ['Participante', 'Pregunta', 'Comentario'], cuerpo, [30, 44, 80]);
+            }
+        }
+
+        const buf = await wb.xlsx.writeBuffer();
+        const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${slug(CONFIG.titulo)}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.append(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+        toast('Excel generado con los gráficos del reporte', 'ok');
+    } catch (e) {
+        console.error(e);
+        toast('No se pudo generar el Excel: ' + (e.message || e), 'error');
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="ph ph-microsoft-excel-logo"></i> Exportar Excel';
     }
-    const colsCom = colsPorTipo('comentario');
-    if (colsCom.length) {
-        const aoa = [['Participante', 'Pregunta', 'Comentario']];
-        filas.forEach(f => colsCom.forEach(c => {
-            const t = String(f[c.key] ?? '').trim();
-            if (t) aoa.push([etiquetaFila(f), c.label, t]);
-        }));
-        const h = XLSX.utils.aoa_to_sheet(aoa);
-        h['!cols'] = [{ wch: 30 }, { wch: 45 }, { wch: 80 }];
-        XLSX.utils.book_append_sheet(wb, h, 'Comentarios');
-    }
-    XLSX.writeFile(wb, `${slug(CONFIG.titulo)}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    toast('Excel generado', 'ok');
 }
 
 async function exportarPDF() {
@@ -915,91 +1069,111 @@ async function exportarPDF() {
     try {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-        const AN = pdf.internal.pageSize.getWidth(), AL = pdf.internal.pageSize.getHeight();
-        const M = 10;
+        const AN = pdf.internal.pageSize.getWidth(), AL = pdf.internal.pageSize.getHeight(), M = 12;
+        const MORADO = [113, 75, 103], TEAL = [1, 126, 132], TINTA = [45, 48, 58], SUAVE = [138, 144, 160];
 
-        const encabezado = (titulo) => {
-            pdf.setFillColor(113, 75, 103); pdf.rect(0, 0, AN, 16, 'F');
-            pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12);
-            pdf.text(titulo, M, 10.5);
+        const cabecera = (titulo, sub) => {
+            pdf.setFillColor(...MORADO); pdf.rect(0, 0, AN, 15, 'F');
+            pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11.5);
+            pdf.text(titulo, M, 9.8);
             pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8);
-            pdf.text('CERTUS · COT-PLN', AN - M, 10.5, { align: 'right' });
-            pdf.setTextColor(40);
+            pdf.text('CERTUS · COT-PLN', AN - M, 9.8, { align: 'right' });
+            if (sub) {
+                pdf.setTextColor(...SUAVE); pdf.setFontSize(8.5);
+                pdf.text(sub, M, 21);
+            }
+            pdf.setTextColor(...TINTA);
         };
         const pie = () => {
             const n = pdf.internal.getNumberOfPages();
             for (let i = 1; i <= n; i++) {
-                pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(140);
-                pdf.text(`${CONFIG.titulo} · generado el ${new Date().toLocaleString('es-PE')}`, M, AL - 5);
-                pdf.text(`Página ${i} de ${n}`, AN - M, AL - 5, { align: 'right' });
+                pdf.setPage(i);
+                pdf.setDrawColor(228, 230, 236); pdf.setLineWidth(0.2);
+                pdf.line(M, AL - 9, AN - M, AL - 9);
+                pdf.setFontSize(7.5); pdf.setTextColor(...SUAVE); pdf.setFont('helvetica', 'normal');
+                pdf.text(`${CONFIG.titulo} · ${new Date().toLocaleDateString('es-PE')}`, M, AL - 5);
+                pdf.text(`${i} / ${n}`, AN - M, AL - 5, { align: 'right' });
             }
         };
 
-        // ---------- portada con KPIs ----------
-        encabezado('Reporte analítico');
-        pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20);
-        pdf.text(CONFIG.titulo, M, 34, { maxWidth: AN - 2 * M });
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(90);
-        pdf.text(`${CONFIG.subtitulo || ''}`.trim(), M, 42, { maxWidth: AN - 2 * M });
-        pdf.text(`Fuente: ${DATASET.origen || DATASET.nombre} · ${filas.length} registros analizados`, M, 48);
+        /* ---------------- Portada ---------------- */
+        pdf.setFillColor(...MORADO); pdf.rect(0, 0, AN, 58, 'F');
+        pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(24);
+        pdf.text(pdf.splitTextToSize(CONFIG.titulo, AN - 2 * M), M, 28);
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11);
+        pdf.text(CONFIG.subtitulo || '', M, 42, { maxWidth: AN - 2 * M });
+        pdf.setFontSize(9);
+        pdf.text(`${DATASET.origen || DATASET.nombre} · ${filas.length} respuestas · ${new Date().toLocaleDateString('es-PE')}`, M, 50);
+        pdf.setTextColor(...TINTA);
 
         const kpis = [...document.querySelectorAll('#kpis .kpi')].map(k => [
             k.querySelector('.l').textContent.trim(), k.querySelector('.v').textContent.trim(), k.querySelector('.s').textContent.trim()
         ]);
-        let x = M, y = 58;
-        const anchoK = (AN - 2 * M - 12) / 4;
+        const porFila = 4, anchoK = (AN - 2 * M - (porFila - 1) * 5) / porFila;
+        let x = M, y = 68;
         kpis.forEach((k, i) => {
-            if (i && i % 4 === 0) { x = M; y += 30; }
-            pdf.setDrawColor(224); pdf.setFillColor(250, 248, 250);
-            pdf.roundedRect(x, y, anchoK, 25, 2.5, 2.5, 'FD');
-            pdf.setFontSize(8); pdf.setTextColor(110); pdf.text(k[0], x + 4, y + 7, { maxWidth: anchoK - 8 });
-            pdf.setFontSize(17); pdf.setTextColor(113, 75, 103); pdf.setFont('helvetica', 'bold');
-            pdf.text(String(k[1]), x + 4, y + 16);
-            pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5); pdf.setTextColor(140);
-            pdf.text(k[2], x + 4, y + 21.5, { maxWidth: anchoK - 8 });
-            x += anchoK + 4;
+            if (i && i % porFila === 0) { x = M; y += 30; }
+            pdf.setFillColor(248, 245, 248); pdf.setDrawColor(228, 222, 228);
+            pdf.roundedRect(x, y, anchoK, 26, 3, 3, 'FD');
+            pdf.setFontSize(8); pdf.setTextColor(...SUAVE); pdf.setFont('helvetica', 'bold');
+            pdf.text(pdf.splitTextToSize(k[0], anchoK - 8)[0], x + 4, y + 7);
+            pdf.setFontSize(18); pdf.setTextColor(...MORADO);
+            pdf.text(String(k[1]), x + 4, y + 16.5);
+            pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5); pdf.setTextColor(...SUAVE);
+            pdf.text(pdf.splitTextToSize(k[2], anchoK - 8).slice(0, 2), x + 4, y + 21.5);
+            pdf.setTextColor(...TINTA);
+            x += anchoK + 5;
         });
 
         const texto = (CONFIG.conclusiones || '').trim() || conclusionesSugeridas(filas);
         if (texto) {
-            const yTxt = y + 34;
-            pdf.setFontSize(11); pdf.setTextColor(60); pdf.setFont('helvetica', 'bold');
-            pdf.text('Conclusiones y recomendaciones', M, yTxt);
-            pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9.5); pdf.setTextColor(80);
-            pdf.text(pdf.splitTextToSize(texto, AN - 2 * M), M, yTxt + 6);
+            const yT = y + 36;
+            pdf.setDrawColor(...TEAL); pdf.setLineWidth(1.2);
+            pdf.line(M, yT - 5, M, yT + 16);
+            pdf.setLineWidth(0.2);
+            pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(...MORADO);
+            pdf.text('Conclusiones y recomendaciones', M + 4, yT);
+            pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9.5); pdf.setTextColor(70, 74, 86);
+            pdf.text(pdf.splitTextToSize(texto, AN - 2 * M - 4), M + 4, yT + 6);
+            pdf.setTextColor(...TINTA);
         }
 
-        // ---------- un panel por página ----------
-        const paneles = [...document.querySelectorAll('#paneles .panel')];
-        for (const panel of paneles) {
+        /* ------------- Gráficos: dos por página ------------- */
+        const imagenes = await capturarPaneles();
+        const anchoCaja = (AN - 2 * M - 8) / 2, altoCaja = AL - 46;
+        for (let i = 0; i < imagenes.length; i += 2) {
             pdf.addPage();
-            encabezado(panel.querySelector('h3').textContent.trim());
-            pdf.setFontSize(9); pdf.setTextColor(130);
-            pdf.text(panel.querySelector('.sub').textContent.trim(), M, 23);
-            // Se captura el panel completo (gráfico + cifras y leyendas en HTML),
-            // ocultando su título porque ya va en la cabecera de la página.
-            panel.classList.add('capturando');
-            const cv = await html2canvas(panel, { backgroundColor: '#ffffff', scale: 1.7, logging: false });
-            panel.classList.remove('capturando');
-            const img = cv.toDataURL('image/jpeg', 0.88);
-            const maxW = AN - 2 * M, maxH = AL - 38;
-            const esc = Math.min(maxW / cv.width, maxH / cv.height);
-            const w = cv.width * esc, h = cv.height * esc;
-            pdf.addImage(img, 'JPEG', (AN - w) / 2, 28, w, h);
+            cabecera('Resultados del reporte');
+            [imagenes[i], imagenes[i + 1]].forEach((it, k) => {
+                if (!it) return;
+                const x0 = M + k * (anchoCaja + 8), y0 = 24;
+                pdf.setDrawColor(228, 230, 236); pdf.setFillColor(255, 255, 255);
+                pdf.roundedRect(x0, y0, anchoCaja, altoCaja, 3, 3, 'FD');
+                pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(...MORADO);
+                pdf.text(pdf.splitTextToSize(it.titulo, anchoCaja - 8).slice(0, 1), x0 + 4, y0 + 7);
+                pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7.5); pdf.setTextColor(...SUAVE);
+                pdf.text(pdf.splitTextToSize(it.sub, anchoCaja - 8).slice(0, 1), x0 + 4, y0 + 12);
+                pdf.setTextColor(...TINTA);
+                const dispW = anchoCaja - 8, dispH = altoCaja - 20;
+                const esc = Math.min(dispW / it.w, dispH / it.h);
+                const w = it.w * esc, h = it.h * esc;
+                pdf.addImage(it.img, 'JPEG', x0 + (anchoCaja - w) / 2, y0 + 16 + (dispH - h) / 2, w, h);
+            });
         }
 
-        // ---------- tabla de datos ----------
+        /* ---------------- Tabla de datos ---------------- */
         pdf.addPage();
-        encabezado('Datos analizados');
-        const cols = DATASET.columnas.filter(c => c.tipo !== 'comentario').slice(0, 9);
+        cabecera('Detalle de las respuestas', `${filas.length} registro(s) con la selección aplicada`);
+        const cols = columnasDetalle();
         pdf.autoTable({
-            startY: 22,
-            head: [cols.map(c => c.label.length > 34 ? c.label.slice(0, 33) + '…' : c.label)],
+            startY: 26,
+            head: [cols.map(c => recortar(etiquetaAspecto(c.key), 30))],
             body: filas.map(f => cols.map(c => c.tipo === 'fecha' ? fechaLegible(f[c.key]) : String(f[c.key] ?? ''))),
-            styles: { fontSize: 7, cellPadding: 1.6, overflow: 'linebreak' },
-            headStyles: { fillColor: [113, 75, 103], textColor: 255, fontSize: 7.5 },
-            alternateRowStyles: { fillColor: [249, 247, 249] },
-            margin: { left: M, right: M, bottom: 12 }
+            styles: { fontSize: 7.5, cellPadding: 2, overflow: 'linebreak', lineColor: [228, 230, 236], lineWidth: 0.1 },
+            headStyles: { fillColor: MORADO, textColor: 255, fontSize: 8, cellPadding: 2.4 },
+            alternateRowStyles: { fillColor: [250, 248, 250] },
+            margin: { left: M, right: M, bottom: 14 },
+            didDrawPage: () => cabecera('Detalle de las respuestas')
         });
 
         pie();
