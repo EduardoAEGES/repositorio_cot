@@ -1113,9 +1113,9 @@ function pintarAsistente() {
     // Paso 1: agente
     if (e) paso(1, 'ok', 'Conectado.');
     else if (auto.abriendo && Date.now() - auto.abriendoDesde < ESPERA_AGENTE_MS)
-        paso(1, 'activo', 'Abriendo... acepta el aviso de Brave. ¿No pasa nada? Doble clic en <b>EVALDO_Agente.bat</b> (carpeta SEGUIMIENTO ESTUDIANTES).');
+        paso(1, 'activo', 'Se abrió la <b>página local</b> en otra pestaña. Haz todos los pasos <b>desde esa pestaña</b>.');
     else if (auto.abriendo)
-        paso(1, 'activo', 'El agente aún no responde. Abre <b>EVALDO_Agente.bat</b> con doble clic (carpeta SEGUIMIENTO ESTUDIANTES) y <b>deja abierta su ventana negra</b>. Si Brave pide permiso para la «red local», pulsa <b>Permitir</b>. Esto se marca solo al conectar.');
+        paso(1, 'activo', 'No se conectó el agente. En la pestaña de la página local, si no carga, abre <b>EVALDO_Agente.bat</b> con doble clic (carpeta SEGUIMIENTO ESTUDIANTES) y <b>deja abierta su ventana negra</b>. Luego pulsa Abrir agente otra vez.');
     else paso(1, 'activo', 'Abre el programa de tu PC que maneja Campus Evolution.');
     // Paso 2: sesión
     if (!e) paso(2, 'bloq', 'Después del paso 1.');
@@ -1199,10 +1199,12 @@ async function procesarAvance(e) {
 }
 
 async function pulsarPaso1() {
+    // Se trabaja desde la página local (mismo origen que el agente): Brave no bloquea
+    // la "red local" ahí. Desde la página publicada puede bloquearla.
     auto.abriendo = true;
     auto.abriendoDesde = Date.now();
     pintarAsistente();
-    location.href = 'evaldo://iniciar';   // abre EVALDO_Agente.bat (botón instalado)
+    window.open(PAGINA_LOCAL, '_blank');
 }
 
 async function pulsarPaso2() {
