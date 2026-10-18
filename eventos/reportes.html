@@ -55,7 +55,14 @@
         .fuente:hover { border-color: var(--brand); }
         .fuente.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 
-        .filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+        .chips-sel { display: flex; gap: 7px; flex-wrap: wrap; }
+        .chip-sel { display: inline-flex; align-items: center; gap: 7px; background: var(--brand-soft); color: var(--brand-d);
+                    border: 1px solid #e0d3dd; border-radius: 999px; padding: 5px 7px 5px 12px; font-size: 12.5px; font-weight: 600; }
+        .chip-sel button { border: none; background: #fff; color: var(--brand-d); border-radius: 50%; width: 19px; height: 19px;
+                           cursor: pointer; font-size: 12px; line-height: 1; display: grid; place-items: center; }
+        .chip-sel button:hover { background: var(--err); color: #fff; }
+        .chip-sel .n { font-weight: 400; color: var(--muted); }
+        .pista { font-size: 12.5px; color: var(--muted); }
         .campo label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
         .campo select, .campo input { width: 100%; font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid var(--line);
                                       border-radius: 8px; background: #fff; color: var(--ink); }
@@ -138,21 +145,26 @@
     <header class="top">
         <h1>
             <i class="ph ph-chart-donut"></i>
-            <span>Reportes varios
-                <small>Analítica interactiva de encuestas, NPS y asistencia</small>
+            <span>Reportes
+                <small>Alineamiento docente y desempeño docente</small>
             </span>
         </h1>
-        <a class="btn btn-claro" href="gestor.html"><i class="ph ph-arrow-left"></i> Volver al gestor</a>
-        <a class="btn btn-claro" href="https://eduardoaeges.github.io/repositorio_cot/index.html"><i class="ph ph-house"></i> Inicio</a>
+        <a class="btn btn-claro" href="https://eduardoaeges.github.io/repositorio_cot/index.html"><i class="ph ph-house"></i> Volver al inicio</a>
     </header>
 
     <main>
-        <!-- ===================== FILTROS ===================== -->
+        <div class="pestanas" id="pestanas-top">
+            <button class="on" data-vista="alineamiento"><i class="ph ph-chart-bar"></i> Reporte alineamiento</button>
+            <button data-vista="evaldo"><i class="ph ph-chalkboard-teacher"></i> Desempeño docente</button>
+        </div>
+
+        <section id="vista-alineamiento">
+        <!-- ============ SELECCIÓN ACTIVA (se arma al hacer clic) ============ -->
         <div class="tarjeta" id="tarjeta-filtros">
-            <div class="rotulo">Filtros</div>
-            <div class="filtros" id="filtros"></div>
+            <div class="rotulo">Selección</div>
+            <div class="chips-sel" id="chips-filtros"></div>
             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-ghost" id="btn-limpiar"><i class="ph ph-eraser"></i> Limpiar filtros</button>
+                <button class="btn btn-ghost" id="btn-limpiar"><i class="ph ph-eraser"></i> Quitar selección</button>
                 <button class="btn btn-ghost" id="btn-recargar"><i class="ph ph-arrow-clockwise"></i> Recargar datos</button>
             </div>
             <p id="desc-fuente" style="font-size:12px;color:var(--muted);margin-top:10px;"></p>
@@ -167,10 +179,9 @@
             </div>
         </div>
 
-        <div class="pestanas">
-            <button class="on" data-vista="dashboard"><i class="ph ph-chart-bar"></i> Dashboard</button>
-            <button data-vista="datos"><i class="ph ph-table"></i> Datos (editables)</button>
-            <button data-vista="evaldo"><i class="ph ph-chalkboard-teacher"></i> Desempeño docente</button>
+        <div class="pestanas" id="pestanas-sub">
+            <button class="on" data-sub="dashboard"><i class="ph ph-chart-donut"></i> Dashboard</button>
+            <button data-sub="datos"><i class="ph ph-table"></i> Datos (editables)</button>
         </div>
 
         <!-- ===================== DASHBOARD ===================== -->
@@ -199,8 +210,8 @@
                     </div>
                 </div>
                 <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
-                    Haz clic en cualquier celda para editarla. Los cambios se reflejan al instante en el dashboard y se guardan
-                    en este navegador; con «Guardar cambios» se envían también a Supabase cuando la fuente lo permite.
+                    Haz clic en cualquier celda para editarla. Los cambios se ven al instante en el dashboard y con
+                    «Guardar cambios» se guardan en Supabase para todos; si Supabase no responde, quedan en este navegador.
                 </p>
                 <div class="tabla-scroll">
                     <table class="datos">
@@ -210,6 +221,8 @@
                 </div>
             </div>
         </section>
+        </section>
+
         <!-- ============ REPORTE DE DESEMPEÑO DOCENTE (EVALDO) ============ -->
         <section id="vista-evaldo" class="oculto">
             <div class="barra" style="margin-top:0;">
@@ -250,9 +263,25 @@
         </div>
     </div>
 
+    <!-- ===================== MODAL DE DETALLE ===================== -->
+    <div class="modal" id="modal-detalle">
+        <div class="caja-modal" style="width:min(1040px,100%);">
+            <h2 id="det-titulo">Detalle</h2>
+            <p class="ayuda" id="det-sub"></p>
+            <div class="tabla-scroll" style="max-height:60vh;">
+                <table class="datos"><thead id="det-thead"></thead><tbody id="det-tbody"></tbody></table>
+            </div>
+            <div class="pie-modal">
+                <button class="btn btn-ghost" data-cerrar>Cerrar</button>
+                <button class="btn btn-teal" id="btn-det-excel"><i class="ph ph-microsoft-excel-logo"></i> Exportar este detalle</button>
+                <button class="btn btn-solid" id="btn-det-filtrar"><i class="ph ph-funnel"></i> Ver solo estas respuestas</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
-    <script src="reportes.js"></script>
+    <script src="reportes.js?v=20261018a"></script>
 </body>
 
 </html>

@@ -13,7 +13,11 @@
   const LS_KEY = 'desempeno-docente-ediciones';
   const EDITABLE = ['linea', 'contrato', 'sede', 'horas_contrato', 'carga_asignada'];
   // Supabase: si hay URL y clave, las ediciones se leen y guardan en la tabla. La clave anon es pública: la protección real es la política RLS (ver supabase/schema.sql).
-  const SUPABASE = { url: '', key: '', table: 'docentes_ediciones' };
+  const SUPABASE = {
+    url: 'https://klmjmlhwuzhymrplemgw.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E',
+    table: 'docentes_ediciones'
+  };
   const SB_ON = !!(SUPABASE.url && SUPABASE.key);
   const sb = (path, opts = {}) => fetch(`${SUPABASE.url}/rest/v1/${path}`, {
     ...opts,

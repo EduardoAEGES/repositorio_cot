@@ -7,6 +7,49 @@
    ========================================================================== */
 
 const $ = id => document.getElementById(id);
+
+/* Supabase: los datos de la encuesta viven en la tabla reportes_datos, una fila
+   por reporte con todo el conjunto en JSON (ver db_create_reportes_datos.sql).
+   Si no responde, se trabaja con el archivo y el navegador. */
+const SB = {
+    url: 'https://klmjmlhwuzhymrplemgw.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E',
+    tabla: 'reportes_datos',
+    clave: 'alineamiento_m2'
+};
+async function sbPedir(ruta, opciones = {}) {
+    const r = await fetch(`${SB.url}/rest/v1/${ruta}`, {
+        ...opciones,
+        headers: {
+            apikey: SB.key, Authorization: 'Bearer ' + SB.key,
+            'Content-Type': 'application/json', ...(opciones.headers || {})
+        }
+    });
+    if (!r.ok) {
+        const detalle = await r.text().catch(() => '');
+        if (r.status === 404 || /does not exist|42P01/.test(detalle)) {
+            throw new Error('falta crear la tabla ' + SB.tabla + ' en Supabase (ejecuta db_create_reportes_datos.sql)');
+        }
+        throw new Error('Supabase respondió ' + r.status + (detalle ? ': ' + detalle.slice(0, 120) : ''));
+    }
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+}
+async function leerDeSupabase() {
+    const filas = await sbPedir(`${SB.tabla}?clave=eq.${SB.clave}&select=datos`);
+    return Array.isArray(filas) && filas[0] ? filas[0].datos : null;  // null = tabla vacía
+}
+async function guardarEnSupabase() {
+    await sbPedir(SB.tabla, {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+            clave: SB.clave,
+            datos: { columnas: DATASET.columnas, filas: DATASET.filas },
+            actualizado_en: new Date().toISOString()
+        })
+    });
+}
 const COLORES = {
     brand: '#714b67', brandClaro: '#a07a95', teal: '#017e84', tealClaro: '#4fb3b8',
     ok: '#2e8b57', warn: '#d9822b', err: '#c8463d', gris: '#a0a6b2', tinta: '#272b35'
@@ -25,11 +68,13 @@ const COLOR_LIKERT = {
 let DATASET = null;          // { nombre, descripcion, columnas, filas, modo, tabla }
 let ORIGINALES = [];         // copia intacta de las filas recién cargadas
 let FILTROS = {};
-let VISTA = 'dashboard';
+let VISTA = 'alineamiento';
+let SUBVISTA = 'dashboard';
 let GRAFICOS = {};
 let PANELES = [];            // definiciones de panel para el dashboard actual
 let CONFIG = { titulo: '', subtitulo: '', conclusiones: '', paneles: {} };
 let PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
+let EN_SUPABASE = false;
 
 /* ----------------------------- utilidades ------------------------------- */
 function toast(msg, tipo = '') {
@@ -65,22 +110,33 @@ async function cargarDatos() {
     try {
         const r = await fetch('datos/alineamiento_docente_2026_20_m2.json');
         if (!r.ok) throw new Error('no se encontró datos/alineamiento_docente_2026_20_m2.json');
-        DATASET = { ...(await r.json()), modo: 'local', clave: 'alineamiento_m2' };
+        DATASET = { ...(await r.json()), clave: 'alineamiento_m2' };
+        // Lo guardado en Supabase manda sobre el archivo: es lo que ven todos.
+        try {
+            const remoto = await leerDeSupabase();
+            EN_SUPABASE = true;   // la tabla respondió, aunque todavía esté vacía
+            if (remoto && Array.isArray(remoto.filas) && remoto.filas.length) {
+                DATASET.columnas = remoto.columnas || DATASET.columnas;
+                DATASET.filas = remoto.filas;
+            }
+        } catch (e) {
+            EN_SUPABASE = false;
+            console.warn('Sin conexión con Supabase, se usan los datos del archivo:', e.message);
+        }
     } catch (e) {
         console.error(e);
         $('paneles').innerHTML = `<div class="vacio">No se pudieron cargar los datos: ${escapar(e.message || e)}</div>`;
         toast('Error al cargar los datos', 'error');
         return;
     }
-    aplicarGuardadoLocal();
+    if (!EN_SUPABASE) aplicarGuardadoLocal();
     ORIGINALES = JSON.parse(JSON.stringify(DATASET.filas));
     PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
     FILTROS = {};
     CONFIG.titulo = DATASET.nombre;
     CONFIG.subtitulo = DATASET.descripcion || '';
     CONFIG.conclusiones = '';
-    $('desc-fuente').textContent = `${DATASET.descripcion || ''} ${DATASET.origen ? '· ' + DATASET.origen : ''}`.trim();
-    construirFiltros();
+    $('desc-fuente').textContent = `${DATASET.descripcion || ''} ${DATASET.origen ? '· ' + DATASET.origen : ''} · ${EN_SUPABASE ? 'datos sincronizados con Supabase' : 'datos del archivo (Supabase no disponible)'}`.trim();
     definirPaneles();
     refrescar();
 }
@@ -101,51 +157,45 @@ function aplicarGuardadoLocal() {
 }
 
 /* =============================== FILTROS ================================= */
-function columnasFiltrables() {
-    return DATASET.columnas.filter(c => ['categoria', 'opcion', 'likert'].includes(c.tipo));
+/* La selección se arma haciendo clic en los gráficos; aquí solo se dibujan
+   los chips de lo que está seleccionado para poder quitarlo. */
+function etiquetaFiltro(k, v) {
+    if (k === '_nps') return `Puntuación ${v}`;
+    if (k === '_dia') return `Día ${fechaLegible(v)}`;
+    if (k === '_texto') return `Texto «${v}»`;
+    return `${recortar(etiquetaAspecto(k), 30)}: ${v}`;
 }
-function construirFiltros() {
-    const cont = $('filtros');
-    const cols = columnasFiltrables().slice(0, 6);
-    let html = cols.map(c => {
-        const vals = unico(DATASET.filas.map(f => String(f[c.key] ?? '').trim()).filter(Boolean)).sort();
-        return `<div class="campo">
-            <label title="${escapar(c.label)}">${escapar(recortar(etiquetaAspecto(c.key), 42))}</label>
-            <select data-filtro="${c.key}">
-                <option value="">Todos (${vals.length})</option>
-                ${vals.map(v => `<option value="${escapar(v)}">${escapar(v)}</option>`).join('')}
-            </select></div>`;
-    }).join('');
-    const colFecha = DATASET.columnas.find(c => c.tipo === 'fecha');
-    if (colFecha) {
-        html += `<div class="campo"><label>Desde</label><input type="date" data-filtro-fecha="desde"></div>
-                 <div class="campo"><label>Hasta</label><input type="date" data-filtro-fecha="hasta"></div>`;
+function pintarChips() {
+    const activos = Object.entries(FILTROS).filter(([k, v]) => v !== '' && v !== undefined && v !== null);
+    const cont = $('chips-filtros');
+    if (!activos.length) {
+        cont.innerHTML = '<span class="pista">Sin selección: haz clic en cualquier barra, porción o palabra del dashboard para ver el detalle de esas respuestas.</span>';
+    } else {
+        cont.innerHTML = activos.map(([k, v]) => `
+            <span class="chip-sel">${escapar(etiquetaFiltro(k, v))}
+                <button data-quitar="${escapar(k)}" title="Quitar">✕</button>
+            </span>`).join('');
+        cont.querySelectorAll('[data-quitar]').forEach(b => b.addEventListener('click', () => {
+            delete FILTROS[b.dataset.quitar];
+            refrescar();
+        }));
     }
-    html += `<div class="campo"><label>Buscar texto</label><input type="search" id="buscar" placeholder="Nombre, DNI, comentario…"></div>`;
-    cont.innerHTML = html;
-    cont.querySelectorAll('[data-filtro]').forEach(s => s.addEventListener('change', () => {
-        FILTROS[s.dataset.filtro] = s.value; refrescar();
-    }));
-    cont.querySelectorAll('[data-filtro-fecha]').forEach(s => s.addEventListener('change', () => {
-        FILTROS['_' + s.dataset.filtroFecha] = s.value; refrescar();
-    }));
-    $('buscar').addEventListener('input', () => { FILTROS._texto = $('buscar').value; refrescar(); });
+    $('btn-limpiar').disabled = !activos.length;
 }
 
 function filasFiltradas() {
     const colFecha = DATASET.columnas.find(c => c.tipo === 'fecha');
+    const colNPS = colsPorTipo('nps')[0];
     const texto = normalizar(FILTROS._texto || '');
     return DATASET.filas.filter(f => {
         for (const [k, v] of Object.entries(FILTROS)) {
-            if (k.startsWith('_') || !v) continue;
+            if (k.startsWith('_') || v === '' || v === undefined || v === null) continue;
             if (normalizar(f[k]) !== normalizar(v)) return false;
         }
-        if (colFecha && (FILTROS._desde || FILTROS._hasta)) {
-            const d = diaISO(f[colFecha.key]);
-            if (!d) return false;
-            if (FILTROS._desde && d < FILTROS._desde) return false;
-            if (FILTROS._hasta && d > FILTROS._hasta) return false;
+        if (FILTROS._nps !== undefined && FILTROS._nps !== '' && colNPS) {
+            if (num(f[colNPS.key]) !== Number(FILTROS._nps)) return false;
         }
+        if (FILTROS._dia && colFecha && diaISO(f[colFecha.key]) !== FILTROS._dia) return false;
         if (texto) {
             const todo = normalizar(DATASET.columnas.map(c => f[c.key]).join(' '));
             if (!todo.includes(texto)) return false;
@@ -249,12 +299,28 @@ function marcoPanel(p) {
 function lienzo(id, alta) {
     return `<div class="caja${alta ? ' alta' : ''}"><canvas id="cv-${id}"></canvas></div>`;
 }
+/* Un clic en cualquier elemento del gráfico abre el detalle de esas respuestas.
+   `alClic(indice)` devuelve { titulo, filtro } del elemento pulsado. */
+function conDetalle(config, alClic) {
+    const previo = config.options && config.options.onClick;
+    config.options = config.options || {};
+    config.options.onClick = (evt, els, chart) => {
+        if (previo) previo(evt, els, chart);
+        if (!els || !els.length) return;
+        const el = els[0];
+        const d = alClic(el.index, el.datasetIndex, chart);
+        if (d) abrirDetalle(d.titulo, d.filtro, d.columnas);
+    };
+    return config;
+}
+
 function dibujar(id, config) {
     const cv = $('cv-' + id);
     if (!cv) return;
     if (GRAFICOS[id]) GRAFICOS[id].destroy();
     config.options = Object.assign({
         responsive: true, maintainAspectRatio: false, animation: { duration: 420 },
+        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
         plugins: { legend: { labels: { font: { family: 'Outfit', size: 11 }, boxWidth: 12 } } }
     }, config.options || {});
     GRAFICOS[id] = new Chart(cv.getContext('2d'), config);
@@ -275,17 +341,26 @@ function panelMedidorNPS(p, filas) {
             <span style="color:${COLORES.gris};font-weight:700;">Pasivos ${r.pctPas.toFixed(1)}%</span>
             <span style="color:${COLORES.err};font-weight:700;">Detractores ${r.pctDet.toFixed(1)}%</span>
         </div>`;
-    dibujar(p.id, {
+    const key = p.meta.key;
+    const grupos = [
+        { nombre: 'Promotores', rango: v => v >= 9 },
+        { nombre: 'Pasivos', rango: v => v >= 7 && v < 9 },
+        { nombre: 'Detractores', rango: v => v < 7 }
+    ];
+    dibujar(p.id, conDetalle({
         type: 'doughnut',
         data: {
-            labels: ['Promotores', 'Pasivos', 'Detractores'],
+            labels: grupos.map(g => g.nombre),
             datasets: [{ data: [r.promotores, r.pasivos, r.detractores], backgroundColor: [COLORES.ok, COLORES.gris, COLORES.err], borderWidth: 0 }]
         },
         options: {
             circumference: 180, rotation: 270, cutout: '72%',
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed} (${(ctx.parsed / r.n * 100).toFixed(1)}%)` } } }
         }
-    });
+    }, i => ({
+        titulo: grupos[i].nombre,
+        filtro: f => { const v = num(f[key]); return v !== null && grupos[i].rango(v); }
+    })));
 }
 
 function panelDistribucionNPS(p, filas) {
@@ -294,7 +369,7 @@ function panelDistribucionNPS(p, filas) {
     if (!r) { c.innerHTML = '<div class="vacio">Sin puntuaciones NPS.</div>'; return; }
     c.innerHTML = lienzo(p.id);
     const datos = Array.from({ length: 11 }, (_, i) => r.vals.filter(v => Math.round(v) === i).length);
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: {
             labels: datos.map((_, i) => i),
@@ -305,7 +380,7 @@ function panelDistribucionNPS(p, filas) {
             }]
         },
         options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
+    }, i => ({ titulo: `Puntuación ${i}`, filtro: { _nps: i } })));
 }
 
 function panelLikert(p, filas) {
@@ -324,7 +399,7 @@ function panelLikert(p, filas) {
         }),
         backgroundColor: COLOR_LIKERT[normalizar(n)] || COLORES.brand, borderRadius: 3
     }));
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: { labels: etiquetas, datasets },
         options: {
@@ -332,7 +407,10 @@ function panelLikert(p, filas) {
             scales: { x: { stacked: true, max: 100, ticks: { callback: v => v + '%' } }, y: { stacked: true, ticks: { font: { size: 11 } } } },
             plugins: { tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x.toFixed(1)}%` } } }
         }
-    });
+    }, (i, di) => ({
+        titulo: `${etiquetaAspecto(keys[i])}: ${niveles[di]}`,
+        filtro: { [keys[i]]: niveles[di] }
+    })));
 }
 
 function panelPromedioLikert(p, filas) {
@@ -341,14 +419,18 @@ function panelPromedioLikert(p, filas) {
     const etiquetas = keys.map(k => recortar(etiquetaAspecto(k), 18));
     const datos = keys.map(k => promedioLikert(filas, k) || 0);
     c.innerHTML = lienzo(p.id);
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: { labels: etiquetas, datasets: [{ label: 'Promedio', data: datos, backgroundColor: COLORES.brand, borderRadius: 5 }] },
         options: {
             indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x.toFixed(2) + ' / 5' } } },
             scales: { x: { min: 0, max: 5 }, y: { ticks: { font: { size: 10 }, autoSkip: false } } }
         }
-    });
+    }, i => ({
+        titulo: etiquetaAspecto(keys[i]),
+        filtro: f => String(f[keys[i]] ?? '').trim() !== '',
+        columnas: [keys[i]]
+    })));
 }
 
 function panelCategoria(p, filas) {
@@ -366,10 +448,13 @@ function panelCategoria(p, filas) {
         ds.push({ label: 'NPS', data: npsPorCat, type: 'line', borderColor: COLORES.teal, backgroundColor: COLORES.teal, xAxisID: 'x2', pointRadius: 4, order: 1 });
         escalas.x2 = { position: 'top', min: -100, max: 100, grid: { display: false }, ticks: { color: COLORES.teal } };
     }
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar', data: { labels: datos.map(d => recortar(d[0], 22)), datasets: ds },
         options: { indexAxis: 'y', scales: Object.assign(escalas, { y: { ticks: { font: { size: 10.5 }, autoSkip: false } } }) }
-    });
+    }, i => ({
+        titulo: `${etiquetaAspecto(p.meta.key)}: ${datos[i][0]}`,
+        filtro: { [p.meta.key]: datos[i][0] }
+    })));
 }
 
 function panelTendencia(p, filas) {
@@ -392,7 +477,9 @@ function panelTendencia(p, filas) {
         });
         escalas.y2 = { position: 'right', min: -100, max: 100, grid: { display: false }, ticks: { color: COLORES.teal } };
     }
-    dibujar(p.id, { type: 'bar', data: { labels: dias.map(fechaLegible), datasets: ds }, options: { scales: escalas } });
+    dibujar(p.id, conDetalle(
+        { type: 'bar', data: { labels: dias.map(fechaLegible), datasets: ds }, options: { scales: escalas } },
+        i => ({ titulo: `Respuestas del ${fechaLegible(dias[i])}`, filtro: { _dia: dias[i] } })));
 }
 
 function panelNumero(p, filas) {
@@ -402,7 +489,8 @@ function panelNumero(p, filas) {
     const niveles = unico(vals).sort((a, b) => a - b);
     const prom = vals.reduce((a, b) => a + b, 0) / vals.length;
     c.innerHTML = `<div style="font-size:12px;color:var(--ink-2);margin-bottom:6px;">Promedio <strong>${prom.toFixed(2)}</strong> · ${vals.length} respuestas</div>` + lienzo(p.id);
-    dibujar(p.id, {
+    const keyNum = p.meta.key;
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: {
             labels: niveles, datasets: [{
@@ -411,7 +499,10 @@ function panelNumero(p, filas) {
             }]
         },
         options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
+    }, i => ({
+        titulo: `${etiquetaAspecto(keyNum)}: ${niveles[i]}`,
+        filtro: f => num(f[keyNum]) === niveles[i]
+    })));
 }
 
 function panelConocimiento(p, filas) {
@@ -428,7 +519,7 @@ function panelConocimiento(p, filas) {
         if (!resp.length) return 0;
         return resp.filter(f => normalizar(f[k]) === normalizar(col.correcta)).length / resp.length * 100;
     });
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: {
             labels: etiquetas,
@@ -438,7 +529,14 @@ function panelConocimiento(p, filas) {
             indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.parsed.x.toFixed(1) + '% de acierto' } } },
             scales: { x: { min: 0, max: 100, ticks: { callback: v => v + '%' } }, y: { ticks: { font: { size: 10.5 } } } }
         }
-    });
+    }, i => {
+        const col = DATASET.columnas.find(x => x.key === keys[i]);
+        return {
+            titulo: `Respondieron distinto a «${col.correcta}»`,
+            filtro: f => { const v = String(f[keys[i]] ?? '').trim(); return v && normalizar(v) !== normalizar(col.correcta); },
+            columnas: [keys[i]]
+        };
+    }));
 }
 
 function panelPalabras(p, filas) {
@@ -446,11 +544,15 @@ function panelPalabras(p, filas) {
     const datos = palabrasFrecuentes(filas, p.meta.keys);
     if (!datos.length) { c.innerHTML = '<div class="vacio">Aún no hay suficientes comentarios.</div>'; return; }
     c.innerHTML = lienzo(p.id, datos.length > 9);
-    dibujar(p.id, {
+    dibujar(p.id, conDetalle({
         type: 'bar',
         data: { labels: datos.map(d => d[0]), datasets: [{ label: 'Menciones', data: datos.map(d => d[1]), backgroundColor: COLORES.teal, borderRadius: 5 }] },
         options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
-    });
+    }, i => ({
+        titulo: `Comentarios que mencionan «${datos[i][0]}»`,
+        filtro: f => p.meta.keys.some(k => normalizar(f[k]).includes(datos[i][0])),
+        columnas: p.meta.keys
+    })));
 }
 
 function panelComentarios(p, filas) {
@@ -538,18 +640,72 @@ function refrescar() {
     $('info-datos').innerHTML = `<strong>${filas.length}</strong> registro(s) tras los filtros · fuente: ${escapar(DATASET.origen || DATASET.nombre)}`;
     $('rep-titulo-vista').textContent = CONFIG.titulo;
     $('rep-subtitulo-vista').textContent = `${CONFIG.subtitulo || ''} · ${filas.length} respuestas · generado el ${new Date().toLocaleDateString('es-PE')}`;
+    pintarChips();
     construirKPIs(filas);
     const visibles = PANELES.filter(p => CONFIG.paneles[p.id] !== false);
     $('paneles').innerHTML = visibles.map(marcoPanel).join('');
     $('dash-vacio').classList.toggle('oculto', filas.length > 0);
     visibles.forEach(p => { try { p.render(p, filas); } catch (e) { console.error('panel ' + p.id, e); } });
-    if (VISTA === 'datos') pintarTabla();
+    if (SUBVISTA === 'datos') pintarTabla();
+}
+
+/* ============================== DETALLE ================================== */
+/* Lo que se está viendo en el modal, para poder exportarlo o fijarlo como selección. */
+let DETALLE = { titulo: '', filas: [], filtro: null, columnas: null };
+
+function columnasDetalle(extra) {
+    // Se priorizan fecha, nombre, categorías y puntuaciones; se omiten teléfonos.
+    const util = c => !/celular|tel[eé]fono/i.test(c.label);
+    const porTipo = t => DATASET.columnas.filter(c => c.tipo === t && util(c));
+    const base = [
+        ...porTipo('fecha').slice(0, 1),
+        ...porTipo('texto').filter(c => /apellido|nombre|participante|dni/i.test(c.label)).slice(0, 3),
+        ...porTipo('categoria').slice(0, 2),
+        ...porTipo('nps'), ...porTipo('numero')
+    ];
+    const extras = (extra || []).map(k => DATASET.columnas.find(c => c.key === k)).filter(Boolean);
+    const coment = DATASET.columnas.filter(c => c.tipo === 'comentario');
+    return unico([...base, ...extras, ...coment]);
+}
+
+function abrirDetalle(titulo, filtro, columnas) {
+    const base = filasFiltradas();
+    const prueba = typeof filtro === 'function'
+        ? filtro
+        : f => Object.entries(filtro).every(([k, v]) => k === '_nps'
+            ? num(f[colsPorTipo('nps')[0].key]) === Number(v)
+            : k === '_dia'
+                ? diaISO(f[colsPorTipo('fecha')[0].key]) === v
+                : normalizar(f[k]) === normalizar(v));
+    const filas = base.filter(prueba);
+    DETALLE = { titulo, filas, filtro, columnas };
+    const cols = columnasDetalle(DETALLE.columnas);
+    $('det-titulo').textContent = titulo;
+    $('det-sub').textContent = `${filas.length} respuesta(s) de ${base.length} en pantalla`;
+    $('det-thead').innerHTML = `<tr>${cols.map(c => `<th>${escapar(recortar(etiquetaAspecto(c.key), 34))}</th>`).join('')}</tr>`;
+    $('det-tbody').innerHTML = filas.length
+        ? filas.map(f => `<tr>${cols.map(c => `<td>${escapar(c.tipo === 'fecha' ? fechaLegible(f[c.key]) : (f[c.key] ?? ''))}</td>`).join('')}</tr>`).join('')
+        : `<tr><td colspan="${cols.length}" class="vacio">Sin respuestas para este elemento.</td></tr>`;
+    $('btn-det-filtrar').classList.toggle('oculto', typeof filtro === 'function');
+    $('modal-detalle').classList.add('abierto');
+}
+
+function exportarDetalle() {
+    if (!DETALLE.filas.length) { toast('No hay respuestas que exportar', 'error'); return; }
+    const cols = columnasDetalle(DETALLE.columnas);
+    const aoa = [[DETALLE.titulo], [], cols.map(c => c.label),
+        ...DETALLE.filas.map(f => cols.map(c => c.tipo === 'fecha' ? fechaLegible(f[c.key]) : f[c.key]))];
+    const wb = XLSX.utils.book_new();
+    const h = XLSX.utils.aoa_to_sheet(aoa);
+    h['!cols'] = cols.map(c => ({ wch: c.tipo === 'comentario' ? 60 : 22 }));
+    XLSX.utils.book_append_sheet(wb, h, 'Detalle');
+    XLSX.writeFile(wb, `detalle_${slug(DETALLE.titulo)}.xlsx`);
 }
 
 /* ============================ TABLA EDITABLE ============================= */
 function pintarTabla() {
     const filas = filasFiltradas();
-    $('info-tabla').innerHTML = `<strong>${filas.length}</strong> fila(s) · los cambios se guardan en este navegador`;
+    $('info-tabla').innerHTML = `<strong>${filas.length}</strong> fila(s) · ${EN_SUPABASE ? 'guardando en Supabase' : 'sin conexión con Supabase: se guarda en este navegador'}`;
     $('thead-datos').innerHTML = `<tr>
         <th style="width:28px;"><input type="checkbox" id="chk-todas"></th>
         ${DATASET.columnas.map(c => `<th>${escapar(c.label)}<span class="chip-tipo">${c.tipo}</span></th>`).join('')}
@@ -613,15 +769,28 @@ function nuevaFila() {
     DATASET.filas.unshift(f);
     PENDIENTES.nuevas.add(f._id);
     guardarLocal();
-    cambiarVista('datos');
+    cambiarSub('datos');
     refrescar();
     toast('Fila agregada: completa los datos y guarda');
 }
 
 async function guardarCambios() {
-    guardarLocal();
-    PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
-    toast('Cambios guardados en este navegador', 'ok');
+    const btn = $('btn-guardar');
+    btn.disabled = true;
+    try {
+        await guardarEnSupabase();
+        EN_SUPABASE = true;
+        guardarLocal();
+        PENDIENTES = { editadas: new Set(), eliminadas: [], nuevas: new Set() };
+        toast('Cambios guardados en Supabase: los ve todo el equipo', 'ok');
+    } catch (e) {
+        console.error(e);
+        guardarLocal();
+        toast('No se pudo guardar en Supabase (' + (e.message || e) + '). Los cambios quedan en este navegador.', 'error');
+    } finally {
+        btn.disabled = false;
+        refrescar();
+    }
 }
 
 function restaurarOriginales() {
@@ -738,9 +907,9 @@ async function exportarPDF() {
     if (!filas.length) { toast('No hay datos para exportar', 'error'); return; }
     const btn = $('btn-pdf');
     btn.disabled = true; btn.innerHTML = '<i class="ph ph-spinner"></i> Generando…';
-    const vistaPrevia = VISTA;
-    if (vistaPrevia !== 'dashboard') {           // los paneles deben estar visibles para capturarlos
-        cambiarVista('dashboard');
+    const subPrevia = SUBVISTA;
+    if (subPrevia !== 'dashboard') {             // los paneles deben estar visibles para capturarlos
+        cambiarSub('dashboard');
         await new Promise(r => setTimeout(r, 600));
     }
     try {
@@ -841,7 +1010,7 @@ async function exportarPDF() {
         toast('No se pudo generar el PDF: ' + (e.message || e), 'error');
     } finally {
         btn.disabled = false; btn.innerHTML = '<i class="ph ph-file-pdf"></i> Exportar PDF';
-        if (vistaPrevia !== 'dashboard') cambiarVista(vistaPrevia);
+        if (subPrevia !== 'dashboard') cambiarSub(subPrevia);
     }
 }
 
@@ -859,26 +1028,33 @@ function abrirPersonalizar() {
 /* ================================ VISTAS ================================= */
 function cambiarVista(v) {
     VISTA = v;
-    document.querySelectorAll('.pestanas button').forEach(b => b.classList.toggle('on', b.dataset.vista === v));
-    $('vista-dashboard').classList.toggle('oculto', v !== 'dashboard');
-    $('vista-datos').classList.toggle('oculto', v !== 'datos');
+    document.querySelectorAll('#pestanas-top button').forEach(b => b.classList.toggle('on', b.dataset.vista === v));
+    $('vista-alineamiento').classList.toggle('oculto', v !== 'alineamiento');
     $('vista-evaldo').classList.toggle('oculto', v !== 'evaldo');
-    // Los filtros y las exportaciones son de la encuesta, no del reporte incrustado.
-    $('tarjeta-filtros').classList.toggle('oculto', v === 'evaldo');
-    $('barra-acciones').classList.toggle('oculto', v === 'evaldo');
-    if (v === 'datos') pintarTabla();
     // El reporte de desempeño se carga la primera vez que se abre su pestaña.
     if (v === 'evaldo' && !$('marco-evaldo').src) $('marco-evaldo').src = 'evaldo/index.html';
 }
 
+function cambiarSub(v) {
+    SUBVISTA = v;
+    document.querySelectorAll('#pestanas-sub button').forEach(b => b.classList.toggle('on', b.dataset.sub === v));
+    $('vista-dashboard').classList.toggle('oculto', v !== 'dashboard');
+    $('vista-datos').classList.toggle('oculto', v !== 'datos');
+    if (v === 'datos') pintarTabla();
+}
+
 /* ================================ EVENTOS ================================ */
-document.querySelectorAll('.pestanas button').forEach(b => b.addEventListener('click', () => cambiarVista(b.dataset.vista)));
-$('btn-limpiar').addEventListener('click', () => {
-    FILTROS = {};
-    document.querySelectorAll('#filtros select').forEach(s => s.value = '');
-    document.querySelectorAll('#filtros input').forEach(i => i.value = '');
+document.querySelectorAll('#pestanas-top button').forEach(b => b.addEventListener('click', () => cambiarVista(b.dataset.vista)));
+document.querySelectorAll('#pestanas-sub button').forEach(b => b.addEventListener('click', () => cambiarSub(b.dataset.sub)));
+$('btn-limpiar').addEventListener('click', () => { FILTROS = {}; refrescar(); });
+$('btn-det-excel').addEventListener('click', exportarDetalle);
+$('btn-det-filtrar').addEventListener('click', () => {
+    if (DETALLE.filtro && typeof DETALLE.filtro !== 'function') Object.assign(FILTROS, DETALLE.filtro);
+    $('modal-detalle').classList.remove('abierto');
     refrescar();
+    toast('Se muestran solo esas respuestas');
 });
+$('modal-detalle').addEventListener('click', e => { if (e.target.id === 'modal-detalle') e.currentTarget.classList.remove('abierto'); });
 $('btn-recargar').addEventListener('click', cargarDatos);
 $('btn-excel').addEventListener('click', exportarExcel);
 $('btn-pdf').addEventListener('click', exportarPDF);
