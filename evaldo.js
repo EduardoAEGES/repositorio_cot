@@ -1042,8 +1042,11 @@ function cerrarMaster() {
 const AGENTE = location.port === '8765' ? location.origin : 'http://127.0.0.1:8765';
 const auto = {
     combos: [], estados: {}, nlog: 0, importados: new Set(),
-    agente: null, timer: null, abriendo: false, corriendo: false, total: 0
+    agente: null, timer: null, abriendo: false, abriendoDesde: 0, corriendo: false, total: 0
 };
+// Si tras pulsar "Abrir agente" no responde en este tiempo, dejamos de decir
+// "Abriendo..." y explicamos cómo abrirlo a mano.
+const ESPERA_AGENTE_MS = 12000;
 
 async function agente(ruta, opc) {
     const ctl = new AbortController();
@@ -1109,7 +1112,10 @@ function pintarAsistente() {
     const n = auto.corriendo ? auto.total : auto.combos.length;
     // Paso 1: agente
     if (e) paso(1, 'ok', 'Conectado.');
-    else if (auto.abriendo) paso(1, 'activo', 'Abriendo... acepta el aviso de Brave. ¿No pasa nada? Doble clic en <b>EVALDO_Agente.bat</b> (carpeta SEGUIMIENTO ESTUDIANTES).');
+    else if (auto.abriendo && Date.now() - auto.abriendoDesde < ESPERA_AGENTE_MS)
+        paso(1, 'activo', 'Abriendo... acepta el aviso de Brave. ¿No pasa nada? Doble clic en <b>EVALDO_Agente.bat</b> (carpeta SEGUIMIENTO ESTUDIANTES).');
+    else if (auto.abriendo)
+        paso(1, 'activo', 'El agente aún no responde. Abre <b>EVALDO_Agente.bat</b> con doble clic (carpeta SEGUIMIENTO ESTUDIANTES) y <b>deja abierta su ventana negra</b>. Si Brave pide permiso para la «red local», pulsa <b>Permitir</b>. Esto se marca solo al conectar.');
     else paso(1, 'activo', 'Abre el programa de tu PC que maneja Campus Evolution.');
     // Paso 2: sesión
     if (!e) paso(2, 'bloq', 'Después del paso 1.');
@@ -1194,6 +1200,7 @@ async function procesarAvance(e) {
 
 async function pulsarPaso1() {
     auto.abriendo = true;
+    auto.abriendoDesde = Date.now();
     pintarAsistente();
     location.href = 'evaldo://iniciar';   // abre EVALDO_Agente.bat (botón instalado)
 }
