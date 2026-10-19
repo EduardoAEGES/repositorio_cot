@@ -582,7 +582,7 @@
                 const { ctx } = chart;
                 const horiz = chart.options.indexAxis === 'y';
                 ctx.save();
-                ctx.font = '800 17px Outfit';
+                ctx.font = horiz && chart.data.labels.length > 4 ? '800 14px Outfit' : '800 17px Outfit';
                 ctx.fillStyle = '#091540';
                 chart.data.datasets.forEach((ds, i) => {
                     const meta = chart.getDatasetMeta(i);
@@ -600,14 +600,16 @@
         };
 
         /** Parte un texto en líneas de ~max caracteres (para etiquetas de gráficos). */
-        function partirTexto(t, max = 18) {
+        function partirTexto(t, max = 18, maxLineas = 3) {
             const out = []; let linea = '';
             String(t).split(' ').forEach(p => {
                 if ((linea + ' ' + p).trim().length > max && linea) { out.push(linea); linea = p; }
                 else linea = (linea + ' ' + p).trim();
             });
             if (linea) out.push(linea);
-            return out.length > 3 ? [...out.slice(0, 2), out.slice(2).join(' ').slice(0, max - 1) + '…'] : out;
+            if (out.length <= maxLineas) return out;
+            const ultima = out.slice(maxLineas - 1).join(' ');
+            return [...out.slice(0, maxLineas - 1), ultima.length > max ? ultima.slice(0, max - 1).trimEnd() + '…' : ultima];
         }
 
         function dibujarGrafico(canvasId, spec) {
@@ -620,8 +622,10 @@
             chartInstances[canvasId] = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: spec.labels.map(l => spec.horizontal ? l : partirTexto(l)),
-                    datasets: spec.series.map(s => ({ label: s.name, data: s.values, backgroundColor: s.color, borderRadius: 8, maxBarThickness: 70 }))
+                    // Horizontal: el nombre va a la izquierda en hasta 2 líneas; vertical: debajo, más angosto.
+                    labels: spec.labels.map(l => spec.horizontal ? partirTexto(l, 30, 2) : partirTexto(l)),
+                    datasets: spec.series.map(s => ({ label: s.name, data: s.values, backgroundColor: s.color, borderRadius: 6,
+                        maxBarThickness: spec.horizontal ? (spec.series.length > 1 ? 14 : 22) : 70 }))
                 },
                 options: {
                     indexAxis: spec.horizontal ? 'y' : 'x',
@@ -633,8 +637,14 @@
                         valores: { decimales: spec.decimales || 0 }
                     },
                     scales: {
-                        x: { stacked: !!spec.stacked, grid: { display: !!spec.horizontal }, ticks: { font: { family: 'Outfit', size: spec.horizontal ? 14 : 13, weight: '600' }, color: '#334155', maxRotation: 0, autoSkip: false }, ...(spec.horizontal && spec.max ? { max: spec.max, beginAtZero: true } : {}) },
-                        y: { stacked: !!spec.stacked, beginAtZero: true, grid: { display: !spec.horizontal }, ticks: { font: { family: 'Outfit', size: 14 }, color: '#64748b' }, ...(!spec.horizontal && spec.max ? { max: spec.max } : {}) }
+                        x: { stacked: !!spec.stacked, beginAtZero: true, grid: { display: !!spec.horizontal },
+                             ticks: spec.horizontal ? { font: { family: 'Outfit', size: 13 }, color: '#64748b' }
+                                                    : { font: { family: 'Outfit', size: 13, weight: '600' }, color: '#334155', maxRotation: 0, autoSkip: false },
+                             ...(spec.horizontal && spec.max ? { max: spec.max } : {}) },
+                        y: { stacked: !!spec.stacked, beginAtZero: true, grid: { display: !spec.horizontal },
+                             ticks: spec.horizontal ? { font: { family: 'Outfit', size: 13, weight: '600' }, color: '#334155', autoSkip: false }
+                                                    : { font: { family: 'Outfit', size: 14 }, color: '#64748b' },
+                             ...(!spec.horizontal && spec.max ? { max: spec.max } : {}) }
                     }
                 },
                 plugins: [pluginValores]
@@ -733,11 +743,12 @@
             // GRÁFICOS
             let charts;
             if (isMes) {
+                const horizontal = filas.length > 4;   // con muchos eventos los nombres no caben debajo
                 charts = [
-                    { titulo: 'Participantes y encuestas por evento', labels: filas.map(f => f.nombre),
+                    { titulo: 'Participantes y encuestas por evento', labels: filas.map(f => f.nombre), horizontal,
                       series: [{ name: 'Participantes', values: filas.map(f => f.participantes), color: '#1b49e0' },
                                { name: 'Encuestas', values: filas.map(f => f.encuestas), color: '#f5b942' }] },
-                    { titulo: 'Satisfacción promedio por evento (1 a 5)', labels: filas.map(f => f.nombre), max: 5, decimales: 1,
+                    { titulo: 'Satisfacción promedio por evento (1 a 5)', labels: filas.map(f => f.nombre), max: 5, decimales: 1, horizontal,
                       series: [{ name: 'Satisfacción', values: filas.map(f => f.sat == null ? 0 : Number(f.sat.toFixed(1))), color: '#932026' }] }
                 ];
             } else {
