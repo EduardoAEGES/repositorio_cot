@@ -35,6 +35,39 @@
 .sc-enviar.hay b{background:#262418;color:var(--sc-amarillo)}
 .sc-enviar:hover{border-color:var(--sc-amarillo)}
 .sc-reloj{font-size:1.6rem;font-weight:700;color:var(--sc-tenue);font-variant-numeric:tabular-nums}
+.sc-volver{display:inline-flex;align-items:center;gap:8px;font-size:.88rem;font-weight:700;cursor:pointer;white-space:nowrap;
+  background:transparent;color:var(--sc-tiza);border:1.5px solid var(--sc-borde);border-radius:10px;padding:9px 13px}
+.sc-volver:hover{border-color:var(--sc-amarillo);color:var(--sc-amarillo)}
+.sc-exp{position:relative}
+.sc-exp-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:6;min-width:190px;background:#1b2120;
+  border:1.5px solid var(--sc-borde);border-radius:10px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.sc-exp-menu.abierto{display:block}
+.sc-exp-menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:none;
+  color:var(--sc-tiza);font-size:.9rem;font-weight:600;padding:9px 10px;border-radius:8px;cursor:pointer}
+.sc-exp-menu button:hover{background:rgba(255,255,255,.08)}
+.sc-exp-menu .fa-file-excel{color:#4ade80}
+.sc-exp-menu .fa-image{color:#38bdf8}
+/* hoja para la imagen exportada (fuera de pantalla) */
+.sc-img{position:fixed;left:-12000px;top:0;width:1150px;background:#fff;color:#0f172a;padding:28px 30px;font-family:'Inter',sans-serif}
+.sc-img-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;border-bottom:3px solid #0f172a;padding-bottom:12px}
+.sc-img h1{margin:0;font-size:26px;font-weight:800}
+.sc-img-head p{margin:4px 0 0;color:#475569;font-size:14px}
+.sc-img-kpi{display:flex;gap:8px;flex-wrap:wrap}
+.sc-img-kpi span{font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;background:#f1f5f9}
+.sc-img-kpi .p{background:#dcfce7;color:#166534}.sc-img-kpi .t{background:#fef3c7;color:#92400e}.sc-img-kpi .i{background:#fee2e2;color:#991b1b}
+.sc-img h2{margin:20px 0 6px;font-size:17px;font-weight:800}
+.sc-img h2 small{color:#64748b;font-weight:600;font-size:13px}
+.sc-img table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+.sc-img th:nth-child(1){width:105px}.sc-img th:nth-child(2){width:105px}.sc-img th:nth-child(4){width:80px}
+.sc-img th:nth-child(5){width:210px}.sc-img th:nth-child(6){width:95px}.sc-img th:nth-child(7){width:200px}
+.sc-img td:nth-child(2){white-space:nowrap}
+.sc-img th{text-align:left;background:#f1f5f9;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:7px 8px}
+.sc-img td{padding:7px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+.sc-img td small{color:#64748b}
+.sc-img .h{display:inline-block;font-weight:700;border-radius:5px;padding:2px 7px;color:#0f172a;white-space:nowrap}
+.sc-img .e{font-weight:700;border-radius:999px;padding:2px 9px;font-size:11.5px}
+.sc-img .e.PUNTUAL{background:#dcfce7;color:#166534}.sc-img .e.TARDANZA{background:#fef3c7;color:#92400e}.sc-img .e.INASISTENCIA{background:#fee2e2;color:#991b1b}
+.sc-img-pie{margin-top:16px;color:#94a3b8;font-size:11px;text-align:right}
 .sc-cerrar{background:none;border:1.5px solid var(--sc-borde);color:var(--sc-tiza);border-radius:10px;
   width:38px;height:38px;cursor:pointer;font-size:1rem}
 .sc-cerrar:hover{border-color:var(--sc-amarillo);color:var(--sc-amarillo)}
@@ -215,7 +248,11 @@
   .sc-top h2 small{font-size:.75rem}
   .sc-reloj{order:2;font-size:1.15rem}
   .sc-enviar{order:3;flex:1;justify-content:center}
-  .sc-cerrar{order:4;width:40px;height:40px}
+  .sc-cerrar{display:none}
+  .sc-volver{order:0;padding:8px 11px}
+  .sc-volver span{display:none}
+  .sc-top h2{flex:1 1 calc(100% - 70px)}
+  .sc-exp-menu{left:0;right:auto}
   /* dias, sedes y horas en una fila que se desliza */
   .sc-desliza{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}
   .sc-desliza::-webkit-scrollbar{display:none}

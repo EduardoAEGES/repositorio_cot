@@ -210,6 +210,7 @@
     ov.id = 'scOverlay';
     ov.innerHTML =
       '<div class="sc-top"><div class="sc-top-in">' +
+        '<button class="sc-volver" id="scVolver" title="Volver al horario"><i class="fas fa-arrow-left"></i><span>Volver al horario</span></button>' +
         '<h2>Monitoreo de secciones<small id="scSub"></small></h2>' +
         '<span class="sc-reloj" id="scReloj"></span>' +
         '<button class="sc-enviar" id="scEnviar" title="Envía todo lo marcado y comentado"><i class="fas fa-paper-plane"></i> Enviar reporte <b id="scPend">0</b></button>' +
@@ -226,7 +227,11 @@
             Object.keys(TURNO_LABEL).map(t => `<option value="${t}">${TURNO_LABEL[t]}</option>`).join('') + '</select>' +
           '<select id="scLugar" title="Piso o tipo de ambiente"></select>' +
           '<button class="sc-boton sc-agregar" id="scAgregar"><i class="fas fa-plus"></i> Agregar sección</button>' +
-          '<button class="sc-boton" id="scCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
+          '<div class="sc-exp"><button class="sc-boton" id="scExp"><i class="fas fa-download"></i> Exportar <i class="fas fa-caret-down"></i></button>' +
+            '<div class="sc-exp-menu" id="scExpMenu">' +
+              '<button data-x="xlsx"><i class="fas fa-file-excel"></i> Excel (.xlsx)</button>' +
+              '<button data-x="png"><i class="fas fa-image"></i> Imagen (.png)</button>' +
+            '</div></div>' +
           '<button class="sc-boton" id="scRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
         '</div>' +
         '<div class="sc-horas sc-desliza" id="scHoras"></div>' +
@@ -238,6 +243,7 @@
     document.body.appendChild(ov);
 
     document.getElementById('scCerrar').onclick = cerrar;
+    document.getElementById('scVolver').onclick = cerrar;
     document.getElementById('scEnviar').onclick = abrirEnviar;
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !ov.classList.contains('abierto')) return;
@@ -252,7 +258,13 @@
       s.onchange = () => { filtros[k] = s.value; guardarFiltros(); pintar(); };
     });
     document.getElementById('scLugar').onchange = e => { filtros.lugar = e.target.value; guardarFiltros(); pintar(); };
-    document.getElementById('scCsv').onclick = exportar;
+    const menu = document.getElementById('scExpMenu');
+    document.getElementById('scExp').onclick = ev => { ev.stopPropagation(); menu.classList.toggle('abierto'); };
+    ov.addEventListener('click', () => menu.classList.remove('abierto'));
+    menu.querySelectorAll('button').forEach(b => b.onclick = ev => {
+      ev.stopPropagation(); menu.classList.remove('abierto');
+      (b.dataset.x === 'xlsx' ? exportarExcel : exportarImagen)();
+    });
     document.getElementById('scAgregar').onclick = abrirAgregar;
     document.getElementById('scRecargar').onclick = () => cargar(true);
     document.getElementById('scModal').addEventListener('click', e => { if (e.target.id === 'scModal') cerrarModal(); });
@@ -714,24 +726,90 @@
     document.getElementById('scModal').classList.remove('abierto');
   }
 
-  function exportar() {
-    const fecha = fechaSel();
-    const sel = delDia().filter(c => pasa(c));
-    const cab = ['Fecha', 'Día', 'Sede', 'Aula', 'Modalidad', 'Horario', 'Curso', 'Sección', 'NRC', 'Docente', 'DNI',
-      'Ingreso', 'Enviado', 'Enviado por', 'Tipo de comentario', 'Comentario', 'Último sustento'];
-    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const cuerpo = sel.map(c => {
+  /* ---------- exportar (lo que se ve con los filtros actuales) ---------- */
+  function filasExport() {
+    const sel = delDia().filter(c => pasa(c))
+      .sort((a, b) => a.ini.localeCompare(b.ini) || (a.sede + a.aula).localeCompare(b.sede + b.aula));
+    return sel.map(c => {
       const e = estadoDe(c);
-      return [fecha, DIA_LABEL[filtros.dia], c.sede, c.aula, c.aula === 'Virtual' ? 'VIRTUAL' : (c.modalidad || 'PRESENCIAL'), hm(c.ini) + ' - ' + hm(c.fin), c.curso, c.seccion, c.nrc,
-        c.docente, c.dni, ESTADO_LABEL[e.estado] || '', e.enviado ? 'Sí' : (e.pendiente ? 'Sin enviar' : 'No'), e.r.confirmado_por,
-        e.comentario ? TIPOS[e.tipo || ''] : '', e.comentario, e.r.sustento].map(q).join(',');
+      return {
+        c, e,
+        fila: {
+          'Fecha': fechaSel(), 'Día': DIA_LABEL[filtros.dia], 'Sede': c.sede, 'Ambiente': lugarDe(c), 'Aula': c.aula,
+          'Modalidad': c.aula === 'Virtual' ? 'VIRTUAL' : (c.modalidad || 'PRESENCIAL'),
+          'Inicio': hm(c.ini), 'Fin': hm(c.fin), 'Curso': c.curso, 'Sección': c.seccion, 'NRC': c.nrc,
+          'Docente': c.docente, 'DNI': c.dni || '', 'Ingreso': ESTADO_LABEL[e.estado] || '',
+          'Enviado': e.enviado ? 'Sí' : (e.pendiente ? 'Sin enviar' : 'No'), 'Enviado por': e.r.confirmado_por || '',
+          'Tipo de comentario': e.comentario ? TIPOS[e.tipo || ''] : '', 'Comentario': e.comentario || '',
+          'Último sustento': e.r.sustento || ''
+        }
+      };
     });
-    const blob = new Blob(['﻿' + [cab.map(q).join(',')].concat(cuerpo).join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'monitoreo_secciones_' + fecha + '.csv';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  }
+  const nombreArchivo = ext => 'monitoreo_secciones_' + fechaSel() + (filtros.sede ? '_' + filtros.sede : '') + '.' + ext;
+  function cargarScript(src, global) {
+    if (window[global]) return Promise.resolve();
+    return new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = src; s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function exportarExcel() {
+    try {
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'XLSX');
+      const filas = filasExport().map(x => x.fila);
+      if (!filas.length) { alert('No hay clases para exportar con los filtros actuales.'); return; }
+      const ws = XLSX.utils.json_to_sheet(filas);
+      ws['!cols'] = Object.keys(filas[0]).map(k => ({ wch: Math.min(48, Math.max(k.length, ...filas.map(f => String(f[k]).length)) + 2) }));
+      ws['!autofilter'] = { ref: ws['!ref'] };
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Monitoreo');
+      XLSX.writeFile(wb, nombreArchivo('xlsx'));
+    } catch (e) { alert('No se pudo exportar a Excel: ' + e.message); }
+  }
+
+  // Imagen: una tabla limpia (fondo blanco) agrupada como en pantalla, lista para compartir
+  async function exportarImagen() {
+    const lista = filasExport();
+    if (!lista.length) { alert('No hay clases para exportar con los filtros actuales.'); return; }
+    const btn = document.getElementById('scExp');
+    btn.disabled = true;
+    try {
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'html2canvas');
+      const grupos = new Map();
+      lista.forEach(x => { const g = grupoDe(x.c); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(x); });
+      const cuenta = { PUNTUAL: 0, TARDANZA: 0, INASISTENCIA: 0 };
+      lista.forEach(x => { if (x.e.estado) cuenta[x.e.estado]++; });
+      const filtrosTxt = [filtros.sede && 'Sede ' + filtros.sede, filtros.lugar, filtros.turno && TURNO_LABEL[filtros.turno],
+        filtros.hora && 'Inicio ' + filtros.hora, filtros.q && '«' + filtros.q + '»'].filter(Boolean).join(' · ');
+      const hoja = document.createElement('div');
+      hoja.className = 'sc-img';
+      hoja.innerHTML =
+        `<div class="sc-img-head"><div><h1>Monitoreo de secciones</h1>` +
+        `<p>${esc(DIA_LABEL[filtros.dia])} ${ddmm(fechaDia(filtros.dia))}${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</p></div>` +
+        `<div class="sc-img-kpi"><span class="p">${cuenta.PUNTUAL} puntual</span><span class="t">${cuenta.TARDANZA} tardanza</span>` +
+        `<span class="i">${cuenta.INASISTENCIA} inasistencia</span><span>${lista.length} clases</span></div></div>` +
+        [...grupos.entries()].map(([g, xs]) => `<h2>${esc(g)} <small>${xs.length}</small></h2>` +
+          '<table><thead><tr><th>Horario</th><th>Aula</th><th>Curso</th><th>Sección</th><th>Docente</th><th>Ingreso</th><th>Comentario</th></tr></thead><tbody>' +
+          xs.map(({ c, e }) => `<tr><td><span class="h" style="background:${colorHora(c.ini)}">${esc(hm(c.ini))}–${esc(hm(c.fin))}</span></td>` +
+            `<td><b>${esc(c.aula === 'Virtual' ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</b></td>` +
+            `<td>${esc(c.curso)}</td><td><b>${esc(c.seccion)}</b><br><small>NRC ${esc(c.nrc)}</small></td><td>${esc(c.docente || '')}</td>` +
+            `<td>${e.estado ? `<span class="e ${e.estado}">${ESTADO_LABEL[e.estado]}</span>` : '—'}</td>` +
+            `<td>${e.comentario ? (e.tipo ? `<b>${esc(TIPOS[e.tipo])}:</b> ` : '') + esc(e.comentario) : ''}</td></tr>`).join('') +
+          '</tbody></table>').join('') +
+        `<p class="sc-img-pie">Generado ${esc(new Date().toLocaleString('es-PE'))}</p>`;
+      document.body.appendChild(hoja);
+      try {
+        const canvas = await html2canvas(hoja, { backgroundColor: '#ffffff', scale: 2 });
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = nombreArchivo('png');
+        a.click();
+      } finally { hoja.remove(); }
+    } catch (e) { alert('No se pudo exportar la imagen: ' + e.message); }
+    btn.disabled = false;
   }
 
   async function cargar(forzar) {
