@@ -13,6 +13,9 @@
   const SB_HEAD = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
   const TABLA = SB_URL + '/rest/v1/asistencia_secciones';
   const TABLA_MAN = SB_URL + '/rest/v1/secciones_manuales';
+  const TABLA_AJU = SB_URL + '/rest/v1/secciones_ajustes';
+  // Un color por hora de inicio (07:00, 08:30, ...), el mismo todos los dias
+  const COLORES = ['#38bdf8', '#c084fc', '#fb7185', '#facc15', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c', '#818cf8', '#a3e635'];
   const AUTOR_KEY = 'cot_autor';
   const LS = 'cot_secciones_filtros';
 
@@ -26,9 +29,11 @@
   let DATOS = null;          // { generado, clases: [...] }
   let REG = new Map();       // "nrc|ini" -> fila de asistencia_secciones (fecha elegida)
   let MANUALES = [];         // secciones agregadas a mano (secciones_manuales), todas las semanas
+  let AJUSTES = new Map();   // claveOrig -> correccion de curso/aula/docente/sede (secciones_ajustes)
+  let HORAS = [];            // horas de inicio de todo el periodo, ordenadas (para el color)
   let refresco = null;
   const hoyIdx = () => (new Date().getDay() + 6) % 7;   // 0 = lunes
-  let filtros = Object.assign({ dia: hoyIdx(), q: '', vista: 'piso', turno: '', sede: '' }, leerFiltros());
+  let filtros = Object.assign({ dia: hoyIdx(), q: '', vista: 'piso', turno: '', sede: '', lugar: '', hora: '' }, leerFiltros());
   filtros.dia = hoyIdx();    // siempre abre en el dia de hoy
 
   const esc = s => String(s == null ? '' : s)
@@ -37,6 +42,8 @@
     .normalize('NFD').replace(/[̀-ͯ]/g, '');
   const hm = h => String(h || '').slice(0, 5);
   const clave = c => c.nrc + '|' + c.ini;
+  const claveOrig = c => [c.nrc, c.seccion, c.dia, hm(c.ini)].join('|');
+  const colorHora = ini => COLORES[Math.max(0, HORAS.indexOf(hm(ini))) % COLORES.length];
   const turnoDe = sec => { const m = String(sec || '').trim().toUpperCase().match(/([MTND])$/); return m ? m[1] : ''; };
   const pisoDe = aula => { const m = String(aula || '').match(/^[A-Za-z]*-?(\d)/); return m ? m[1] : ''; };
   const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -79,6 +86,23 @@
     const r = await fetch('secciones.json?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) throw new Error('No se encontró secciones.json (HTTP ' + r.status + '). Ejecuta tools/actualizar_secciones.py');
     DATOS = await r.json();
+    HORAS = [...new Set(DATOS.clases.map(c => hm(c.ini)))].sort();
+  }
+  async function cargarAjustes() {
+    const r = await fetch(TABLA_AJU + '?select=*', { headers: SB_HEAD, cache: 'no-store' });
+    if (!r.ok) throw new Error('Supabase: HTTP ' + r.status);
+    AJUSTES = new Map((await r.json()).map(a => [a.clave, a]));
+  }
+  // Aplica la correccion manual (si hay) y guarda los datos originales
+  function conAjuste(c) {
+    if (c.manual) return c;
+    const a = AJUSTES.get(claveOrig(c));
+    if (!a || !['curso', 'aula', 'sede', 'docente'].some(k => a[k])) return c;
+    const orig = { curso: c.curso, aula: c.aula, sede: c.sede, docente: c.docente };
+    return Object.assign({}, c, {
+      curso: a.curso || c.curso, aula: a.aula || c.aula, sede: a.sede || c.sede, docente: a.docente || c.docente,
+      ajuste: a, orig
+    });
   }
   async function cargarManuales() {
     const r = await fetch(TABLA_MAN + '?select=*&activo=eq.true&order=ini', { headers: SB_HEAD, cache: 'no-store' });
@@ -102,11 +126,22 @@
       if (c.dia !== DIAS[filtros.dia]) return false;
       const a = parseFecha(c.desde), b = parseFecha(c.hasta);
       return (!a || a <= f) && (!b || f <= b);
-    });
+    }).map(conAjuste);
   }
-  function pasa(c) {
+  // Piso N / Laboratorios / Otros ambientes / Aula por confirmar / Virtual
+  function lugarDe(c) {
+    if (c.aula === 'Virtual' || c.sede === 'VIRTUAL' || c.modalidad === 'VIRTUAL') return 'Virtual';
+    if (!c.aula) return 'Aula por confirmar';
+    if (/^L/i.test(c.aula)) return 'Laboratorios';
+    return pisoDe(c.aula) ? 'Piso ' + pisoDe(c.aula) : 'Otros ambientes';
+  }
+  const pesoLugar = l => /Virtual$/.test(l) ? 4 : /Aula por confirmar$/.test(l) ? 3 : /Otros ambientes$/.test(l) ? 2 : /Laboratorios$/.test(l) ? 1 : 0;
+  // sin: filtro que no se aplica (para contar las opciones de ese mismo filtro)
+  function pasa(c, sin) {
     if (filtros.turno && turnoDe(c.seccion) !== filtros.turno) return false;
     if (filtros.sede && c.sede !== filtros.sede) return false;
+    if (sin !== 'lugar' && filtros.lugar && lugarDe(c) !== filtros.lugar) return false;
+    if (sin !== 'hora' && filtros.hora && hm(c.ini) !== filtros.hora) return false;
     const q = norm(filtros.q);
     if (!q) return true;
     const t = norm([c.sede + '-' + c.aula, c.curso, c.docente, c.seccion, c.nrc, c.dni].join(' '));
@@ -119,9 +154,8 @@
       case 'docente': return c.docente || 'Sin docente';
       case 'hora': return hm(c.ini) + '–' + hm(c.fin);
       default: {
-        if (c.aula === 'Virtual' || c.sede === 'VIRTUAL') return 'Virtual';
-        const lugar = !c.aula ? 'Aula por confirmar' : /^L/i.test(c.aula) ? 'Laboratorios'
-          : (pisoDe(c.aula) ? 'Piso ' + pisoDe(c.aula) : 'Otros ambientes');
+        const lugar = lugarDe(c);
+        if (lugar === 'Virtual') return 'Virtual';
         return (filtros.sede || !c.sede ? '' : c.sede + ' · ') + lugar;
       }
     }
@@ -147,10 +181,12 @@
             '<option value="hora">Por horario</option><option value="curso">Por curso</option><option value="docente">Por docente</option></select>' +
           '<select id="scTurno"><option value="">Todos los turnos</option>' +
             Object.keys(TURNO_LABEL).map(t => `<option value="${t}">${TURNO_LABEL[t]}</option>`).join('') + '</select>' +
+          '<select id="scLugar" title="Piso o tipo de ambiente"></select>' +
           '<button class="sc-boton sc-agregar" id="scAgregar"><i class="fas fa-plus"></i> Agregar sección</button>' +
           '<button class="sc-boton" id="scCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
           '<button class="sc-boton" id="scRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
         '</div>' +
+        '<div class="sc-horas" id="scHoras"></div>' +
         '<div id="scResumen"></div>' +
         '<div id="scBody"></div>' +
         '<div class="sc-pie" id="scPie"></div>' +
@@ -171,6 +207,7 @@
       s.value = filtros[k];
       s.onchange = () => { filtros[k] = s.value; guardarFiltros(); pintar(); };
     });
+    document.getElementById('scLugar').onchange = e => { filtros.lugar = e.target.value; guardarFiltros(); pintar(); };
     document.getElementById('scCsv').onclick = exportar;
     document.getElementById('scAgregar').onclick = abrirAgregar;
     document.getElementById('scRecargar').onclick = () => cargar(true);
@@ -204,7 +241,7 @@
     cont.innerHTML = tab('', 'Todas las sedes', delDia().length) +
       sedes.map(s => tab(s, s === 'VIRTUAL' ? 'Virtual' : s, n[s] || 0)).join('');
     cont.querySelectorAll('.sc-dia').forEach(b => b.onclick = () => {
-      filtros.sede = b.dataset.s; guardarFiltros(); pintarSedes(); pintar();
+      filtros.sede = b.dataset.s; filtros.lugar = ''; guardarFiltros(); pintarSedes(); pintar();
     });
   }
 
@@ -220,11 +257,14 @@
         (c.aula ? `Aula <b>${esc(c.aula)}</b>` : '<span class="sc-sinaula">aula por confirmar</span>')) +
       ` <span class="sc-mod ${virtual ? 'vir' : 'pre'}">${virtual ? 'Virtual' : 'Presencial'}</span></div>`;
     const nota = r.comentario ? `<div class="sc-nota"><i class="fas fa-comment"></i>${esc(r.comentario)}</div>` : '';
-    return `<div class="sc-card${enCurso(c) ? ' ahora' : ''}${est ? ' e-' + est : ''}" data-k="${esc(clave(c))}">` +
+    const cambios = c.orig ? ['curso', 'aula', 'sede', 'docente'].filter(k => c.orig[k] !== c[k])
+      .map(k => `${k} antes: ${esc(c.orig[k] || '—')}`).join(' · ') : '';
+    const editada = cambios ? `<div class="sc-editada"><i class="fas fa-pen-to-square"></i>Editada${c.ajuste.editado_por ? ' por ' + esc(c.ajuste.editado_por) : ''} — ${cambios}</div>` : '';
+    return `<div class="sc-card${enCurso(c) ? ' ahora' : ''}${est ? ' e-' + est : ''}" style="--hc:${colorHora(c.ini)}" data-k="${esc(clave(c))}">` +
       `<div><div class="sc-aula">${esc(virtual ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</div>` +
-        `<div class="sc-hora">${esc(hm(c.ini))}–${esc(hm(c.fin))}</div></div>` +
+        `<div class="sc-hora"><i class="far fa-clock"></i>${esc(hm(c.ini))}–${esc(hm(c.fin))}</div></div>` +
       `<div><div class="sc-curso">${esc(c.curso)}</div>` +
-        `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${nota}` +
+        `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${editada}${nota}` +
         (c.manual ? `<div class="sc-manual"><i class="fas fa-pen"></i>agregada a mano${c.creado_por ? ' por ' + esc(c.creado_por) : ''}` +
           '<button data-a="quitar" title="Quitar esta sección agregada a mano"><i class="fas fa-trash-can"></i> quitar</button></div>' : '') + '</div>' +
       '<div class="sc-acciones">' +
@@ -232,6 +272,7 @@
         ESTADOS.map(e => `<button class="sc-est ${e}${est === e ? ' on' : ''}" data-e="${e}"${conf ? ' disabled' : ''}>${ESTADO_LABEL[e]}</button>`).join('') +
         (conf ? `<button class="sc-conf" disabled title="Confirmado por ${esc(r.confirmado_por || '')}"><i class="fas fa-check"></i> Confirmado</button>`
               : `<button class="sc-conf" data-a="confirmar"${est ? '' : ' disabled style="opacity:.4"'}>Confirmar</button>`) +
+        '<button class="sc-com" data-a="editar" title="Editar curso, aula, docente o sede"><i class="fas fa-pen"></i></button>' +
         `<button class="sc-com${r.comentario || (r.historial || []).length ? ' tiene' : ''}" data-a="comentar" title="${conf ? 'Comentario o cambio de decisión (pide sustento)' : 'Comentario'}"><i class="fas fa-comment-dots"></i></button>` +
       '</div></div>';
   }
@@ -240,7 +281,8 @@
     if (!DATOS) return;
     const fecha = fechaDia(filtros.dia);
     const todas = delDia();
-    const sel = todas.filter(pasa)
+    pintarLugarHoras(todas);
+    const sel = todas.filter(c => pasa(c))
       .sort((a, b) => a.ini.localeCompare(b.ini) || (a.sede + a.aula).localeCompare(b.sede + b.aula));
     document.getElementById('scSub').textContent =
       `${DIA_LABEL[filtros.dia]} ${ddmm(fecha)} · datos actualizados: ${DATOS.generado || '—'}`;
@@ -262,7 +304,7 @@
     sel.forEach(c => { const g = grupoDe(c); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(c); });
     const nombres = [...grupos.keys()];
     // Pisos primero, luego laboratorios, otros ambientes y virtual (como en el monitoreo de sede)
-    const peso = g => /Virtual$/.test(g) ? 4 : /Aula por confirmar$/.test(g) ? 3 : /Otros ambientes$/.test(g) ? 2 : /Laboratorios$/.test(g) ? 1 : 0;
+    const peso = pesoLugar;
     const sede = g => g.includes(' · ') ? g.split(' · ')[0] : '';
     if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || sede(a).localeCompare(sede(b)) || peso(a) - peso(b) || a.localeCompare(b, 'es', { numeric: true }));
     document.getElementById('scBody').innerHTML = nombres.map(g => {
@@ -277,6 +319,29 @@
     document.getElementById('scPie').textContent =
       `${sel.length} clases · ${nrcs.size} secciones (NRC) este día · ${sel.filter(c => !c.aula).length} sin aula confirmada · ` +
       'cursos: CARGA_HORARIA · aulas: Portal de Horarios';
+  }
+
+  // Opciones de piso/ambiente y leyenda de horas, con lo que hay en la sede y dia elegidos
+  function pintarLugarHoras(todas) {
+    const cuenta = (lista, fn) => { const n = {}; lista.forEach(c => { const k = fn(c); n[k] = (n[k] || 0) + 1; }); return n; };
+    const nl = cuenta(todas.filter(c => pasa(c, 'lugar')), lugarDe);
+    const lugares = Object.keys(nl).sort((a, b) => pesoLugar(a) - pesoLugar(b) || a.localeCompare(b, 'es', { numeric: true }));
+    if (filtros.lugar && !lugares.includes(filtros.lugar)) lugares.push(filtros.lugar);
+    const sl = document.getElementById('scLugar');
+    sl.innerHTML = '<option value="">Todos los pisos</option>' +
+      lugares.map(l => `<option value="${esc(l)}">${esc(l === 'Laboratorios' ? 'Solo laboratorios' : l)} (${nl[l] || 0})</option>`).join('');
+    sl.value = filtros.lugar;
+
+    const nh = cuenta(todas.filter(c => pasa(c, 'hora')), c => hm(c.ini));
+    const horas = Object.keys(nh).sort();
+    const cont = document.getElementById('scHoras');
+    cont.innerHTML = '<span class="sc-horas-lab">Inicio</span>' + horas.map(h =>
+      `<button class="sc-hchip${filtros.hora === h ? ' on' : ''}" data-h="${h}" style="--hc:${colorHora(h)}">` +
+      `<i></i>${h}<small>${nh[h]}</small></button>`).join('') +
+      (filtros.hora ? '<button class="sc-hchip limpiar" data-h="">Todas las horas</button>' : '');
+    cont.querySelectorAll('.sc-hchip').forEach(b => b.onclick = () => {
+      filtros.hora = filtros.hora === b.dataset.h ? '' : b.dataset.h; guardarFiltros(); pintar();
+    });
   }
 
   /* ---------- guardar ---------- */
@@ -312,6 +377,7 @@
     if (!c) return;
     if (b.dataset.a === 'comentar') { abrirModal(c); return; }
     if (b.dataset.a === 'quitar') { quitarManual(c); return; }
+    if (b.dataset.a === 'editar') { abrirEditar(c); return; }
     let cambios = null;
     if (b.dataset.e) cambios = { estado: b.dataset.e };
     if (b.dataset.a === 'confirmar') {
@@ -454,6 +520,70 @@
     $('scBusca').focus();
   }
 
+  /* ---------- editar curso / aula / docente / sede ---------- */
+  function abrirEditar(c) {
+    const todas = DATOS ? DATOS.clases : [];
+    const base = c.orig || c;
+    const campo = (id, txt, valor, lista, extra) => `<div class="sc-campo"><label for="${id}">${txt}</label>` +
+      `<input id="${id}" list="${id}L" value="${esc(valor || '')}" ${extra || ''} autocomplete="off">` +
+      `<datalist id="${id}L">${lista}</datalist></div>`;
+    const caja = document.getElementById('scCaja');
+    caja.innerHTML =
+      '<h3>Editar clase</h3>' +
+      `<div class="sc-sub">${esc(c.seccion)} · NRC ${esc(c.nrc)} · ${esc(DIA_LABEL[filtros.dia])} ${esc(hm(c.ini))}–${esc(hm(c.fin))}<br>` +
+        (c.manual ? 'Sección agregada a mano.' : 'El cambio se aplica todas las semanas a esta clase.') + '</div>' +
+      '<div class="sc-form">' +
+        campo('scEAula', 'Aula', c.aula === 'Virtual' ? '' : c.aula,
+          opciones(todas.filter(x => !c.sede || x.sede === c.sede).map(x => x.aula).filter(a => a && a !== 'Virtual')), 'placeholder="Ej.: L007A"') +
+        campo('scESede', 'Sede', c.sede, opciones(todas.map(x => x.sede))) +
+        campo('scECurso', 'Curso', c.curso, opciones(todas.map(x => x.curso))) +
+        campo('scEDoc', 'Docente', c.docente, opciones(todas.map(x => x.docente))) +
+      '</div>' +
+      (c.orig ? `<div class="sc-hist"><div>Original: ${esc(base.curso)} · ${esc(base.sede)}-${esc(base.aula || 'sin aula')} · ${esc(base.docente || '')}</div></div>` : '') +
+      '<div class="sc-err" id="scErr"></div>' +
+      '<div class="sc-btns">' +
+        (c.orig ? '<button class="sc-boton" id="scRestaurar">Volver al original</button>' : '') +
+        '<button class="sc-boton" id="scCancelar">Cancelar</button>' +
+        '<button class="sc-conf" id="scGuardar">Guardar</button></div>';
+    caja.classList.add('ancha');
+    const $ = id => document.getElementById(id);
+    $('scCancelar').onclick = cerrarModal;
+    const guardarAjuste = async valores => {
+      const por = autor();
+      if (!por) { $('scErr').textContent = 'Se necesita tu nombre para guardar.'; return; }
+      let r;
+      if (c.manual) {
+        r = await fetch(TABLA_MAN + '?id=eq.' + c.mid, {
+          method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, SB_HEAD),
+          body: JSON.stringify(Object.assign({}, valores, { editado_por: por, editado_en: new Date().toISOString() }))
+        });
+      } else {
+        // Solo se guarda lo que difiere del original; null = sin cambio
+        const fila = { clave: claveOrig(c), nrc: c.nrc, seccion: c.seccion, dia: c.dia, ini: hm(c.ini), editado_por: por, editado_en: new Date().toISOString() };
+        ['curso', 'aula', 'sede', 'docente'].forEach(k => { fila[k] = valores[k] && valores[k] !== (base[k] || '') ? valores[k] : null; });
+        r = await fetch(TABLA_AJU + '?on_conflict=clave', {
+          method: 'POST', headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, SB_HEAD),
+          body: JSON.stringify(fila)
+        });
+      }
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || 'HTTP ' + r.status);
+      await (c.manual ? cargarManuales() : cargarAjustes());
+      cerrarModal(); pintarSedes(); pintar();
+    };
+    $('scGuardar').onclick = async () => {
+      const v = id => $(id).value.trim();
+      $('scGuardar').disabled = true;
+      try {
+        await guardarAjuste({ aula: v('scEAula').toUpperCase(), sede: v('scESede').toUpperCase(), curso: v('scECurso').toUpperCase(), docente: v('scEDoc') });
+      } catch (e) { $('scErr').textContent = 'No se guardó: ' + e.message; $('scGuardar').disabled = false; }
+    };
+    if ($('scRestaurar')) $('scRestaurar').onclick = async () => {
+      try { await guardarAjuste({}); } catch (e) { $('scErr').textContent = 'No se guardó: ' + e.message; }
+    };
+    $('scModal').classList.add('abierto');
+    $('scEAula').focus();
+  }
+
   async function quitarManual(c) {
     if (!confirm(`¿Quitar la sección ${c.seccion || ''} ${c.curso || ''} agregada a mano?`)) return;
     const por = autor();
@@ -493,7 +623,7 @@
   async function cargar(forzar) {
     mensaje('<div class="sc-cargando"><i class="fas fa-spinner fa-spin"></i><br>Cargando cursos y secciones…</div>');
     try {
-      if (!DATOS || forzar) await Promise.all([cargarClases(), cargarManuales()]);
+      if (!DATOS || forzar) await Promise.all([cargarClases(), cargarManuales(), cargarAjustes()]);
       pintarDias(); pintarSedes();
       await cargarRegistros();
       pintar();
