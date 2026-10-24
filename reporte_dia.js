@@ -16,7 +16,7 @@
   const urlHoja = gid => `https://docs.google.com/spreadsheets/d/${LIBRO}/export?format=csv&gid=${gid}`;
 
   const LS = 'cot_reporte_dia_filtros';
-  const CACHE = 'cot_reporte_dia_datos_v1';
+  const CACHE = 'cot_reporte_dia_datos_v2';
   const CACHE_MIN = 15;               // minutos de vigencia del cache
 
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -143,6 +143,12 @@
     if (x.includes('COT') || x.includes('CONTA')) return 'COT';
     return x || 'OTROS';
   };
+  // PLN solo agrupa cursos de Pensamiento Logico; si un docente PLN dicta otro
+  // curso, esa clase cuenta como COT.
+  const programaDe = (area, curso) => {
+    if (norm(curso).includes('PENSAMIENTO LOGICO')) return 'PLN';
+    return area === 'PLN' ? 'COT' : area;
+  };
 
   /* ---------- origen de los datos ---------- */
   // 1) lo que horario.js ya tenga en memoria (instantaneo)
@@ -155,7 +161,7 @@
       const area = areas[norm(docente)] || 'OTROS';
       (gsc[docente] || []).forEach(c => {
         (c.days || []).forEach(d => out.push({
-          docente, dni: c.dni || '', area,
+          docente, dni: c.dni || '', area: programaDe(area, c.name),
           curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
           carga: c.cargaCode || c.carga || '',
           sede: c.sede || '', modalidad: norm(c.modality).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL',
@@ -223,7 +229,7 @@
       const modalidad = norm(r[15]).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL';
       const seccion = String(r[5] || '').trim();
       horarios.forEach(h => out.push({
-        docente, dni: String(r[1] || '').trim(), area,
+        docente, dni: String(r[1] || '').trim(), area: programaDe(area, r[4]),
         curso: String(r[4] || '').trim(), seccion,
         nrc: String(r[7] || '').trim(), carga: String(r[0] || '').trim(),
         sede: String(r[3] || '').trim(),
