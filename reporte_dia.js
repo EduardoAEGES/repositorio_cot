@@ -3,7 +3,7 @@
    modalidad y horario.
 
    Carga: no depende de horario.js. Si los datos ya estan en memoria los usa al
-   instante; si no, descarga las hojas por su cuenta (las dos en paralelo) y las
+   instante; si no, descarga la hoja CARGA_HORARIA por su cuenta y la
    guarda en sessionStorage, asi la siguiente vez el panel abre de inmediato.
    Ademas precarga en segundo plano al entrar a la pagina.
    Los filtros elegidos quedan guardados entre sesiones. */
@@ -12,11 +12,10 @@
 
   const LIBRO = '1kNqEDwXe5Iqj9m54E--_WEe2wKxjTschDLgYnXeBS7w';
   const GID_CARGA = '1470879596';     // hoja CARGA_HORARIA
-  const GID_DOCENTES = '204310163';   // hoja Docentes 2026 (area COT / PLN)
   const urlHoja = gid => `https://docs.google.com/spreadsheets/d/${LIBRO}/export?format=csv&gid=${gid}`;
 
   const LS = 'cot_reporte_dia_filtros';
-  const CACHE = 'cot_reporte_dia_datos_v2';
+  const CACHE = 'cot_reporte_dia_datos_v3';
   const CACHE_MIN = 15;               // minutos de vigencia del cache
 
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -137,17 +136,13 @@
     const [p, m] = b.split('|');
     return m === 'REGULAR' ? `${p} regular` : `${p} M${m}`;
   };
-  const areaNorm = a => {
-    const x = norm(a);
+  // Programa = columna TIPO (T) de CARGA_HORARIA: PLN solo para Pensamiento
+  // Logico, COT para el resto, vacio ("Otra Linea") = OTROS.
+  const programaDe = tipo => {
+    const x = norm(tipo);
     if (x.includes('PLN')) return 'PLN';
-    if (x.includes('COT') || x.includes('CONTA')) return 'COT';
-    return x || 'OTROS';
-  };
-  // PLN solo agrupa cursos de Pensamiento Logico; si un docente PLN dicta otro
-  // curso, esa clase cuenta como COT.
-  const programaDe = (area, curso) => {
-    if (norm(curso).includes('PENSAMIENTO LOGICO')) return 'PLN';
-    return area === 'PLN' ? 'COT' : area;
+    if (x.includes('COT')) return 'COT';
+    return 'OTROS';
   };
 
   /* ---------- origen de los datos ---------- */
@@ -155,13 +150,11 @@
   function desdeMemoria() {
     const gsc = window.googleSheetCourses;
     if (!gsc || !Object.keys(gsc).length) return null;
-    const areas = areasDesdeContract();
     const out = [];
     Object.keys(gsc).forEach(docente => {
-      const area = areas[norm(docente)] || 'OTROS';
       (gsc[docente] || []).forEach(c => {
         (c.days || []).forEach(d => out.push({
-          docente, dni: c.dni || '', area: programaDe(area, c.name),
+          docente, dni: c.dni || '', area: programaDe(c.tipo),
           curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
           carga: c.cargaCode || c.carga || '',
           sede: c.sede || '', modalidad: norm(c.modality).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL',
@@ -173,48 +166,14 @@
     });
     return out.length ? out : null;
   }
-  function areasDesdeContract() {
-    const cd = window.contractData, mapa = {};
-    if (!cd) return mapa;
-    Object.keys(cd).forEach(k => {
-      const v = cd[k];
-      if (v && v.name) mapa[norm(v.name)] = areaNorm(v.area);
-    });
-    return mapa;
-  }
-
-  // 2) descarga propia de las dos hojas, en paralelo
+  // 2) descarga propia de la hoja CARGA_HORARIA
   async function descargar(aviso) {
     if (aviso) aviso('Descargando el horario…');
-    const t = '&t=' + Date.now();
-    const [rCarga, rDoc] = await Promise.all([
-      fetch(urlHoja(GID_CARGA) + t),
-      fetch(urlHoja(GID_DOCENTES) + t).catch(() => null)
-    ]);
+    const rCarga = await fetch(urlHoja(GID_CARGA) + '&t=' + Date.now());
     if (!rCarga || !rCarga.ok) throw new Error('No se pudo descargar la hoja CARGA_HORARIA.');
 
     if (aviso) aviso('Procesando los cursos…');
     const filasCsv = parseCSV(await rCarga.text());
-
-    // areas COT / PLN desde Docentes 2026 (si esa hoja responde)
-    const areas = {};
-    if (rDoc && rDoc.ok) {
-      const rows = parseCSV(await rDoc.text());
-      const cab = rows.findIndex(r => r.some(c => norm(c) === 'DNI') &&
-        r.some(c => norm(c).includes('APELLIDO') || norm(c).includes('NOMBRE')));
-      if (cab >= 0) {
-        const h = rows[cab].map(norm);
-        const iN = h.findIndex(x => x.includes('APELLIDO') || x.includes('NOMBRE'));
-        const iA = h.findIndex(x => x.includes('AREA'));
-        for (let i = cab + 1; i < rows.length; i++) {
-          const r = rows[i];
-          const nombre = iN >= 0 ? norm(r[iN]) : '';
-          if (!nombre || nombre.includes('APELLIDO')) continue;
-          if (areas[nombre]) continue;             // vale la primera aparicion
-          areas[nombre] = iA >= 0 ? areaNorm(r[iA]) : 'OTROS';
-        }
-      }
-    }
 
     const out = [];
     for (let i = 1; i < filasCsv.length; i++) {
@@ -224,12 +183,11 @@
       if (!docente) continue;
       const horarios = parseHorarios(String(r[16] || ''), String(r[17] || ''));
       if (!horarios.length) continue;
-      const area = areas[norm(docente)] || 'OTROS';
       const bloque = `${norm(r[11]) || '—'}|${moduloDe(r[6])}`;
       const modalidad = norm(r[15]).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL';
       const seccion = String(r[5] || '').trim();
       horarios.forEach(h => out.push({
-        docente, dni: String(r[1] || '').trim(), area: programaDe(area, r[4]),
+        docente, dni: String(r[1] || '').trim(), area: programaDe(r[19]),
         curso: String(r[4] || '').trim(), seccion,
         nrc: String(r[7] || '').trim(), carga: String(r[0] || '').trim(),
         sede: String(r[3] || '').trim(),
