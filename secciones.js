@@ -1,9 +1,11 @@
 /* ===== Monitoreo de secciones: por sede y dia, con registro de ingreso =====
    Todas las clases (curso, seccion, NRC, docente, aula, horario) que arma
-   tools/actualizar_secciones.py en secciones.json a partir del Portal de
-   Horarios. Por cada clase del dia elegido se marca el ingreso del docente
-   (Puntual / Tardanza / Inasistencia) y se confirma. Se guarda en Supabase
-   (tabla asistencia_secciones); una decision confirmada solo cambia con un
+   tools/actualizar_secciones.py en secciones.json a partir de CARGA_HORARIA y
+   el Portal de Horarios. Por cada clase del dia se marca el ingreso del docente
+   (Puntual / Tardanza / Inasistencia) y se puede comentar (libre o un momento
+   del monitoreo). Lo marcado queda como borrador en este dispositivo hasta
+   pulsar «Enviar reporte», que pide el nombre y lo guarda todo en Supabase
+   (asistencia_secciones). Una clase enviada solo cambia de decision con un
    sustento, y la base deja el cambio en el historial. */
 (function () {
   'use strict';
@@ -18,11 +20,14 @@
   const COLORES = ['#38bdf8', '#c084fc', '#fb7185', '#facc15', '#4ade80', '#f472b6', '#2dd4bf', '#fb923c', '#818cf8', '#a3e635'];
   const AUTOR_KEY = 'cot_autor';
   const LS = 'cot_secciones_filtros';
+  const BORRADOR_KEY = 'cot_secciones_borrador';   // { fecha: { "nrc|ini": {estado, comentario, tipo} } }
 
   const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
   const DIA_LABEL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   const ESTADOS = ['PUNTUAL', 'TARDANZA', 'INASISTENCIA'];
   const ESTADO_LABEL = { PUNTUAL: 'Puntual', TARDANZA: 'Tardanza', INASISTENCIA: 'Inasistencia' };
+  const TIPOS = { '': 'Comentario libre', PANTALLA: 'Monitoreo de pantalla', INICIO: 'Monitoreo de inicio de clase',
+    BREAK: 'Monitoreo de break', CIERRE: 'Monitoreo de cierre' };
   const TURNO_LABEL = { M: 'Mañana', T: 'Tarde', N: 'Noche', D: 'Diurno' };
 
   let construido = false;
@@ -63,6 +68,7 @@
     d.setDate(d.getDate() - hoyIdx() + idx);
     return d;
   }
+  const fechaSel = () => iso(fechaDia(filtros.dia));
   const esHoy = () => filtros.dia === hoyIdx();
   const minutos = h => { const [a, b] = hm(h).split(':'); return (+a || 0) * 60 + (+b || 0); };
   const enCurso = c => {
@@ -71,14 +77,48 @@
     return minutos(c.ini) <= m && m < minutos(c.fin);
   };
 
-  function autor() {
-    let a = '';
-    try { a = (localStorage.getItem(AUTOR_KEY) || '').trim(); } catch (e) { /* */ }
-    if (!a) {
-      a = (prompt('Escribe tu nombre para registrar quién marca el ingreso:') || '').trim();
-      if (a) try { localStorage.setItem(AUTOR_KEY, a); } catch (e) { /* */ }
-    }
-    return a;
+  /* ---------- nombre de quien reporta ---------- */
+  // Se escribe al enviar el reporte y se recuerda en este dispositivo
+  function nombreGuardado() {
+    try { return (localStorage.getItem(AUTOR_KEY) || '').trim(); } catch (e) { return ''; }
+  }
+  function recordarNombre(n) {
+    try { localStorage.setItem(AUTOR_KEY, n); } catch (e) { /* sin persistencia */ }
+  }
+  // Campo de nombre para las ventanas que guardan directo (solo si aun no se conoce)
+  const campoNombre = () => nombreGuardado() ? '' :
+    '<label for="scNombre">Tu nombre</label><input id="scNombre" placeholder="Quién registra" autocomplete="name">';
+  function tomarNombre() {
+    const el = document.getElementById('scNombre');
+    const n = el ? el.value.trim() : nombreGuardado();
+    if (n) recordarNombre(n);
+    return n;
+  }
+
+  /* ---------- borrador (lo marcado y aun no enviado) ---------- */
+  function leerBorradores() {
+    try { return JSON.parse(localStorage.getItem(BORRADOR_KEY)) || {}; } catch (e) { return {}; }
+  }
+  const borrador = () => leerBorradores()[fechaSel()] || {};
+  function ponerBorrador(k, cambios) {
+    const todo = leerBorradores(), f = fechaSel();
+    const fila = Object.assign({}, (todo[f] || {})[k], cambios);
+    Object.keys(fila).forEach(x => { if (fila[x] == null || fila[x] === '') delete fila[x]; });
+    todo[f] = todo[f] || {};
+    if (Object.keys(fila).length) todo[f][k] = fila; else delete todo[f][k];
+    if (!Object.keys(todo[f]).length) delete todo[f];
+    try { localStorage.setItem(BORRADOR_KEY, JSON.stringify(todo)); } catch (e) { /* sin persistencia */ }
+  }
+  // Estado visible de una clase: lo guardado en la base + el borrador encima
+  function estadoDe(c) {
+    const r = REG.get(clave(c)) || {};
+    const b = borrador()[clave(c)] || {};
+    return {
+      r, enviado: !!r.confirmado, pendiente: Object.keys(b).length > 0,
+      estado: b.estado || r.estado || '',
+      comentario: 'comentario' in b ? b.comentario : (r.comentario || ''),
+      tipo: 'tipo' in b ? b.tipo : (r.tipo_comentario || '')
+    };
   }
 
   /* ---------- datos ---------- */
@@ -114,7 +154,7 @@
     }));
   }
   async function cargarRegistros() {
-    const r = await fetch(TABLA + '?select=*&fecha=eq.' + iso(fechaDia(filtros.dia)), { headers: SB_HEAD, cache: 'no-store' });
+    const r = await fetch(TABLA + '?select=*&fecha=eq.' + fechaSel(), { headers: SB_HEAD, cache: 'no-store' });
     if (!r.ok) throw new Error('Supabase: HTTP ' + r.status);
     REG = new Map((await r.json()).map(f => [f.nrc + '|' + f.ini, f]));
   }
@@ -169,12 +209,15 @@
     ov.className = 'sc-overlay';
     ov.id = 'scOverlay';
     ov.innerHTML =
+      '<div class="sc-top"><div class="sc-top-in">' +
+        '<h2>Monitoreo de secciones<small id="scSub"></small></h2>' +
+        '<span class="sc-reloj" id="scReloj"></span>' +
+        '<button class="sc-enviar" id="scEnviar" title="Envía todo lo marcado y comentado"><i class="fas fa-paper-plane"></i> Enviar reporte <b id="scPend">0</b></button>' +
+        '<button class="sc-cerrar" id="scCerrar" title="Cerrar"><i class="fas fa-xmark"></i></button>' +
+      '</div></div>' +
       '<div class="sc-wrap">' +
-        '<div class="sc-top"><h2>Monitoreo de secciones<small id="scSub"></small></h2>' +
-          '<span class="sc-reloj" id="scReloj"></span>' +
-          '<button class="sc-cerrar" id="scCerrar" title="Cerrar"><i class="fas fa-xmark"></i></button></div>' +
-        '<div class="sc-dias" id="scDias"></div>' +
-        '<div class="sc-dias sc-sedes" id="scSedes"></div>' +
+        '<div class="sc-dias sc-desliza" id="scDias"></div>' +
+        '<div class="sc-dias sc-sedes sc-desliza" id="scSedes"></div>' +
         '<div class="sc-barra">' +
           '<input type="text" id="scQ" placeholder="Buscar aula, docente, curso, sección o NRC">' +
           '<select id="scVista"><option value="piso">Por piso</option><option value="sede">Por sede</option>' +
@@ -186,7 +229,7 @@
           '<button class="sc-boton" id="scCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
           '<button class="sc-boton" id="scRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
         '</div>' +
-        '<div class="sc-horas" id="scHoras"></div>' +
+        '<div class="sc-horas sc-desliza" id="scHoras"></div>' +
         '<div id="scResumen"></div>' +
         '<div id="scBody"></div>' +
         '<div class="sc-pie" id="scPie"></div>' +
@@ -195,6 +238,7 @@
     document.body.appendChild(ov);
 
     document.getElementById('scCerrar').onclick = cerrar;
+    document.getElementById('scEnviar').onclick = abrirEnviar;
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape' || !ov.classList.contains('abierto')) return;
       if (document.getElementById('scModal').classList.contains('abierto')) cerrarModal(); else cerrar();
@@ -248,34 +292,39 @@
   function mensaje(html) { document.getElementById('scBody').innerHTML = html; document.getElementById('scResumen').innerHTML = ''; }
 
   function tarjeta(c) {
-    const r = REG.get(clave(c)) || {};
-    const conf = !!r.confirmado;
-    const est = r.estado || '';
+    const e = estadoDe(c);
+    const est = e.estado;
     const virtual = c.aula === 'Virtual' || c.modalidad === 'VIRTUAL';
     const donde = '<div class="sc-donde"><i class="fas fa-location-dot"></i>' +
       (virtual ? 'Clase virtual' : `Sede <b>${esc(c.sede || '—')}</b> · ` +
         (c.aula ? `Aula <b>${esc(c.aula)}</b>` : '<span class="sc-sinaula">aula por confirmar</span>')) +
       ` <span class="sc-mod ${virtual ? 'vir' : 'pre'}">${virtual ? 'Virtual' : 'Presencial'}</span></div>`;
-    const nota = r.comentario ? `<div class="sc-nota"><i class="fas fa-comment"></i>${esc(r.comentario)}</div>` : '';
+    const nota = e.comentario ? `<div class="sc-nota"><i class="fas fa-comment"></i>` +
+      (e.tipo ? `<b>${esc(TIPOS[e.tipo])}:</b> ` : '') + `${esc(e.comentario)}</div>` : '';
     const cambios = c.orig ? ['curso', 'aula', 'sede', 'docente'].filter(k => c.orig[k] !== c[k])
       .map(k => `${k} antes: ${esc(c.orig[k] || '—')}`).join(' · ') : '';
     const editada = cambios ? `<div class="sc-editada"><i class="fas fa-pen-to-square"></i>Editada${c.ajuste.editado_por ? ' por ' + esc(c.ajuste.editado_por) : ''} — ${cambios}</div>` : '';
+    const sello = e.enviado
+      ? `<span class="sc-sello ok" title="Enviado por ${esc(e.r.confirmado_por || '')}"><i class="fas fa-check"></i> Enviado</span>`
+      : e.pendiente ? '<span class="sc-sello pend"><i class="fas fa-clock"></i> Sin enviar</span>' : '';
     return `<div class="sc-card${enCurso(c) ? ' ahora' : ''}${est ? ' e-' + est : ''}" style="--hc:${colorHora(c.ini)}" data-k="${esc(clave(c))}">` +
-      `<div><div class="sc-aula">${esc(virtual ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</div>` +
+      `<div class="sc-c-aula"><div class="sc-aula">${esc(virtual ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</div>` +
         `<div class="sc-hora"><i class="far fa-clock"></i>${esc(hm(c.ini))}–${esc(hm(c.fin))}</div></div>` +
-      `<div><div class="sc-curso">${esc(c.curso)}</div>` +
+      `<div class="sc-c-info"><div class="sc-curso">${esc(c.curso)}</div>` +
         `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${editada}${nota}` +
         (c.manual ? `<div class="sc-manual"><i class="fas fa-pen"></i>agregada a mano${c.creado_por ? ' por ' + esc(c.creado_por) : ''}` +
           '<button data-a="quitar" title="Quitar esta sección agregada a mano"><i class="fas fa-trash-can"></i> quitar</button></div>' : '') + '</div>' +
+      `<div class="sc-sec"><b>${esc(c.seccion || '—')}</b><span>${c.manual && !/^\d/.test(c.nrc) ? 'manual' : 'NRC ' + esc(c.nrc)}</span></div>` +
       '<div class="sc-acciones">' +
-        `<div class="sc-sec"><b>${esc(c.seccion || '—')}</b><span>${c.manual && !/^\d/.test(c.nrc) ? 'manual' : 'NRC ' + esc(c.nrc)}</span></div>` +
-        ESTADOS.map(e => `<button class="sc-est ${e}${est === e ? ' on' : ''}" data-e="${e}"${conf ? ' disabled' : ''}>${ESTADO_LABEL[e]}</button>`).join('') +
-        (conf ? `<button class="sc-conf" disabled title="Confirmado por ${esc(r.confirmado_por || '')}"><i class="fas fa-check"></i> Confirmado</button>`
-              : `<button class="sc-conf" data-a="confirmar"${est ? '' : ' disabled style="opacity:.4"'}>Confirmar</button>`) +
+        '<div class="sc-ests">' + ESTADOS.map(x => `<button class="sc-est ${x}${est === x ? ' on' : ''}" data-e="${x}"${e.enviado ? ' disabled' : ''}>${ESTADO_LABEL[x]}</button>`).join('') + '</div>' +
+        '<div class="sc-mas">' + sello +
         '<button class="sc-com" data-a="editar" title="Editar curso, aula, docente o sede"><i class="fas fa-pen"></i></button>' +
-        `<button class="sc-com${r.comentario || (r.historial || []).length ? ' tiene' : ''}" data-a="comentar" title="${conf ? 'Comentario o cambio de decisión (pide sustento)' : 'Comentario'}"><i class="fas fa-comment-dots"></i></button>` +
-      '</div></div>';
+        `<button class="sc-com${e.comentario || (e.r.historial || []).length ? ' tiene' : ''}" data-a="comentar" title="${e.enviado ? 'Comentario o cambio de decisión (pide sustento)' : 'Comentario'}"><i class="fas fa-comment-dots"></i></button>` +
+      '</div></div></div>';
   }
+
+  // Clases del dia con algo marcado o comentado que aun no se envio
+  const pendientes = () => delDia().filter(c => estadoDe(c).pendiente);
 
   function pintar() {
     if (!DATOS) return;
@@ -286,27 +335,29 @@
       .sort((a, b) => a.ini.localeCompare(b.ini) || (a.sede + a.aula).localeCompare(b.sede + b.aula));
     document.getElementById('scSub').textContent =
       `${DIA_LABEL[filtros.dia]} ${ddmm(fecha)} · datos actualizados: ${DATOS.generado || '—'}`;
+    const np = pendientes().length;
+    document.getElementById('scPend').textContent = np;
+    document.getElementById('scEnviar').classList.toggle('hay', np > 0);
 
     const cuenta = { PUNTUAL: 0, TARDANZA: 0, INASISTENCIA: 0 };
-    let conf = 0;
-    sel.forEach(c => { const r = REG.get(clave(c)); if (r && r.estado) cuenta[r.estado]++; if (r && r.confirmado) conf++; });
+    let env = 0;
+    sel.forEach(c => { const e = estadoDe(c); if (e.estado) cuenta[e.estado]++; if (e.enviado) env++; });
     document.getElementById('scResumen').innerHTML =
       '<div class="sc-resumen"><h3>Ingreso del día</h3>' +
-      '<p>Marca el ingreso de cada docente y pulsa <b>Confirmar</b>. Para cambiar una decisión confirmada usa el botón de comentario: pedirá un sustento.</p>' +
+      '<p>Marca el ingreso y comenta lo que necesites; queda guardado en este dispositivo. Al terminar pulsa <b>Enviar reporte</b> (arriba) para enviarlo todo.</p>' +
       '<div class="sc-cuentas">' +
         `<div class="sc-cuenta pun"><b>${cuenta.PUNTUAL}</b><span>Puntual</span></div>` +
         `<div class="sc-cuenta tar"><b>${cuenta.TARDANZA}</b><span>Tardanza</span></div>` +
         `<div class="sc-cuenta ina"><b>${cuenta.INASISTENCIA}</b><span>Inasistencia</span></div>` +
-        `<div class="sc-cuenta"><b>${conf}/${sel.length}</b><span>Confirmadas</span></div>` +
+        `<div class="sc-cuenta"><b>${env}/${sel.length}</b><span>Enviadas${np ? ` · ${np} sin enviar` : ''}</span></div>` +
       '</div></div>';
 
     const grupos = new Map();
     sel.forEach(c => { const g = grupoDe(c); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(c); });
     const nombres = [...grupos.keys()];
     // Pisos primero, luego laboratorios, otros ambientes y virtual (como en el monitoreo de sede)
-    const peso = pesoLugar;
     const sede = g => g.includes(' · ') ? g.split(' · ')[0] : '';
-    if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || sede(a).localeCompare(sede(b)) || peso(a) - peso(b) || a.localeCompare(b, 'es', { numeric: true }));
+    if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || sede(a).localeCompare(sede(b)) || pesoLugar(a) - pesoLugar(b) || a.localeCompare(b, 'es', { numeric: true }));
     document.getElementById('scBody').innerHTML = nombres.map(g => {
       const lista = grupos.get(g);
       return `<div class="sc-grupo"><h4>${esc(g)}</h4><span class="sc-raya"></span>` +
@@ -344,19 +395,14 @@
     });
   }
 
-  /* ---------- guardar ---------- */
-  async function guardar(c, cambios) {
-    const por = autor();
-    if (!por) throw new Error('Se necesita tu nombre para guardar.');
-    const previo = REG.get(clave(c)) || {};
-    const fila = {
-      fecha: iso(fechaDia(filtros.dia)), nrc: c.nrc, ini: c.ini, fin: c.fin, dia: c.dia, sede: c.sede, aula: c.aula,
-      curso: c.curso, seccion: c.seccion, docente: c.docente, dni_docente: c.dni || null,
-      estado: previo.estado || null, comentario: previo.comentario || null, confirmado: !!previo.confirmado,
-      sustento: previo.sustento || null, editado_por: por
-    };
-    Object.assign(fila, cambios);
-    if (fila.confirmado && !previo.confirmado) fila.confirmado_por = por;
+  /* ---------- guardar en la base ---------- */
+  // Solo manda los campos de «cambios» (merge): si no hay comentario no se envia comentario
+  async function guardar(c, cambios, por) {
+    const fila = Object.assign({
+      fecha: fechaSel(), nrc: c.nrc, ini: c.ini, fin: c.fin, dia: c.dia, sede: c.sede, aula: c.aula,
+      curso: c.curso, seccion: c.seccion, docente: c.docente, dni_docente: c.dni || null, editado_por: por
+    }, cambios);
+    if (fila.confirmado && !(REG.get(clave(c)) || {}).confirmado) fila.confirmado_por = por;
     const r = await fetch(TABLA + '?on_conflict=fecha,nrc,ini', {
       method: 'POST', headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=representation' }, SB_HEAD),
       body: JSON.stringify(fila)
@@ -369,7 +415,7 @@
 
   function claseDe(k) { return delDia().find(c => clave(c) === k); }
 
-  async function alClic(e) {
+  function alClic(e) {
     const b = e.target.closest('button');
     const card = e.target.closest('.sc-card');
     if (!b || !card || b.disabled) return;
@@ -378,59 +424,122 @@
     if (b.dataset.a === 'comentar') { abrirModal(c); return; }
     if (b.dataset.a === 'quitar') { quitarManual(c); return; }
     if (b.dataset.a === 'editar') { abrirEditar(c); return; }
-    let cambios = null;
-    if (b.dataset.e) cambios = { estado: b.dataset.e };
-    if (b.dataset.a === 'confirmar') {
-      const est = (REG.get(clave(c)) || {}).estado;
-      if (!est) return;
-      if (!confirm(`¿Confirmar «${ESTADO_LABEL[est]}» para ${c.docente || 'esta clase'}?\nDespués solo se podrá cambiar con un sustento.`)) return;
-      cambios = { confirmado: true };
+    if (b.dataset.e) {
+      // Marcar queda en borrador; otro clic en la misma opcion la desmarca
+      const actual = estadoDe(c).estado;
+      ponerBorrador(clave(c), { estado: actual === b.dataset.e ? null : b.dataset.e });
+      pintar();
     }
-    if (!cambios) return;
-    card.classList.add('guardando');
-    try { await guardar(c, cambios); } catch (err) { alert('No se guardó: ' + err.message); }
-    pintar();
+  }
+
+  /* ---------- enviar reporte ---------- */
+  function abrirEnviar() {
+    const lista = pendientes();
+    const caja = document.getElementById('scCaja');
+    caja.innerHTML =
+      '<h3>Enviar reporte</h3>' +
+      `<div class="sc-sub">${esc(DIA_LABEL[filtros.dia])} ${ddmm(fechaDia(filtros.dia))} · ${lista.length} clase${lista.length === 1 ? '' : 's'} con marcas o comentarios sin enviar.</div>` +
+      '<label for="scNombreEnv">Tu nombre</label>' +
+      `<input id="scNombreEnv" value="${esc(nombreGuardado())}" placeholder="Quién envía el reporte" autocomplete="name">` +
+      (lista.length ? '<div class="sc-lista">' + lista.map(c => {
+        const e = estadoDe(c);
+        return `<div><b>${esc(hm(c.ini))}</b> ${esc(c.sede)}${c.aula ? '-' + esc(c.aula) : ''} · ${esc(c.seccion)} · ${esc(c.curso)}<br>` +
+          (e.estado ? `<span class="sc-tag ${e.estado}">${ESTADO_LABEL[e.estado]}</span>` : '<span class="sc-tag">sin marca</span>') +
+          (e.comentario ? ` <i>${e.tipo ? esc(TIPOS[e.tipo]) + ': ' : ''}${esc(e.comentario)}</i>` : '') + '</div>';
+      }).join('') + '</div>' : '<div class="sc-vacio">No hay nada pendiente: marca o comenta alguna clase.</div>') +
+      '<div class="sc-err" id="scErr"></div>' +
+      '<div class="sc-btns"><button class="sc-boton" id="scCancelar">Cancelar</button>' +
+      (lista.length ? `<button class="sc-conf" id="scGuardar"><i class="fas fa-paper-plane"></i> Enviar ${lista.length}</button>` : '') + '</div>';
+    caja.classList.add('ancha');
+    const $ = id => document.getElementById(id);
+    $('scCancelar').onclick = cerrarModal;
+    if ($('scGuardar')) $('scGuardar').onclick = async () => {
+      const por = $('scNombreEnv').value.trim();
+      if (!por) { $('scErr').textContent = 'Escribe tu nombre para enviar el reporte.'; $('scNombreEnv').focus(); return; }
+      recordarNombre(por);
+      $('scGuardar').disabled = true;
+      const fallas = [];
+      for (let i = 0; i < lista.length; i++) {
+        const c = lista[i], e = estadoDe(c);
+        $('scGuardar').textContent = `Enviando ${i + 1}/${lista.length}…`;
+        const cambios = {};
+        if (e.estado) Object.assign(cambios, { estado: e.estado, confirmado: true });
+        if (e.comentario) Object.assign(cambios, { comentario: e.comentario, tipo_comentario: e.tipo || null });
+        try {
+          await guardar(c, cambios, por);
+          ponerBorrador(clave(c), { estado: null, comentario: null, tipo: null });
+        } catch (err) { fallas.push(`${c.seccion} ${c.curso}: ${err.message}`); }
+      }
+      pintar();
+      if (fallas.length) {
+        $('scErr').innerHTML = '<b>No se enviaron:</b><br>' + fallas.map(esc).join('<br>');
+        $('scGuardar').remove();
+      } else cerrarModal();
+    };
+    $('scModal').classList.add('abierto');
+    if (!nombreGuardado()) $('scNombreEnv').focus();
   }
 
   /* ---------- comentario / cambio de decision ---------- */
   function abrirModal(c) {
-    const r = REG.get(clave(c)) || {};
-    const conf = !!r.confirmado;
-    let elegido = r.estado || '';
+    const e = estadoDe(c), r = e.r;
+    const enviado = e.enviado;
+    let elegido = e.estado, tipo = e.tipo || '';
     const caja = document.getElementById('scCaja');
     caja.innerHTML =
-      `<h3>${conf ? 'Comentario o cambio de decisión' : 'Comentario'}</h3>` +
+      `<h3>${enviado ? 'Comentario o cambio de decisión' : 'Comentario'}</h3>` +
       `<div class="sc-sub">${esc(c.curso)} · ${esc(c.seccion)} · NRC ${esc(c.nrc)}<br>${esc(c.docente || '')}</div>` +
-      (conf ? '<label>Decisión</label><div class="sc-ests">' +
-        ESTADOS.map(e => `<button class="sc-est ${e}${elegido === e ? ' on' : ''}" data-e="${e}">${ESTADO_LABEL[e]}</button>`).join('') + '</div>' +
-        '<label for="scSust">Sustento del cambio <small>(obligatorio si cambias la decisión)</small></label><textarea id="scSust" placeholder="Por qué se modifica la decisión"></textarea>' : '') +
+      '<label>Tipo</label><div class="sc-tipos">' + Object.keys(TIPOS).map(t =>
+        `<button class="sc-tipo${tipo === t ? ' on' : ''}" data-t="${t}">${esc(TIPOS[t])}</button>`).join('') + '</div>' +
       '<label for="scCom">Comentario</label>' +
-      `<textarea id="scCom" placeholder="Observación sobre el ingreso">${esc(r.comentario || '')}</textarea>` +
+      `<textarea id="scCom" placeholder="Escribe lo observado (opcional)">${esc(e.comentario || '')}</textarea>` +
+      (enviado ? '<label>Decisión</label><div class="sc-ests">' +
+        ESTADOS.map(x => `<button class="sc-est ${x}${elegido === x ? ' on' : ''}" data-e="${x}">${ESTADO_LABEL[x]}</button>`).join('') + '</div>' +
+        '<label for="scSust">Sustento del cambio <small>(obligatorio si cambias la decisión)</small></label><textarea id="scSust" placeholder="Por qué se modifica la decisión"></textarea>' +
+        campoNombre() : '') +
       ((r.historial || []).length ? '<div class="sc-hist">' + r.historial.map(h =>
         `<div>${esc(ESTADO_LABEL[h.de] || h.de)} → ${esc(ESTADO_LABEL[h.a] || h.a)} · ${esc(h.por || '')} · ${esc(new Date(h.en).toLocaleString('es-PE'))}<br><i>${esc(h.sustento)}</i></div>`).join('') + '</div>' : '') +
       '<div class="sc-err" id="scErr"></div>' +
       '<div class="sc-btns"><button class="sc-boton" id="scCancelar">Cancelar</button>' +
-      '<button class="sc-conf" id="scGuardar">Guardar</button></div>';
+      `<button class="sc-conf" id="scGuardar">${enviado ? 'Guardar y enviar' : 'Guardar'}</button></div>`;
+    caja.querySelectorAll('.sc-tipo').forEach(b => b.onclick = () => {
+      tipo = b.dataset.t;
+      caja.querySelectorAll('.sc-tipo').forEach(x => x.classList.toggle('on', x === b));
+    });
     caja.querySelectorAll('.sc-ests .sc-est').forEach(b => b.onclick = () => {
       elegido = b.dataset.e;
       caja.querySelectorAll('.sc-ests .sc-est').forEach(x => x.classList.toggle('on', x === b));
     });
-    document.getElementById('scCancelar').onclick = cerrarModal;
-    document.getElementById('scGuardar').onclick = async () => {
-      const err = document.getElementById('scErr');
-      const cambios = { comentario: document.getElementById('scCom').value.trim() || null };
-      if (conf && elegido !== r.estado) {
-        const sust = document.getElementById('scSust').value.trim();
+    const $ = id => document.getElementById(id);
+    $('scCancelar').onclick = cerrarModal;
+    $('scGuardar').onclick = async () => {
+      const err = $('scErr');
+      const com = $('scCom').value.trim();
+      if (!enviado) {
+        // Aun no enviado: queda en el borrador hasta «Enviar reporte»
+        ponerBorrador(clave(c), { comentario: com || null, tipo: com ? tipo || null : null });
+        cerrarModal(); pintar();
+        return;
+      }
+      const cambios = {};
+      if (com !== (r.comentario || '') || (com && tipo !== (r.tipo_comentario || ''))) {
+        Object.assign(cambios, { comentario: com || null, tipo_comentario: com ? tipo || null : null });
+      }
+      if (elegido !== r.estado) {
+        const sust = $('scSust').value.trim();
         if (!sust) { err.textContent = 'Escribe el sustento para cambiar la decisión.'; return; }
         Object.assign(cambios, { estado: elegido, sustento: sust });
       }
-      const g = document.getElementById('scGuardar');
-      g.disabled = true; err.textContent = '';
-      try { await guardar(c, cambios); cerrarModal(); pintar(); } catch (e) { err.textContent = e.message; g.disabled = false; }
+      if (!Object.keys(cambios).length) { cerrarModal(); return; }
+      const por = tomarNombre();
+      if (!por) { err.textContent = 'Escribe tu nombre.'; return; }
+      $('scGuardar').disabled = true; err.textContent = '';
+      try { await guardar(c, cambios, por); cerrarModal(); pintar(); } catch (x) { err.textContent = x.message; $('scGuardar').disabled = false; }
     };
-    document.getElementById('scModal').classList.add('abierto');
-    (conf ? caja.querySelector('#scSust') : caja.querySelector('#scCom')).focus();
+    $('scModal').classList.add('abierto');
+    $('scCom').focus();
   }
+
   /* ---------- agregar seccion a mano ---------- */
   // Sugerencias: una por seccion (NRC) de todo el periodo, con su curso, docente y sede
   function sugerencias() {
@@ -470,7 +579,7 @@
         '<div class="sc-campo"><label for="scFMod">Modalidad</label><select id="scFMod"><option>PRESENCIAL</option><option>VIRTUAL</option></select></div>' +
         '<div class="sc-campo"><label for="scFIni">Inicio</label><input id="scFIni" type="time"></div>' +
         '<div class="sc-campo"><label for="scFFin">Fin</label><input id="scFFin" type="time"></div>' +
-      '</div>' +
+      '</div>' + campoNombre() +
       '<div class="sc-err" id="scErr"></div>' +
       '<div class="sc-btns"><button class="sc-boton" id="scCancelar">Cancelar</button>' +
       '<button class="sc-conf" id="scGuardar">Agregar</button></div>';
@@ -496,8 +605,8 @@
       if (!v('scFSec') && !v('scFCurso')) { err.textContent = 'Escribe al menos la sección o el curso.'; return; }
       if (!v('scFIni') || !v('scFFin')) { err.textContent = 'Indica la hora de inicio y fin.'; return; }
       if (v('scFFin') <= v('scFIni')) { err.textContent = 'La hora de fin debe ser posterior al inicio.'; return; }
-      const por = autor();
-      if (!por) { err.textContent = 'Se necesita tu nombre para guardar.'; return; }
+      const por = tomarNombre();
+      if (!por) { err.textContent = 'Escribe tu nombre.'; return; }
       const doc = v('scFDoc');
       const fila = {
         dia: $('scFDia').value, ini: v('scFIni'), fin: v('scFFin'), sede: v('scFSede').toUpperCase(),
@@ -538,7 +647,7 @@
         campo('scESede', 'Sede', c.sede, opciones(todas.map(x => x.sede))) +
         campo('scECurso', 'Curso', c.curso, opciones(todas.map(x => x.curso))) +
         campo('scEDoc', 'Docente', c.docente, opciones(todas.map(x => x.docente))) +
-      '</div>' +
+      '</div>' + campoNombre() +
       (c.orig ? `<div class="sc-hist"><div>Original: ${esc(base.curso)} · ${esc(base.sede)}-${esc(base.aula || 'sin aula')} · ${esc(base.docente || '')}</div></div>` : '') +
       '<div class="sc-err" id="scErr"></div>' +
       '<div class="sc-btns">' +
@@ -549,8 +658,8 @@
     const $ = id => document.getElementById(id);
     $('scCancelar').onclick = cerrarModal;
     const guardarAjuste = async valores => {
-      const por = autor();
-      if (!por) { $('scErr').textContent = 'Se necesita tu nombre para guardar.'; return; }
+      const por = tomarNombre();
+      if (!por) { $('scErr').textContent = 'Escribe tu nombre.'; return; }
       let r;
       if (c.manual) {
         r = await fetch(TABLA_MAN + '?id=eq.' + c.mid, {
@@ -575,7 +684,8 @@
       $('scGuardar').disabled = true;
       try {
         await guardarAjuste({ aula: v('scEAula').toUpperCase(), sede: v('scESede').toUpperCase(), curso: v('scECurso').toUpperCase(), docente: v('scEDoc') });
-      } catch (e) { $('scErr').textContent = 'No se guardó: ' + e.message; $('scGuardar').disabled = false; }
+      } catch (e) { $('scErr').textContent = 'No se guardó: ' + e.message; }
+      if ($('scGuardar')) $('scGuardar').disabled = false;
     };
     if ($('scRestaurar')) $('scRestaurar').onclick = async () => {
       try { await guardarAjuste({}); } catch (e) { $('scErr').textContent = 'No se guardó: ' + e.message; }
@@ -586,8 +696,9 @@
 
   async function quitarManual(c) {
     if (!confirm(`¿Quitar la sección ${c.seccion || ''} ${c.curso || ''} agregada a mano?`)) return;
-    const por = autor();
+    const por = nombreGuardado() || (prompt('Tu nombre:') || '').trim();
     if (!por) return;
+    recordarNombre(por);
     try {
       const r = await fetch(TABLA_MAN + '?id=eq.' + c.mid, {
         method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, SB_HEAD),
@@ -599,18 +710,21 @@
   }
 
   function cerrarModal() {
-    document.getElementById('scCaja').classList.remove('ancha'); document.getElementById('scModal').classList.remove('abierto'); }
+    document.getElementById('scCaja').classList.remove('ancha');
+    document.getElementById('scModal').classList.remove('abierto');
+  }
 
   function exportar() {
-    const fecha = iso(fechaDia(filtros.dia));
-    const sel = delDia().filter(pasa);
+    const fecha = fechaSel();
+    const sel = delDia().filter(c => pasa(c));
     const cab = ['Fecha', 'Día', 'Sede', 'Aula', 'Modalidad', 'Horario', 'Curso', 'Sección', 'NRC', 'Docente', 'DNI',
-      'Ingreso', 'Confirmado', 'Confirmado por', 'Comentario', 'Último sustento'];
+      'Ingreso', 'Enviado', 'Enviado por', 'Tipo de comentario', 'Comentario', 'Último sustento'];
     const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const cuerpo = sel.map(c => {
-      const r = REG.get(clave(c)) || {};
+      const e = estadoDe(c);
       return [fecha, DIA_LABEL[filtros.dia], c.sede, c.aula, c.aula === 'Virtual' ? 'VIRTUAL' : (c.modalidad || 'PRESENCIAL'), hm(c.ini) + ' - ' + hm(c.fin), c.curso, c.seccion, c.nrc,
-        c.docente, c.dni, ESTADO_LABEL[r.estado] || '', r.confirmado ? 'Sí' : 'No', r.confirmado_por, r.comentario, r.sustento].map(q).join(',');
+        c.docente, c.dni, ESTADO_LABEL[e.estado] || '', e.enviado ? 'Sí' : (e.pendiente ? 'Sin enviar' : 'No'), e.r.confirmado_por,
+        e.comentario ? TIPOS[e.tipo || ''] : '', e.comentario, e.r.sustento].map(q).join(',');
     });
     const blob = new Blob(['﻿' + [cab.map(q).join(',')].concat(cuerpo).join('\n')], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -644,7 +758,7 @@
     reloj();
     cargar(false);
     clearInterval(refresco);
-    // Cada minuto: reloj, «en curso» y lo que hayan marcado otros
+    // Cada minuto: reloj, «en curso» y lo que hayan enviado otros
     refresco = setInterval(() => {
       reloj();
       if (document.getElementById('scModal').classList.contains('abierto')) return;
