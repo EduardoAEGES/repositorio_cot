@@ -1408,3 +1408,39 @@ input, select {
     letter-spacing: 0.3px;
 }
 .course-card.personal-card .course-name { flex-shrink: 0; }
+
+/* Aviso "Cargando datos" sobre toda la pantalla */
+.carga-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 20, 40, 0.45);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .2s ease, visibility .2s ease;
+}
+.carga-overlay.visible { opacity: 1; visibility: visible; }
+.carga-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 26px 34px;
+    text-align: center;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+    min-width: 220px;
+}
+.carga-spinner {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 14px;
+    border: 5px solid #eadcf0;
+    border-top-color: #714b67;
+    border-radius: 50%;
+    animation: carga-giro .8s linear infinite;
+}
+.carga-texto { font-weight: 800; font-size: 1.05rem; color: #4a2c45; }
+.carga-sub { font-size: .85rem; color: #6b7280; margin-top: 4px; }
+@keyframes carga-giro { to { transform: rotate(360deg); } }

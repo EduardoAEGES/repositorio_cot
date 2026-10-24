@@ -1322,6 +1322,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const PIXELS_PER_PERIOD = 25;
     let periodToIndexMap = {}; 
 
+    // Aviso "Cargando datos" sobre toda la pantalla mientras haya descargas en curso
+    let cargasActivas = 0;
+    let cargaTimer = null;
+    function overlayCarga() {
+        let ov = document.getElementById('cargaOverlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'cargaOverlay';
+            ov.className = 'carga-overlay';
+            ov.setAttribute('role', 'status');
+            ov.setAttribute('aria-live', 'polite');
+            ov.innerHTML = '<div class="carga-box"><div class="carga-spinner"></div>' +
+                '<div class="carga-texto">Cargando datos</div><div class="carga-sub">Espere un momento…</div></div>';
+            document.body.appendChild(ov);
+        }
+        return ov;
+    }
+    function conCarga(fn) {
+        return async function (...args) {
+            cargasActivas++;
+            // pequeña espera para no parpadear en recargas instantáneas
+            if (!cargaTimer) cargaTimer = setTimeout(() => overlayCarga().classList.add('visible'), 150);
+            try {
+                return await fn.apply(this, args);
+            } finally {
+                if (--cargasActivas === 0) {
+                    clearTimeout(cargaTimer);
+                    cargaTimer = null;
+                    const ov = document.getElementById('cargaOverlay');
+                    if (ov) ov.classList.remove('visible');
+                }
+            }
+        };
+    }
+    loadFromSupabase = conCarga(loadFromSupabase);
+    loadFromGoogleSheet = conCarga(loadFromGoogleSheet);
+    loadContractData = conCarga(loadContractData);
+
     // Initialization
     initGrid();
     renderGroupSelector();
@@ -3044,15 +3082,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 if (syncLabel) syncLabel.classList.remove('sync-active');
             }
-            
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.style.display = 'flex';
+
             try {
                 await loadFromGoogleSheet();
             } catch (err) {
                 console.error("Error sincronizando:", err);
-            } finally {
-                if (overlay) overlay.style.display = 'none';
             }
         });
     }
