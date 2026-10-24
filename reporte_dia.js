@@ -589,15 +589,15 @@
   /* ---------- boton, al lado de Dashboard ---------- */
   function ponerBoton() {
     if (document.getElementById('btnReporteDia')) return;
-    const dash = document.querySelector('.dashboard-btn');
-    if (!dash || !dash.parentNode) return;
+    const cont = document.querySelector('.header-actions');
+    if (!cont) return;
     const b = document.createElement('button');
     b.id = 'btnReporteDia';
     b.className = 'rd-btn';
     b.innerHTML = '<i class="fas fa-user-check"></i> Reporte día';
     b.title = 'Reporte de docentes por día';
     b.onclick = abrir;
-    dash.parentNode.insertBefore(b, dash.nextSibling);
+    cont.insertBefore(b, cont.firstChild);
   }
 
   function iniciar() {
