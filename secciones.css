@@ -88,6 +88,7 @@
 .sc-donde{margin-top:5px;font-size:.98rem;color:var(--sc-tiza)}
 .sc-donde i{color:var(--sc-amarillo);margin-right:5px}
 .sc-donde b{font-weight:400;font-family:'Caveat',cursive;font-size:1.2rem}
+.sc-sinaula{color:var(--sc-tenue);font-style:italic}
 .sc-mod{display:inline-block;margin-left:6px;padding:0 8px;border-radius:10px;font-size:.85rem;border:1.5px solid}
 .sc-mod.pre{color:var(--sc-ambar);border-color:var(--sc-ambar)}
 .sc-mod.vir{color:#8fc3f0;border-color:#8fc3f0}

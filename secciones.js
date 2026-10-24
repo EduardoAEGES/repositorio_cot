@@ -108,8 +108,9 @@
       case 'docente': return c.docente || 'Sin docente';
       case 'hora': return hm(c.ini) + '–' + hm(c.fin);
       default: {
-        if (c.aula === 'Virtual') return 'Virtual';
-        const lugar = /^L/i.test(c.aula) ? 'Laboratorios' : (pisoDe(c.aula) ? 'Piso ' + pisoDe(c.aula) : 'Otros ambientes');
+        if (c.aula === 'Virtual' || c.sede === 'VIRTUAL') return 'Virtual';
+        const lugar = !c.aula ? 'Aula por confirmar' : /^L/i.test(c.aula) ? 'Laboratorios'
+          : (pisoDe(c.aula) ? 'Piso ' + pisoDe(c.aula) : 'Otros ambientes');
         return (filtros.sede || !c.sede ? '' : c.sede + ' · ') + lugar;
       }
     }
@@ -202,11 +203,12 @@
     const est = r.estado || '';
     const virtual = c.aula === 'Virtual' || c.modalidad === 'VIRTUAL';
     const donde = '<div class="sc-donde"><i class="fas fa-location-dot"></i>' +
-      (virtual ? 'Clase virtual' : `Sede <b>${esc(c.sede || '—')}</b> · Aula <b>${esc(c.aula || '—')}</b>`) +
+      (virtual ? 'Clase virtual' : `Sede <b>${esc(c.sede || '—')}</b> · ` +
+        (c.aula ? `Aula <b>${esc(c.aula)}</b>` : '<span class="sc-sinaula">aula por confirmar</span>')) +
       ` <span class="sc-mod ${virtual ? 'vir' : 'pre'}">${virtual ? 'Virtual' : 'Presencial'}</span></div>`;
     const nota = r.comentario ? `<div class="sc-nota"><i class="fas fa-comment"></i>${esc(r.comentario)}</div>` : '';
     return `<div class="sc-card${enCurso(c) ? ' ahora' : ''}${est ? ' e-' + est : ''}" data-k="${esc(clave(c))}">` +
-      `<div><div class="sc-aula">${esc(c.aula === 'Virtual' ? 'Virtual' : (c.sede ? c.sede + '-' : '') + c.aula)}</div>` +
+      `<div><div class="sc-aula">${esc(virtual ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</div>` +
         `<div class="sc-hora">${esc(hm(c.ini))}–${esc(hm(c.fin))}</div></div>` +
       `<div><div class="sc-curso">${esc(c.curso)}</div>` +
         `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${nota}</div>` +
@@ -226,7 +228,7 @@
     const sel = todas.filter(pasa)
       .sort((a, b) => a.ini.localeCompare(b.ini) || (a.sede + a.aula).localeCompare(b.sede + b.aula));
     document.getElementById('scSub').textContent =
-      `${DIA_LABEL[filtros.dia]} ${ddmm(fecha)} · datos del portal: ${DATOS.generado || '—'}`;
+      `${DIA_LABEL[filtros.dia]} ${ddmm(fecha)} · datos actualizados: ${DATOS.generado || '—'}`;
 
     const cuenta = { PUNTUAL: 0, TARDANZA: 0, INASISTENCIA: 0 };
     let conf = 0;
@@ -245,7 +247,7 @@
     sel.forEach(c => { const g = grupoDe(c); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(c); });
     const nombres = [...grupos.keys()];
     // Pisos primero, luego laboratorios, otros ambientes y virtual (como en el monitoreo de sede)
-    const peso = g => /Virtual$/.test(g) ? 3 : /Otros ambientes$/.test(g) ? 2 : /Laboratorios$/.test(g) ? 1 : 0;
+    const peso = g => /Virtual$/.test(g) ? 4 : /Aula por confirmar$/.test(g) ? 3 : /Otros ambientes$/.test(g) ? 2 : /Laboratorios$/.test(g) ? 1 : 0;
     const sede = g => g.includes(' · ') ? g.split(' · ')[0] : '';
     if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || sede(a).localeCompare(sede(b)) || peso(a) - peso(b) || a.localeCompare(b, 'es', { numeric: true }));
     document.getElementById('scBody').innerHTML = nombres.map(g => {
@@ -258,7 +260,8 @@
 
     const nrcs = new Set(sel.map(c => c.nrc));
     document.getElementById('scPie').textContent =
-      `${sel.length} clases · ${nrcs.size} secciones (NRC) este día · ${DATOS.nrc_portal || '—'} NRC encontrados en el portal de ${DATOS.nrc_base || '—'} de la base`;
+      `${sel.length} clases · ${nrcs.size} secciones (NRC) este día · ${sel.filter(c => !c.aula).length} sin aula confirmada · ` +
+      'cursos: CARGA_HORARIA · aulas: Portal de Horarios';
   }
 
   /* ---------- guardar ---------- */
