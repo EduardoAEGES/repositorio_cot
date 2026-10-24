@@ -12,6 +12,7 @@
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E';
   const SB_HEAD = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
   const TABLA = SB_URL + '/rest/v1/asistencia_secciones';
+  const TABLA_MAN = SB_URL + '/rest/v1/secciones_manuales';
   const AUTOR_KEY = 'cot_autor';
   const LS = 'cot_secciones_filtros';
 
@@ -24,6 +25,7 @@
   let construido = false;
   let DATOS = null;          // { generado, clases: [...] }
   let REG = new Map();       // "nrc|ini" -> fila de asistencia_secciones (fecha elegida)
+  let MANUALES = [];         // secciones agregadas a mano (secciones_manuales), todas las semanas
   let refresco = null;
   const hoyIdx = () => (new Date().getDay() + 6) % 7;   // 0 = lunes
   let filtros = Object.assign({ dia: hoyIdx(), q: '', vista: 'piso', turno: '', sede: '' }, leerFiltros());
@@ -78,6 +80,15 @@
     if (!r.ok) throw new Error('No se encontró secciones.json (HTTP ' + r.status + '). Ejecuta tools/actualizar_secciones.py');
     DATOS = await r.json();
   }
+  async function cargarManuales() {
+    const r = await fetch(TABLA_MAN + '?select=*&activo=eq.true&order=ini', { headers: SB_HEAD, cache: 'no-store' });
+    if (!r.ok) throw new Error('Supabase: HTTP ' + r.status);
+    MANUALES = (await r.json()).map(m => ({
+      manual: true, mid: m.id, nrc: m.nrc || 'M' + m.id, curso: m.curso, seccion: m.seccion,
+      docente: m.docente, dni: m.dni_docente, sede: m.sede, aula: m.modalidad === 'VIRTUAL' ? 'Virtual' : m.aula,
+      modalidad: m.modalidad, dia: m.dia, ini: m.ini, fin: m.fin, desde: '', hasta: '', creado_por: m.creado_por
+    }));
+  }
   async function cargarRegistros() {
     const r = await fetch(TABLA + '?select=*&fecha=eq.' + iso(fechaDia(filtros.dia)), { headers: SB_HEAD, cache: 'no-store' });
     if (!r.ok) throw new Error('Supabase: HTTP ' + r.status);
@@ -87,7 +98,7 @@
   // Clases del dia elegido, vigentes en esa fecha
   function delDia() {
     const f = fechaDia(filtros.dia);
-    return (DATOS ? DATOS.clases : []).filter(c => {
+    return (DATOS ? DATOS.clases : []).concat(MANUALES).filter(c => {
       if (c.dia !== DIAS[filtros.dia]) return false;
       const a = parseFecha(c.desde), b = parseFecha(c.hasta);
       return (!a || a <= f) && (!b || f <= b);
@@ -136,6 +147,7 @@
             '<option value="hora">Por horario</option><option value="curso">Por curso</option><option value="docente">Por docente</option></select>' +
           '<select id="scTurno"><option value="">Todos los turnos</option>' +
             Object.keys(TURNO_LABEL).map(t => `<option value="${t}">${TURNO_LABEL[t]}</option>`).join('') + '</select>' +
+          '<button class="sc-boton sc-agregar" id="scAgregar"><i class="fas fa-plus"></i> Agregar sección</button>' +
           '<button class="sc-boton" id="scCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
           '<button class="sc-boton" id="scRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
         '</div>' +
@@ -160,6 +172,7 @@
       s.onchange = () => { filtros[k] = s.value; guardarFiltros(); pintar(); };
     });
     document.getElementById('scCsv').onclick = exportar;
+    document.getElementById('scAgregar').onclick = abrirAgregar;
     document.getElementById('scRecargar').onclick = () => cargar(true);
     document.getElementById('scModal').addEventListener('click', e => { if (e.target.id === 'scModal') cerrarModal(); });
     document.getElementById('scBody').addEventListener('click', alClic);
@@ -184,7 +197,7 @@
     const cont = document.getElementById('scSedes');
     const n = {};
     delDia().forEach(c => { if (c.sede) n[c.sede] = (n[c.sede] || 0) + 1; });
-    const sedes = [...new Set((DATOS ? DATOS.clases : []).map(c => c.sede).filter(Boolean))]
+    const sedes = [...new Set((DATOS ? DATOS.clases : []).concat(MANUALES).map(c => c.sede).filter(Boolean))]
       .sort((a, b) => (a === 'VIRTUAL') - (b === 'VIRTUAL') || a.localeCompare(b));
     if (!sedes.includes(filtros.sede)) filtros.sede = '';
     const tab = (v, txt, k) => `<button class="sc-dia${filtros.sede === v ? ' on' : ''}" data-s="${esc(v)}">${esc(txt)} <small>${k}</small></button>`;
@@ -211,9 +224,11 @@
       `<div><div class="sc-aula">${esc(virtual ? 'Virtual' : (c.sede || '') + (c.aula ? '-' + c.aula : ''))}</div>` +
         `<div class="sc-hora">${esc(hm(c.ini))}–${esc(hm(c.fin))}</div></div>` +
       `<div><div class="sc-curso">${esc(c.curso)}</div>` +
-        `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${nota}</div>` +
+        `<div class="sc-doc">${esc(c.docente || 'Sin docente')}${c.dni ? ` <small>· DNI ${esc(c.dni)}</small>` : ''}</div>${donde}${nota}` +
+        (c.manual ? `<div class="sc-manual"><i class="fas fa-pen"></i>agregada a mano${c.creado_por ? ' por ' + esc(c.creado_por) : ''}` +
+          '<button data-a="quitar" title="Quitar esta sección agregada a mano"><i class="fas fa-trash-can"></i> quitar</button></div>' : '') + '</div>' +
       '<div class="sc-acciones">' +
-        `<div class="sc-sec"><b>${esc(c.seccion || '—')}</b><span>NRC ${esc(c.nrc)}</span></div>` +
+        `<div class="sc-sec"><b>${esc(c.seccion || '—')}</b><span>${c.manual && !/^\d/.test(c.nrc) ? 'manual' : 'NRC ' + esc(c.nrc)}</span></div>` +
         ESTADOS.map(e => `<button class="sc-est ${e}${est === e ? ' on' : ''}" data-e="${e}"${conf ? ' disabled' : ''}>${ESTADO_LABEL[e]}</button>`).join('') +
         (conf ? `<button class="sc-conf" disabled title="Confirmado por ${esc(r.confirmado_por || '')}"><i class="fas fa-check"></i> Confirmado</button>`
               : `<button class="sc-conf" data-a="confirmar"${est ? '' : ' disabled style="opacity:.4"'}>Confirmar</button>`) +
@@ -296,6 +311,7 @@
     const c = claseDe(card.dataset.k);
     if (!c) return;
     if (b.dataset.a === 'comentar') { abrirModal(c); return; }
+    if (b.dataset.a === 'quitar') { quitarManual(c); return; }
     let cambios = null;
     if (b.dataset.e) cambios = { estado: b.dataset.e };
     if (b.dataset.a === 'confirmar') {
@@ -349,7 +365,111 @@
     document.getElementById('scModal').classList.add('abierto');
     (conf ? caja.querySelector('#scSust') : caja.querySelector('#scCom')).focus();
   }
-  function cerrarModal() { document.getElementById('scModal').classList.remove('abierto'); }
+  /* ---------- agregar seccion a mano ---------- */
+  // Sugerencias: una por seccion (NRC) de todo el periodo, con su curso, docente y sede
+  function sugerencias() {
+    const vistas = new Map();
+    (DATOS ? DATOS.clases : []).forEach(c => {
+      const k = c.nrc + '|' + c.seccion;
+      if (!vistas.has(k)) vistas.set(k, c);
+    });
+    return [...vistas.values()].sort((a, b) => a.seccion.localeCompare(b.seccion) || a.curso.localeCompare(b.curso));
+  }
+  const etiqueta = c => `${c.seccion} · ${c.curso} · ${c.sede} · NRC ${c.nrc}`;
+  const opciones = lista => [...new Set(lista.filter(Boolean))].sort().map(v => `<option value="${esc(v)}">`).join('');
+
+  function abrirAgregar() {
+    const sug = sugerencias();
+    const todas = (DATOS ? DATOS.clases : []);
+    const caja = document.getElementById('scCaja');
+    const campo = (id, txt, lista, extra) => `<div class="sc-campo"><label for="${id}">${txt}</label>` +
+      `<input id="${id}" ${lista ? `list="${id}L"` : ''} ${extra || ''} autocomplete="off">` +
+      (lista ? `<datalist id="${id}L">${lista}</datalist>` : '') + '</div>';
+    caja.innerHTML =
+      '<h3>Agregar sección</h3>' +
+      '<div class="sc-sub">Busca una sección existente para autocompletar, o escribe los datos a mano. ' +
+        'Se mostrará todas las semanas en el día elegido.</div>' +
+      '<label for="scBusca">Buscar sección</label>' +
+      '<input id="scBusca" list="scBuscaL" placeholder="Ej.: 412M, Pricing, 596…" autocomplete="off">' +
+      `<datalist id="scBuscaL">${sug.map(c => `<option value="${esc(etiqueta(c))}">`).join('')}</datalist>` +
+      '<div class="sc-form">' +
+        campo('scFSec', 'Sección', opciones(todas.map(c => c.seccion)), 'placeholder="412M"') +
+        campo('scFCurso', 'Curso', opciones(todas.map(c => c.curso))) +
+        campo('scFDoc', 'Docente', opciones(todas.map(c => c.docente))) +
+        campo('scFNrc', 'NRC', '', 'inputmode="numeric"') +
+        campo('scFSede', 'Sede', opciones(todas.map(c => c.sede))) +
+        campo('scFAula', 'Aula', opciones(todas.map(c => c.aula).filter(a => a !== 'Virtual')), 'placeholder="A403A"') +
+        '<div class="sc-campo"><label for="scFDia">Día</label><select id="scFDia">' +
+          DIAS.slice(0, 6).map((d, i) => `<option value="${d}"${i === filtros.dia ? ' selected' : ''}>${DIA_LABEL[i]}</option>`).join('') + '</select></div>' +
+        '<div class="sc-campo"><label for="scFMod">Modalidad</label><select id="scFMod"><option>PRESENCIAL</option><option>VIRTUAL</option></select></div>' +
+        '<div class="sc-campo"><label for="scFIni">Inicio</label><input id="scFIni" type="time"></div>' +
+        '<div class="sc-campo"><label for="scFFin">Fin</label><input id="scFFin" type="time"></div>' +
+      '</div>' +
+      '<div class="sc-err" id="scErr"></div>' +
+      '<div class="sc-btns"><button class="sc-boton" id="scCancelar">Cancelar</button>' +
+      '<button class="sc-conf" id="scGuardar">Agregar</button></div>';
+    caja.classList.add('ancha');
+    const $ = id => document.getElementById(id);
+    if (filtros.sede) $('scFSede').value = filtros.sede;
+    // Al elegir una sugerencia se llenan los campos (aula y horario del dia elegido si existe)
+    $('scBusca').addEventListener('input', () => {
+      const c = sug.find(x => etiqueta(x) === $('scBusca').value);
+      if (!c) return;
+      const delMismo = todas.filter(x => x.nrc === c.nrc && x.seccion === c.seccion);
+      const ref = delMismo.find(x => x.dia === $('scFDia').value) || delMismo.find(x => x.aula) || c;
+      $('scFSec').value = c.seccion; $('scFCurso').value = c.curso; $('scFDoc').value = c.docente || '';
+      $('scFNrc').value = c.nrc; $('scFSede').value = c.sede; $('scFAula').value = ref.aula === 'Virtual' ? '' : (ref.aula || '');
+      $('scFMod').value = c.modalidad === 'VIRTUAL' || c.aula === 'Virtual' ? 'VIRTUAL' : 'PRESENCIAL';
+      $('scFIni').value = hm(ref.ini); $('scFFin').value = hm(ref.fin);
+      $('scFDoc').dataset.dni = c.dni || '';
+    });
+    $('scCancelar').onclick = cerrarModal;
+    $('scGuardar').onclick = async () => {
+      const v = id => $(id).value.trim();
+      const err = $('scErr');
+      if (!v('scFSec') && !v('scFCurso')) { err.textContent = 'Escribe al menos la sección o el curso.'; return; }
+      if (!v('scFIni') || !v('scFFin')) { err.textContent = 'Indica la hora de inicio y fin.'; return; }
+      if (v('scFFin') <= v('scFIni')) { err.textContent = 'La hora de fin debe ser posterior al inicio.'; return; }
+      const por = autor();
+      if (!por) { err.textContent = 'Se necesita tu nombre para guardar.'; return; }
+      const doc = v('scFDoc');
+      const fila = {
+        dia: $('scFDia').value, ini: v('scFIni'), fin: v('scFFin'), sede: v('scFSede').toUpperCase(),
+        aula: v('scFAula').toUpperCase(), seccion: v('scFSec').toUpperCase(), curso: v('scFCurso').toUpperCase(),
+        docente: doc, nrc: v('scFNrc'), modalidad: $('scFMod').value,
+        dni_docente: (todas.find(c => c.docente === doc && c.dni) || {}).dni || $('scFDoc').dataset.dni || '',
+        creado_por: por, editado_por: por
+      };
+      $('scGuardar').disabled = true; err.textContent = '';
+      try {
+        const r = await fetch(TABLA_MAN, { method: 'POST', headers: Object.assign({ Prefer: 'return=minimal' }, SB_HEAD), body: JSON.stringify(fila) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || 'HTTP ' + r.status);
+        await cargarManuales();
+        filtros.dia = DIAS.indexOf(fila.dia);
+        cerrarModal(); pintarDias(); pintarSedes();
+        await cargarRegistros(); pintar();
+      } catch (e) { err.textContent = 'No se guardó: ' + e.message; $('scGuardar').disabled = false; }
+    };
+    $('scModal').classList.add('abierto');
+    $('scBusca').focus();
+  }
+
+  async function quitarManual(c) {
+    if (!confirm(`¿Quitar la sección ${c.seccion || ''} ${c.curso || ''} agregada a mano?`)) return;
+    const por = autor();
+    if (!por) return;
+    try {
+      const r = await fetch(TABLA_MAN + '?id=eq.' + c.mid, {
+        method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, SB_HEAD),
+        body: JSON.stringify({ activo: false, editado_por: por, editado_en: new Date().toISOString() })
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      await cargarManuales(); pintarSedes(); pintar();
+    } catch (e) { alert('No se pudo quitar: ' + e.message); }
+  }
+
+  function cerrarModal() {
+    document.getElementById('scCaja').classList.remove('ancha'); document.getElementById('scModal').classList.remove('abierto'); }
 
   function exportar() {
     const fecha = iso(fechaDia(filtros.dia));
@@ -373,7 +493,7 @@
   async function cargar(forzar) {
     mensaje('<div class="sc-cargando"><i class="fas fa-spinner fa-spin"></i><br>Cargando cursos y secciones…</div>');
     try {
-      if (!DATOS || forzar) await cargarClases();
+      if (!DATOS || forzar) await Promise.all([cargarClases(), cargarManuales()]);
       pintarDias(); pintarSedes();
       await cargarRegistros();
       pintar();

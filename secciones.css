@@ -130,6 +130,22 @@
 .sc-pie{margin-top:18px;color:var(--sc-tenue);font-size:.9rem;text-align:center}
 
 /* ---- ventana de comentario / sustento ---- */
+.sc-manual{margin-top:5px;font-size:.9rem;color:#8fc3f0}
+.sc-manual i{margin-right:5px}
+.sc-manual button{margin-left:8px;background:none;border:1px solid rgba(240,138,128,.5);color:var(--sc-rojo);
+  border-radius:8px;padding:1px 8px;cursor:pointer;font-size:.85rem}
+.sc-manual button:hover{background:rgba(240,138,128,.15)}
+.sc-agregar{border-color:var(--sc-amarillo);color:var(--sc-amarillo)}
+.sc-caja.ancha{max-width:620px}
+.sc-caja input{width:100%;box-sizing:border-box;font-size:1rem;background:#20262a;color:var(--sc-tiza);
+  border:1.5px solid var(--sc-borde);border-radius:10px;padding:8px 10px;outline:none}
+.sc-caja input:focus,.sc-caja select:focus{border-color:var(--sc-amarillo)}
+.sc-caja select{width:100%;font-size:1rem;background:#20262a;color:var(--sc-tiza);border:1.5px solid var(--sc-borde);
+  border-radius:10px;padding:8px 10px}
+.sc-caja input[type=time]{color-scheme:dark}
+.sc-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px;margin-top:6px}
+.sc-campo label{margin:8px 0 3px}
+@media(max-width:560px){.sc-form{grid-template-columns:1fr}}
 .sc-modal{display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.55);
   align-items:center;justify-content:center;padding:16px}
 .sc-modal.abierto{display:flex}
