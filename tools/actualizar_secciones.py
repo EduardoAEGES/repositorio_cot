@@ -9,14 +9,15 @@ sede, aula y horario, para el panel «Monitoreo sección» de horario.html.
      desde otras webs (sin CORS), por eso se consulta desde aqui.
   3. Para AQP tambien se usa el monitoreo de visitas de esa sede.
   4. Se reutilizan las aulas del secciones.json anterior y solo se consultan
-     alumnos de las secciones que aun no tienen aula: de la base de estudiantes
-     (Supabase, bd_est_matriculas) se elige el minimo de alumnos que cubre esas
-     secciones (cobertura greedy, como en actualizar_aulas.py).
+     alumnos de los salones (periodo + sede + seccion) con clases sin aula: de la
+     base de estudiantes (Supabase) y, si se pasa, del reporte de notas, se elige
+     el minimo de alumnos que cubre esos salones (cobertura greedy).
 
 Uso:
     python tools/actualizar_secciones.py
     python tools/actualizar_secciones.py --max 5     # prueba rapida
     python tools/actualizar_secciones.py --todo      # vuelve a consultar todo
+    python tools/actualizar_secciones.py --notas "C:/.../Notas_Filtrado.xlsx"   # mas alumnos por seccion
 
 Salida: secciones.json en la raiz del repo. Ningun dato de alumnos (DNI,
 nombre, correo) llega al archivo; solo el DNI del docente, que ya es publico
@@ -33,7 +34,11 @@ CARGA_CSV = ('https://docs.google.com/spreadsheets/d/1kNqEDwXe5Iqj9m54E--_WEe2wK
 SB_URL = 'https://klmjmlhwuzhymrplemgw.supabase.co'
 SB_KEY = ('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsbWptbGh3dXpoeW1ycGxlbWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTMyNjQsImV4cCI6MjA4NzE2OTI2NH0'
           '.xFWMvUJa9n9TBcBG1WSeqCGiWBaCAtCU9aY7GXk4W6E')
+# Hoja ESTUDIANTES (ALUMNO, DNI): para pasar del nombre del reporte de notas al DNI
+ESTUDIANTES_CSV = ('https://docs.google.com/spreadsheets/d/e/2PACX-1vSbJ9v-qxajK2K221OqEeBbUEWNJRnmwNl8TLeAJsqfncUuiaBsRHs_gjzB7DMgJTQAKHLPHoMjJhR_'
+                   '/pub?gid=1490857623&single=true&output=csv')
 SALIDA = os.path.join(RAIZ, 'secciones.json')
+RONDAS = 5           # intentos por salon (otro alumno si el elegido no tiene horario)
 # Monitoreo de visitas de AQP: trae el aula de todas las clases de esa sede
 MONITOREO_AQP = 'https://monitoreo-aqp.edu-mamaniroque.workers.dev/'
 DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
@@ -109,22 +114,68 @@ def aulas_monitoreo():
     return out
 
 
-def leer_matriculas():
-    """{dni: set('ciclo|nrc|seccion')} desde la base de estudiantes."""
+# Un salon es periodo + sede + seccion: tiene los mismos alumnos en todos sus
+# cursos y en los dos modulos, asi que basta un alumno del salon para ver sus aulas.
+def grupo(carga, sede, seccion):
+    return '%s|%s|%s' % (str(carga or '').strip(), str(sede or '').strip().upper(), str(seccion or '').strip().upper())
+
+
+# Campus del reporte de notas -> sede de CARGA_HORARIA
+CAMPUS = {'CRT00': 'PRC', 'CRT01': 'VIRTUAL', 'CRT02': 'ATE', 'CRT03': 'AQP',
+          'CRT05': 'NOR', 'CRT06': 'SJL', 'CRT07': 'VES'}
+
+
+def nombre(s):
+    return ' '.join(sin_tilde(s).replace(',', ' ').split())
+
+
+def leer_matriculas(nombres):
+    """{dni: set(grupo)} desde la base de estudiantes; llena nombres {nombre: {dni}}."""
     alumnos = collections.defaultdict(set)
     off = 0
     while True:
         parte = rpc('bd_est_matriculas', {'f': {}, 'lim': 1000, 'off': off, 'orden': 'alumno', 'dir': 'asc'})
         for m in parte:
             dni = (m.get('dni') or '').strip()
+            if dni and m.get('alumno'):
+                nombres[nombre(m['alumno'])].add(dni)
             if dni and m.get('nrc'):
-                alumnos[dni].add('%s|%s|%s' % (m.get('ciclo', '').strip(), m['nrc'].strip(),
-                                               (m.get('seccion') or '').strip().upper()))
+                alumnos[dni].add(grupo(m.get('ciclo'), m.get('sede'), m.get('seccion')))
         off += len(parte)
         print('Matriculas leidas: %d' % off, flush=True)
         if len(parte) < 1000:
             break
     return alumnos
+
+
+def leer_notas(ruta, alumnos, nombres, sede_nrc):
+    """Suma a alumnos las secciones del reporte de notas (hoja Consolidado).
+    El reporte trae el ID interno, no el DNI: se cruza por nombre con la hoja
+    ESTUDIANTES y la base; los nombres que dan mas de un DNI se descartan."""
+    import openpyxl
+    for r in list(csv.reader(io.StringIO(leer_url(ESTUDIANTES_CSV))))[1:]:
+        if len(r) > 1 and r[0].strip() and r[1].strip():
+            nombres[nombre(r[0])].add(r[1].strip())
+    ws = openpyxl.load_workbook(ruta, read_only=True, data_only=True)['Consolidado']
+    col, cruzados, sin_dni = None, set(), set()
+    for fila in ws.iter_rows(values_only=True):
+        celdas = [str(x).strip() if x is not None else '' for x in fila]
+        if col is None:
+            if 'NRC' in celdas and 'Estudiante' in celdas:
+                col = {n: celdas.index(n) for n in celdas if n}
+            continue
+        if celdas[col['F Baja']] or not celdas[col['NRC']]:
+            continue
+        dnis = nombres.get(nombre(celdas[col['Estudiante']]), set())
+        if len(dnis) != 1:
+            sin_dni.add(celdas[col['Estudiante']])
+            continue
+        dni = next(iter(dnis))
+        cruzados.add(dni)
+        carga = celdas[col['Ccl Lvo']]
+        sede = sede_nrc.get((carga, celdas[col['NRC']])) or CAMPUS.get(celdas[col['Campus']], '')
+        alumnos[dni].add(grupo(carga, sede, celdas[col['Sección']]))
+    print('Reporte de notas: %d alumnos con DNI | %d sin DNI identificable' % (len(cruzados), len(sin_dni)))
 
 
 def elegir(alumnos, pendientes):
@@ -206,6 +257,7 @@ def completar(clases, conocidas):
 def main():
     ap = argparse.ArgumentParser(description='Actualiza secciones.json (CARGA_HORARIA + aulas del Portal de Horarios)')
     ap.add_argument('--max', type=int, default=0, help='limita las consultas (para probar)')
+    ap.add_argument('--notas', help='reporte de notas .xlsx (hoja Consolidado): mas alumnos por seccion')
     ap.add_argument('--todo', action='store_true', help='ignora las aulas ya conocidas y consulta todo')
     args = ap.parse_args()
 
@@ -214,23 +266,41 @@ def main():
     for k, v in aulas_monitoreo().items():
         conocidas.setdefault(k, v)
     hoy = datetime.now()
-    # Solo hace falta aula para las clases presenciales vigentes o futuras sin aula conocida
-    clases = json.loads(json.dumps(base))
-    completar(clases, conocidas)
-    faltan = {('%s|%s|%s' % (c['carga'], c['nrc'], c['seccion'])) for c in clases
-              if not c['aula'] and c['modalidad'] != 'VIRTUAL' and (fecha(c['hasta']) or hoy).date() >= hoy.date()}
-    print('Clases en CARGA_HORARIA: %d | aulas conocidas: %d | secciones presenciales sin aula: %d'
-          % (len(clases), len(conocidas), len(faltan)))
 
-    dnis = []
+    def pendientes():
+        """Salones con clases presenciales vigentes o futuras sin aula conocida."""
+        clases = json.loads(json.dumps(base))
+        completar(clases, conocidas)
+        return {grupo(c['carga'], c['sede'], c['seccion']) for c in clases
+                if not c['aula'] and c['modalidad'] != 'VIRTUAL' and (fecha(c['hasta']) or hoy).date() >= hoy.date()}
+
+    faltan = pendientes()
+    print('Clases en CARGA_HORARIA: %d | aulas conocidas: %d | salones presenciales con clases sin aula: %d'
+          % (len(base), len(conocidas), len(faltan)))
+
+    dnis, errores = [], []
     if faltan:
-        dnis, sin_alumno = elegir(leer_matriculas(), faltan)
-        print('Consultas a realizar: %d | secciones sin alumnos en la base: %d' % (len(dnis), len(sin_alumno)))
-        if args.max:
-            dnis = dnis[:args.max]
-    vistos, errores = recolectar(dnis)
-    for k, regs in vistos.items():
-        conocidas[k] = vigente(regs)
+        nombres = collections.defaultdict(set)
+        alumnos = leer_matriculas(nombres)
+        if args.notas:
+            leer_notas(args.notas, alumnos, nombres, {(c['carga'], c['nrc']): c['sede'] for c in base})
+        # Si el alumno elegido ya no tiene horario (retirado), se prueba con otro del salon
+        for ronda in range(1, RONDAS + 1):
+            lote, sin_alumno = elegir(alumnos, faltan)
+            if args.max:
+                lote = lote[:max(0, args.max - len(dnis))]
+            if not lote:
+                break
+            print('Ronda %d: %d salones sin aula | %d consultas | %d salones sin alumnos conocidos'
+                  % (ronda, len(faltan), len(lote), len(sin_alumno)))
+            vistos, err = recolectar(lote)
+            for k, regs in vistos.items():
+                conocidas[k] = vigente(regs)
+            for dni in lote:
+                alumnos.pop(dni, None)
+            dnis += lote
+            errores += err
+            faltan = pendientes()
 
     clases = base
     completar(clases, conocidas)
