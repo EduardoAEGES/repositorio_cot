@@ -244,7 +244,10 @@
     const grupos = new Map();
     sel.forEach(c => { const g = grupoDe(c); if (!grupos.has(g)) grupos.set(g, []); grupos.get(g).push(c); });
     const nombres = [...grupos.keys()];
-    if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || a.localeCompare(b, 'es', { numeric: true }));
+    // Pisos primero, luego laboratorios, otros ambientes y virtual (como en el monitoreo de sede)
+    const peso = g => /Virtual$/.test(g) ? 3 : /Otros ambientes$/.test(g) ? 2 : /Laboratorios$/.test(g) ? 1 : 0;
+    const sede = g => g.includes(' · ') ? g.split(' · ')[0] : '';
+    if (filtros.vista !== 'hora') nombres.sort((a, b) => (a === 'Virtual') - (b === 'Virtual') || sede(a).localeCompare(sede(b)) || peso(a) - peso(b) || a.localeCompare(b, 'es', { numeric: true }));
     document.getElementById('scBody').innerHTML = nombres.map(g => {
       const lista = grupos.get(g);
       return `<div class="sc-grupo"><h4>${esc(g)}</h4><span class="sc-raya"></span>` +
