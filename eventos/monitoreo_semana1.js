@@ -268,9 +268,11 @@ function renderFaltantes() {
   const ex = [...grupos.values()].sort((a, b) => a.r.fecha.localeCompare(b.r.fecha));
   $('extras-rows').innerHTML = ex.length ? ex.map(({ r, n }) => {
     const programado = PROG.asignaciones.find(a => a.fecha === r.fecha && a.sede === r[CAMPUS] && a.turno === r[TURN]);
-    const motivo = !programado || !programado.monitores.length
+    const jefatura = programado && programado.jefatura && programado.jefatura.length
+      ? ` Acompaña la jefatura: ${programado.jefatura.join(' / ')}.` : '';
+    const motivo = (!programado || !programado.monitores.length
       ? 'El cronograma no tiene monitor asignado a este bloque.'
-      : `El cronograma asignaba este turno a ${programado.monitores.join(' / ')}.`;
+      : `El cronograma asignaba este turno a ${programado.monitores.join(' / ')}.`) + jefatura;
     return `<tr><td>${shortDate(r.fecha)}${r.corregida ? '<br><span class="tag">corregida desde ' + shortDate(r.fechaOriginal) + '</span>' : ''}</td>` +
       `<td><b>${esc(r[CAMPUS])}</b><br>${esc(r[TURN])}</td><td>${esc(r[MON])}${n > 1 ? ` <span class="tag">${n} registros</span>` : ''}</td>` +
       `<td>${esc(motivo)}</td></tr>`;
@@ -368,9 +370,9 @@ async function init() {
     cambiarVista('promedio');
 
     const corregidas = DATA.filter(r => r.corregida).length;
-    $('note-text').textContent = corregidas
+    $('note-text').textContent = (PROG.nota_jefatura ? PROG.nota_jefatura + ' ' : '') + (corregidas
       ? `${corregidas} respuestas llegaron fechadas ${shortDate(Object.keys(FECHAS_CORREGIDAS)[0])} y se reasignaron al ${shortDate(Object.values(FECHAS_CORREGIDAS)[0])}, que es el día que confirman el cronograma y el chat. Los registros múltiples de un mismo monitor en un turno corresponden a aulas distintas, no a visitas extra.`
-      : 'Sin fechas por corregir en esta semana.';
+      : 'Sin fechas por corregir en esta semana.');
     $('date-alert').textContent = `${corregidas} fechas corregidas`;
 
     for (const id of ['sede', 'turno', 'monitor', 'estado']) $(id).addEventListener('change', render);

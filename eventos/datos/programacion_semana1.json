@@ -2,6 +2,7 @@
  "semana": "Semana 1",
  "periodo": "19 al 24 de octubre de 2026",
  "fuente": "Cronograma de monitoreo por sede y turno (imagen compartida por el equipo COT-PLN).",
+ "nota_jefatura": "José Kohagura figura en el cronograma como jefatura que acompaña la visita, no como monitor: no se le exige registro en el formulario ni cuenta en el cumplimiento.",
  "asignaciones": [
   {
    "fecha": "2026-10-19",
@@ -11,7 +12,8 @@
    "aulas": 9,
    "monitores": [
     "VASQUEZ CHAVEZ DIEGO ARMANDO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -21,7 +23,8 @@
    "aulas": 9,
    "monitores": [
     "MANRIQUE TORREBLANCA FELIPE EDGARDO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -31,7 +34,8 @@
    "aulas": 12,
    "monitores": [
     "VASQUEZ CHAVEZ DIEGO ARMANDO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -41,7 +45,8 @@
    "aulas": 7,
    "monitores": [
     "MAYORGA SALAS MARISOL ESTRELLA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -51,7 +56,8 @@
    "aulas": 13,
    "monitores": [
     "GUZMÁN AKAO HUGO ANÍBAL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -61,7 +67,8 @@
    "aulas": 8,
    "monitores": [
     "MAMANI ROQUE EDUARDO LUIS"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -71,7 +78,8 @@
    "aulas": 11,
    "monitores": [
     "ESTRADA PONTE SANDIBELL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -81,7 +89,8 @@
    "aulas": 13,
    "monitores": [
     "BORJA ROJAS JULIO MIGUEL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -91,7 +100,8 @@
    "aulas": 17,
    "monitores": [
     "YBARRA MAGUIÑA CARLOS SANTIAGO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -99,7 +109,8 @@
    "sede": "NOR",
    "turno": "Turno Mañana",
    "aulas": 14,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -107,7 +118,8 @@
    "sede": "NOR",
    "turno": "Turno Mañana",
    "aulas": 12,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -117,7 +129,8 @@
    "aulas": 15,
    "monitores": [
     "NAVARRO ARAGON JULIO MARTIN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -127,7 +140,8 @@
    "aulas": 8,
    "monitores": [
     "DURAN DE LA FUENTE JORGE ALEJANDRO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -137,7 +151,8 @@
    "aulas": 7,
    "monitores": [
     "CONDOR SURICHAQUI LUIS ENRIQUE"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -145,7 +160,8 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -153,7 +169,8 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 5,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -161,7 +178,8 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -169,7 +187,8 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -177,7 +196,8 @@
    "sede": "VES",
    "turno": "Turno Mañana",
    "aulas": 7,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -185,7 +205,8 @@
    "sede": "VES",
    "turno": "Turno Mañana",
    "aulas": 7,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -195,7 +216,8 @@
    "aulas": 4,
    "monitores": [
     "GARCIA SALAZAR EDUARDO ANTONIO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -203,7 +225,8 @@
    "sede": "VES",
    "turno": "Turno Mañana",
    "aulas": 7,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -211,7 +234,8 @@
    "sede": "VES",
    "turno": "Turno Mañana",
    "aulas": 8,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -221,7 +245,8 @@
    "aulas": 7,
    "monitores": [
     "GARCIA SALAZAR EDUARDO ANTONIO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -230,7 +255,9 @@
    "turno": "Turno Mañana",
    "aulas": 10,
    "monitores": [
-    "FIGUEROA YNCA FERNANDO FREDY",
+    "FIGUEROA YNCA FERNANDO FREDY"
+   ],
+   "jefatura": [
     "JOSÉ KOHAGURA"
    ]
   },
@@ -240,7 +267,8 @@
    "sede": "SUR",
    "turno": "Turno Mañana",
    "aulas": 12,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -248,7 +276,8 @@
    "sede": "SUR",
    "turno": "Turno Mañana",
    "aulas": 9,
-   "monitores": [
+   "monitores": [],
+   "jefatura": [
     "JOSÉ KOHAGURA"
    ]
   },
@@ -258,7 +287,8 @@
    "sede": "SUR",
    "turno": "Turno Mañana",
    "aulas": 15,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -266,7 +296,8 @@
    "sede": "SUR",
    "turno": "Turno Mañana",
    "aulas": 17,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -276,7 +307,8 @@
    "aulas": 14,
    "monitores": [
     "CORNEJO MAVILA STEPHANIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -286,7 +318,8 @@
    "aulas": 14,
    "monitores": [
     "RAMIREZ PINEDA JOSE CIRILO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -294,7 +327,8 @@
    "sede": "SJL",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -302,7 +336,8 @@
    "sede": "SJL",
    "turno": "Turno Mañana",
    "aulas": 11,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -312,7 +347,8 @@
    "aulas": 10,
    "monitores": [
     "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -322,7 +358,8 @@
    "aulas": 12,
    "monitores": [
     "LEON ROMAN FERNANDO GONZALO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -330,7 +367,8 @@
    "sede": "SJL",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -338,7 +376,8 @@
    "sede": "VIR",
    "turno": "Turno Mañana",
    "aulas": 31,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -348,7 +387,8 @@
    "aulas": 17,
    "monitores": [
     "GASTELO MISKULIN DELFO TOMISLAV"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -358,7 +398,8 @@
    "aulas": 34,
    "monitores": [
     "CHANAME BACA JOANNA STEPHANI"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -366,7 +407,8 @@
    "sede": "VIR",
    "turno": "Turno Mañana",
    "aulas": 22,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -374,7 +416,8 @@
    "sede": "VIR",
    "turno": "Turno Mañana",
    "aulas": 27,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -384,7 +427,8 @@
    "aulas": 14,
    "monitores": [
     "ARBAÑIL CHICOMA CLAUDIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -392,7 +436,8 @@
    "sede": "NOR",
    "turno": "Turno Noche",
    "aulas": 13,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -400,7 +445,8 @@
    "sede": "NOR",
    "turno": "Turno Noche",
    "aulas": 9,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -408,7 +454,8 @@
    "sede": "NOR",
    "turno": "Turno Noche",
    "aulas": 12,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -418,7 +465,8 @@
    "aulas": 12,
    "monitores": [
     "YBARRA MAGUIÑA CARLOS SANTIAGO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -428,7 +476,8 @@
    "aulas": 14,
    "monitores": [
     "NAVARRO ARAGON JULIO MARTIN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -438,7 +487,8 @@
    "aulas": 13,
    "monitores": [
     "BORJA ROJAS JULIO MIGUEL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -448,7 +498,8 @@
    "aulas": 6,
    "monitores": [
     "DURAN DE LA FUENTE JORGE ALEJANDRO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -456,7 +507,8 @@
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 5,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -466,7 +518,8 @@
    "aulas": 5,
    "monitores": [
     "YAYA PORRAS ERIKA YESENIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -474,7 +527,8 @@
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 5,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -484,7 +538,8 @@
    "aulas": 9,
    "monitores": [
     "YAYA PORRAS ERIKA YESENIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -492,7 +547,8 @@
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 8,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -500,7 +556,8 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 4,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -508,7 +565,8 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 2,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -516,7 +574,8 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 2,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -524,7 +583,8 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 3,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -532,7 +592,8 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 3,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -542,7 +603,8 @@
    "aulas": 5,
    "monitores": [
     "RAMIREZ PINEDA JOSE CIRILO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -552,7 +614,8 @@
    "aulas": 7,
    "monitores": [
     "MORENO BARRERA LUIGGI AGUSTIN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -562,7 +625,8 @@
    "aulas": 10,
    "monitores": [
     "FIGUEROA YNCA FERNANDO FREDY"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -570,7 +634,8 @@
    "sede": "SUR",
    "turno": "Turno Noche",
    "aulas": 11,
-   "monitores": [
+   "monitores": [],
+   "jefatura": [
     "JOSÉ KOHAGURA"
    ]
   },
@@ -582,7 +647,8 @@
    "aulas": 13,
    "monitores": [
     "MORENO BARRERA LUIGGI AGUSTIN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -590,7 +656,8 @@
    "sede": "SUR",
    "turno": "Turno Noche",
    "aulas": 6,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -600,7 +667,8 @@
    "aulas": 12,
    "monitores": [
     "CORNEJO MAVILA STEPHANIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -608,7 +676,8 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 13,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -618,7 +687,8 @@
    "aulas": 11,
    "monitores": [
     "HUAMAN ROMERO MIGUEL ANGEL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -626,7 +696,8 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 12,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -636,7 +707,8 @@
    "aulas": 12,
    "monitores": [
     "LEON ROMAN FERNANDO GONZALO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -646,7 +718,8 @@
    "aulas": 13,
    "monitores": [
     "HUAMAN ROMERO MIGUEL ANGEL"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -656,7 +729,8 @@
    "aulas": 12,
    "monitores": [
     "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-19",
@@ -666,7 +740,8 @@
    "aulas": 57,
    "monitores": [
     "GASTELO MISKULIN DELFO TOMISLAV"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-20",
@@ -674,7 +749,8 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 32,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-21",
@@ -684,7 +760,8 @@
    "aulas": 69,
    "monitores": [
     "CHANAME BACA JOANNA STEPHANI"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-22",
@@ -694,7 +771,8 @@
    "aulas": 27,
    "monitores": [
     "ARBAÑIL CHICOMA CLAUDIA"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-23",
@@ -704,7 +782,8 @@
    "aulas": 55,
    "monitores": [
     "VASQUEZ CHAVEZ DIEGO ARMANDO"
-   ]
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-10-24",
@@ -712,7 +791,8 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 17,
-   "monitores": []
+   "monitores": [],
+   "jefatura": []
   }
  ]
 }
