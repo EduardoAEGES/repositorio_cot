@@ -1,0 +1,22 @@
+{
+ "fuente": "Chat de coordinación COT-PLN (grupo de monitoreo de sedes).",
+ "nota": "Evidencia complementaria al formulario: sirve para poner nombre y detalle a observaciones que en el formulario quedaron sin precisar.",
+ "mensajes": [
+  { "fecha": "2026-10-19", "hora": "07:08", "autor": "JOSÉ KOHAGURA", "sede": null, "tipo": "coordinacion",
+    "texto": "Hola a todos, cómo están, muy buenos días. Me comentan cómo les va en sus sedes por favor, muchas gracias." },
+  { "fecha": "2026-10-19", "hora": "07:11", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "reporte",
+    "texto": "En AQP todos los docentes presentes." },
+  { "fecha": "2026-10-19", "hora": "07:13", "autor": "DURAN DE LA FUENTE JORGE ALEJANDRO", "sede": "ATE", "tipo": "reporte",
+    "texto": "Buenos días, en sede Ate todo con normalidad hasta el momento." },
+  { "fecha": "2026-10-19", "hora": "07:14", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "incidencia",
+    "texto": "En AQP todos los docentes presentes, pero con tardanza." },
+  { "fecha": "2026-10-19", "hora": "07:15", "autor": "JOSÉ KOHAGURA", "sede": "AQP", "tipo": "pendiente",
+    "texto": "Pero con tardanza: quiénes llegaron tarde, eso habría que ver." },
+  { "fecha": "2026-10-19", "hora": "07:16", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "pendiente",
+    "texto": "Ya los tengo anotados. (Pendiente: entregar los nombres de los docentes con tardanza en AQP.)" },
+  { "fecha": "2026-10-19", "hora": "07:17", "autor": "JOSÉ KOHAGURA", "sede": null, "tipo": "coordinacion",
+    "texto": "¿Las demás sedes cómo van?" },
+  { "fecha": "2026-10-19", "hora": "07:19", "autor": "RAMIREZ PINEDA JOSE CIRILO", "sede": "SJL", "tipo": "incidencia",
+    "texto": "Buenos días. En la sede San Juan de Lurigancho los televisores tienen la información desactualizada y hay docentes y alumnos que se guían de ese recurso. Estoy en la entrada orientando a los alumnos; quien está a cargo menciona que actualizar la información de los monitores es responsabilidad de TI." }
+ ]
+}

@@ -1,0 +1,718 @@
+{
+ "semana": "Semana 1",
+ "periodo": "19 al 24 de octubre de 2026",
+ "fuente": "Cronograma de monitoreo por sede y turno (imagen compartida por el equipo COT-PLN).",
+ "asignaciones": [
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 9,
+   "monitores": [
+    "VASQUEZ CHAVEZ DIEGO ARMANDO"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 9,
+   "monitores": [
+    "MANRIQUE TORREBLANCA FELIPE EDGARDO"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 12,
+   "monitores": [
+    "VASQUEZ CHAVEZ DIEGO ARMANDO"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": [
+    "MAYORGA SALAS MARISOL ESTRELLA"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 13,
+   "monitores": [
+    "GUZMÁN AKAO HUGO ANÍBAL"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "aulas": 8,
+   "monitores": [
+    "MAMANI ROQUE EDUARDO LUIS"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 11,
+   "monitores": [
+    "ESTRADA PONTE SANDIBELL"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 13,
+   "monitores": [
+    "BORJA ROJAS JULIO MIGUEL"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 17,
+   "monitores": [
+    "YBARRA MAGUIÑA CARLOS SANTIAGO"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 14,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 12,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "NOR",
+   "turno": "Turno Mañana",
+   "aulas": 15,
+   "monitores": [
+    "NAVARRO ARAGON JULIO MARTIN"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 8,
+   "monitores": [
+    "DURAN DE LA FUENTE JORGE ALEJANDRO"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": [
+    "CONDOR SURICHAQUI LUIS ENRIQUE"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 5,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "ATE",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 4,
+   "monitores": [
+    "GARCIA SALAZAR EDUARDO ANTONIO"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 8,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "VES",
+   "turno": "Turno Mañana",
+   "aulas": 7,
+   "monitores": [
+    "GARCIA SALAZAR EDUARDO ANTONIO"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": [
+    "FIGUEROA YNCA FERNANDO FREDY",
+    "JOSÉ KOHAGURA"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 12,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 9,
+   "monitores": [
+    "JOSÉ KOHAGURA"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 15,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 17,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "SUR",
+   "turno": "Turno Mañana",
+   "aulas": 14,
+   "monitores": [
+    "CORNEJO MAVILA STEPHANIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 14,
+   "monitores": [
+    "RAMIREZ PINEDA JOSE CIRILO"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 11,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": [
+    "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 12,
+   "monitores": [
+    "LEON ROMAN FERNANDO GONZALO"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "aulas": 10,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 31,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 17,
+   "monitores": [
+    "GASTELO MISKULIN DELFO TOMISLAV"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 34,
+   "monitores": [
+    "CHANAME BACA JOANNA STEPHANI"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 22,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 27,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "VIR",
+   "turno": "Turno Mañana",
+   "aulas": 14,
+   "monitores": [
+    "ARBAÑIL CHICOMA CLAUDIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 13,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 9,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": [
+    "YBARRA MAGUIÑA CARLOS SANTIAGO"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 14,
+   "monitores": [
+    "NAVARRO ARAGON JULIO MARTIN"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "NOR",
+   "turno": "Turno Noche",
+   "aulas": 13,
+   "monitores": [
+    "BORJA ROJAS JULIO MIGUEL"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 6,
+   "monitores": [
+    "DURAN DE LA FUENTE JORGE ALEJANDRO"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 5,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 5,
+   "monitores": [
+    "YAYA PORRAS ERIKA YESENIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 5,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 9,
+   "monitores": [
+    "YAYA PORRAS ERIKA YESENIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 8,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 4,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 2,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 2,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 3,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 3,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "VES",
+   "turno": "Turno Noche",
+   "aulas": 5,
+   "monitores": [
+    "RAMIREZ PINEDA JOSE CIRILO"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 7,
+   "monitores": [
+    "MORENO BARRERA LUIGGI AGUSTIN"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 10,
+   "monitores": [
+    "FIGUEROA YNCA FERNANDO FREDY"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 11,
+   "monitores": [
+    "JOSÉ KOHAGURA"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 13,
+   "monitores": [
+    "MORENO BARRERA LUIGGI AGUSTIN"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 6,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "SUR",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": [
+    "CORNEJO MAVILA STEPHANIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 13,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 11,
+   "monitores": [
+    "HUAMAN ROMERO MIGUEL ANGEL"
+   ]
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": [
+    "LEON ROMAN FERNANDO GONZALO"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 13,
+   "monitores": [
+    "HUAMAN ROMERO MIGUEL ANGEL"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "SJL",
+   "turno": "Turno Noche",
+   "aulas": 12,
+   "monitores": [
+    "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN"
+   ]
+  },
+  {
+   "fecha": "2026-10-19",
+   "dia": "Lunes",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 57,
+   "monitores": [
+    "GASTELO MISKULIN DELFO TOMISLAV"
+   ]
+  },
+  {
+   "fecha": "2026-10-20",
+   "dia": "Martes",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 32,
+   "monitores": []
+  },
+  {
+   "fecha": "2026-10-21",
+   "dia": "Miércoles",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 69,
+   "monitores": [
+    "CHANAME BACA JOANNA STEPHANI"
+   ]
+  },
+  {
+   "fecha": "2026-10-22",
+   "dia": "Jueves",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 27,
+   "monitores": [
+    "ARBAÑIL CHICOMA CLAUDIA"
+   ]
+  },
+  {
+   "fecha": "2026-10-23",
+   "dia": "Viernes",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 55,
+   "monitores": [
+    "VASQUEZ CHAVEZ DIEGO ARMANDO"
+   ]
+  },
+  {
+   "fecha": "2026-10-24",
+   "dia": "Sábado",
+   "sede": "VIR",
+   "turno": "Turno Noche",
+   "aulas": 17,
+   "monitores": []
+  }
+ ]
+}

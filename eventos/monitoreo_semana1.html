@@ -4,23 +4,125 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitoreo de visitas · Semana 1 | COT-PLN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="monitoreo_semana1.css">
+  <link rel="stylesheet" href="monitoreo_semana1.css?v=2">
 </head>
 <body>
-  <header class="top"><a class="brand" href="../index.html">COT<span>·</span>PLN</a><div class="headtitle"><h1>Monitoreo de visitas</h1><p>Semana 1 · 19 al 24 de octubre de 2026</p></div><a class="back" href="../index.html">⌂ <span>Inicio</span></a></header>
+  <header class="top"><a class="brand" href="../index.html">COT<span>·</span>PLN</a><div class="headtitle"><h1>Monitoreo de visitas</h1><p id="periodo">Semana 1</p></div><a class="back" href="../index.html">⌂ <span>Inicio</span></a></header>
+
   <main>
-    <section class="intro"><div><div class="eyebrow">REPORTE OPERATIVO</div><h2>Seguimiento de sedes y turnos</h2><p>Resultados del formulario, incidencias reportadas y puntos por conciliar con la programación semanal.</p></div><div class="intro-actions"><button id="reset">↺ Limpiar filtros</button><button id="print">⤓ Imprimir / guardar PDF</button></div></section>
-    <section class="filters panel"><div class="filter-title"><div><strong>Explorar resultados</strong><small id="filter-summary">Mostrando todas las respuestas</small></div><span class="live"><i></i> Datos del formulario</span></div><div class="filter-grid">
-      <label>Sede<select id="sede"><option value="">Todas las sedes</option></select></label><label>Turno<select id="turno"><option value="">Todos los turnos</option></select></label><label>Monitor<select id="monitor"><option value="">Todos los monitores</option></select></label><label>Estado observado<select id="estado"><option value="">Todos los estados</option><option>Conforme</option><option>Con observación</option><option>No se pudo verificar</option><option>No aplica</option></select></label><label class="search">Buscar en observaciones<input id="buscar" type="search" placeholder="Docente, incidencia, recomendación…"></label>
-    </div></section>
-    <section id="kpis" class="kpis"></section>
-    <section class="layout"><article class="panel"><div class="panel-head"><div><h3>Estados por momento</h3><p>Conteo de respuestas dentro de los filtros</p></div></div><div id="status-chart" class="status-chart"></div><div class="legend"><span><i class="ok"></i> Conforme</span><span><i class="warn"></i> Con observación</span><span><i class="neutral"></i> No aplica / sin verificar</span></div></article>
-      <article class="panel"><div class="panel-head"><div><h3>Registros por sede</h3><p>Distribución de respuestas registradas</p></div></div><div id="campus-chart" class="bars"></div></article>
+    <section class="intro">
+      <div><div class="eyebrow">REPORTE OPERATIVO</div><h2>Seguimiento de sedes y turnos</h2>
+        <p>Promedio de la semana, detalle día por día y cruce del cronograma con el formulario para ver quién no reportó.</p></div>
+      <div class="intro-actions"><button id="reset">↺ Limpiar filtros</button><button id="print">⤓ Imprimir / guardar PDF</button></div>
     </section>
-    <section class="panel"><div class="panel-head"><div><h3>Hallazgos de la semana</h3><p>Lectura conjunta de formulario y mensajes del 19/10</p></div><span class="tag">Requieren seguimiento</span></div><div id="issues" class="issues"></div></section>
-    <section class="panel"><div class="panel-head"><div><h3>Respuestas de monitoreo</h3><p id="table-count"></p></div><button class="text-btn" id="download">Descargar CSV filtrado</button></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Sede / turno</th><th>Monitor</th><th>Estados</th><th>Hallazgos y recomendaciones</th></tr></thead><tbody id="rows"></tbody></table></div></section>
-    <section class="note"><strong>Conciliación pendiente</strong><span>El cronograma adjunto contiene espacios sin responsable identificable y dos respuestas de AQP están fechadas 19/12/2026. No se señala a un monitor como ausente sin validar la asignación diaria y corregir las fechas.</span><span class="note-count" id="date-alert">2 fechas por revisar</span></section>
-    <footer>Fuente: formulario “Monitoreo de visitas a sede”, programación semanal e incidencias compartidas. Los registros múltiples pueden corresponder a aulas o secciones.</footer>
+
+    <nav class="tabs" id="tabs">
+      <button class="on" data-vista="promedio">Promedio de la semana</button>
+      <button data-vista="dias">Reporte por día</button>
+      <button data-vista="faltantes">Sin reporte</button>
+      <button data-vista="respuestas">Respuestas</button>
+    </nav>
+
+    <section class="filters panel">
+      <div class="filter-title">
+        <div><strong>Explorar resultados</strong><small id="filter-summary">Mostrando todas las respuestas</small></div>
+        <span class="live"><i></i> Formulario + cronograma + chat</span>
+      </div>
+      <div class="filter-grid">
+        <label>Sede<select id="sede"><option value="">Todas las sedes</option></select></label>
+        <label>Turno<select id="turno"><option value="">Todos los turnos</option></select></label>
+        <label>Monitor<select id="monitor"><option value="">Todos los monitores</option></select></label>
+        <label>Estado observado<select id="estado"><option value="">Todos los estados</option><option>Conforme</option><option>Con observación</option><option>No se pudo verificar</option><option>No aplica</option></select></label>
+        <label class="search">Buscar en observaciones<input id="buscar" type="search" placeholder="Docente, incidencia, recomendación…"></label>
+      </div>
+    </section>
+
+    <section id="kpis" class="kpis"></section>
+
+    <!-- ===================== PROMEDIO DE LA SEMANA ===================== -->
+    <div id="vista-promedio">
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head"><div><h3>Conformidad promedio por momento</h3><p>Sobre los estados evaluables (conforme + con observación)</p></div></div>
+          <div id="promedio-momentos" class="status-chart"></div>
+          <div class="legend"><span><i class="ok"></i> Conforme</span><span><i class="warn"></i> Con observación</span><span><i class="neutral"></i> No aplica / sin verificar</span></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><h3>Promedio por sede</h3><p>Conformidad y observaciones por registro</p></div></div>
+          <div id="promedio-sedes" class="bars"></div>
+        </article>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Hallazgos de la semana</h3><p>Lectura conjunta del formulario y del chat de coordinación</p></div><span class="tag">Requieren seguimiento</span></div>
+        <div id="issues" class="issues"></div>
+      </section>
+    </div>
+
+    <!-- ===================== REPORTE POR DÍA ===================== -->
+    <div id="vista-dias" class="oculto">
+      <section class="panel">
+        <div class="panel-head"><div><h3>Semana día por día</h3><p>Haz clic en un día para ver el detalle de los hallazgos</p></div></div>
+        <div id="dias-cards" class="dias"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Comparativo diario</h3><p>Registros y conformidad de cada día</p></div></div>
+        <div id="dias-chart" class="status-chart"></div>
+      </section>
+    </div>
+
+    <!-- ===================== SIN REPORTE ===================== -->
+    <div id="vista-faltantes" class="oculto">
+      <section class="panel">
+        <div class="panel-head"><div><h3>Monitores programados que no registraron el formulario</h3><p id="faltantes-sub"></p></div><button class="text-btn" id="download-faltantes">Descargar CSV</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Día</th><th>Sede / turno</th><th>Monitor programado</th><th>Aulas</th><th>Estado</th></tr></thead><tbody id="faltantes-rows"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Cumplimiento por monitor</h3><p>Turnos programados en la semana frente a los que sí registraron</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Monitor</th><th>Programados</th><th>Reportados</th><th>Sin reporte</th><th>Cumplimiento</th></tr></thead><tbody id="cumplimiento-rows"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Registros sin asignación en el cronograma</h3><p>Respuestas del formulario que no coinciden con un bloque programado</p></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Sede / turno</th><th>Monitor</th><th>Observación</th></tr></thead><tbody id="extras-rows"></tbody></table></div>
+      </section>
+    </div>
+
+    <!-- ===================== RESPUESTAS ===================== -->
+    <div id="vista-respuestas" class="oculto">
+      <section class="layout">
+        <article class="panel">
+          <div class="panel-head"><div><h3>Estados por momento</h3><p>Conteo de respuestas dentro de los filtros</p></div></div>
+          <div id="status-chart" class="status-chart"></div>
+          <div class="legend"><span><i class="ok"></i> Conforme</span><span><i class="warn"></i> Con observación</span><span><i class="neutral"></i> No aplica / sin verificar</span></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><div><h3>Registros por sede</h3><p>Distribución de respuestas registradas</p></div></div>
+          <div id="campus-chart" class="bars"></div>
+        </article>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Respuestas de monitoreo</h3><p id="table-count"></p></div><button class="text-btn" id="download">Descargar CSV filtrado</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Sede / turno</th><th>Monitor</th><th>Estados</th><th>Hallazgos y recomendaciones</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </section>
+    </div>
+
+    <section class="note">
+      <strong>Calidad de datos</strong>
+      <span id="note-text">—</span>
+      <span class="note-count" id="date-alert">—</span>
+    </section>
+    <footer>Fuentes: formulario «Monitoreo de visitas a sede», cronograma semanal por sede y turno, y chat de coordinación. Los registros múltiples de un mismo monitor corresponden a aulas o secciones de un mismo turno.</footer>
   </main>
-  <script src="monitoreo_semana1.js"></script>
+
+  <!-- ===================== DETALLE DEL DÍA ===================== -->
+  <div class="modal" id="modal-dia">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div><h3 id="dia-titulo">Detalle</h3><p id="dia-sub"></p></div>
+        <button class="text-btn" data-cerrar>Cerrar</button>
+      </div>
+      <div class="modal-body" id="dia-cuerpo"></div>
+    </div>
+  </div>
+
+  <script src="monitoreo_semana1.js?v=2"></script>
 </body></html>
