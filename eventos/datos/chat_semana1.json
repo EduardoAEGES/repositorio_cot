@@ -65,6 +65,14 @@
    "sede": "SJL",
    "tipo": "incidencia",
    "texto": "Buenos días. En la sede San Juan de Lurigancho los televisores tienen la información desactualizada y hay docentes y alumnos que se guían de ese recurso. Estoy en la entrada orientando a los alumnos; quien está a cargo menciona que actualizar la información de los monitores es responsabilidad de TI."
+  },
+  {
+   "fecha": "2026-10-24",
+   "hora": null,
+   "autor": null,
+   "sede": "AQP",
+   "tipo": "incidencia",
+   "texto": "Buen día, docente Victor Hugo Garcia Herrera aún no llega a sede Arequipa."
   }
  ],
  "precisiones": [
@@ -74,8 +82,8 @@
    "turno": "Turno Mañana",
    "tema": "Tardanzas docentes",
    "dice_el_formulario": "2 docentes con tardanza",
-   "texto": "En el chat de coordinación se identifican los dos docentes: Diego Arenas y un docente de EFSRT (nombre por confirmar con la sede).",
-   "pendiente": "Confirmar el nombre del docente de EFSRT y registrarlo en el formulario.",
+   "texto": "En el chat de coordinación se identifican los dos docentes: Diego Arenas y Victor Hugo Garcia Herrera (EFSRT), de quien se avisó en el chat que aún no llegaba a la sede.",
+   "pendiente": "Registrar ambos nombres en el formulario y dar seguimiento a la reincidencia.",
    "fuente": "Chat de coordinación COT-PLN"
   },
   {

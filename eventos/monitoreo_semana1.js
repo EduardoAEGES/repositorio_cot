@@ -223,7 +223,7 @@ function abrirDia(fecha) {
     bloque(`Evidencia del chat de coordinación (${chat.length + sueltas.length + adjuntas})`,
       sueltas.map(p => bloquePrecision(p)).join('') + chat.map(m =>
       `<article class="chat-msg ${esc(m.tipo)}">
-         <header><b>${esc(m.autor)}</b><span>${esc(m.hora)}${m.sede ? ' · ' + esc(m.sede) : ''}</span></header>
+         <header><b>${esc(m.autor || 'Chat de coordinación')}</b><span>${[m.hora, m.sede].filter(Boolean).map(esc).join(' · ')}</span></header>
          <p>${esc(m.texto)}</p></article>`).join(''),
       adjuntas ? `Las ${adjuntas} precisiones del chat de este día están adjuntas a los hallazgos de arriba.`
                : 'No hay mensajes del chat guardados para este día.') +
