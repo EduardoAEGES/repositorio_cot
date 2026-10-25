@@ -76,3 +76,35 @@
 .punto .ventana{font-size:9px;color:var(--muted);font-weight:600;margin-left:4px}
 .chat-inline{display:flex;gap:7px;align-items:flex-start;margin-top:6px;background:#f4f1f8;border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.45;color:#4d5361}
 .chat-inline .chip-chat{white-space:nowrap}
+
+/* ===== promedio por sede ===== */
+.sedes{display:flex;flex-direction:column;gap:8px}
+.sede-fila{display:grid;grid-template-columns:minmax(130px,1.1fr) 2fr minmax(86px,auto);align-items:center;gap:12px;
+           background:#fff;border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:11px;padding:10px 13px}
+.sede-fila.medio{border-left-color:var(--warn)}
+.sede-fila.alerta{border-left-color:var(--red)}
+.sede-nombre b{display:block;font-size:13.5px}
+.sede-nombre small{color:var(--muted);font-size:10.5px}
+.sede-barra{height:9px;border-radius:99px;background:#eef0f4;overflow:hidden}
+.sede-barra div{height:100%;border-radius:99px;background:var(--ok)}
+.sede-fila.medio .sede-barra div{background:var(--warn)}
+.sede-fila.alerta .sede-barra div{background:var(--red)}
+.sede-cifras{text-align:right}
+.sede-cifras b{display:block;font-size:17px;font-weight:800;letter-spacing:-.4px}
+.sede-cifras small{color:var(--muted);font-size:10px}
+
+/* ===== tardanzas por sede ===== */
+.tardanzas{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:11px}
+.tardanza-sede{background:#fff;border:1px solid var(--line);border-top:3px solid var(--warn);border-radius:12px;padding:12px 14px}
+.tardanza-sede header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tardanza-sede header b{font-size:14px}
+.tardanza-sede .grande{font-size:24px;font-weight:800;color:var(--warn);letter-spacing:-.6px}
+.tardanza-sede > small{color:var(--muted);font-size:10.5px}
+.tardanza-sede ul{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.tardanza-sede li{border-top:1px solid var(--line);padding-top:7px;font-size:11.5px;line-height:1.45}
+.tardanza-sede li b{font-size:11.5px}
+.tardanza-sede li span{display:block;color:var(--muted);font-size:10px}
+.tardanza-sede li em{display:block;color:#4d5361;font-style:normal;font-size:10.5px;margin-top:2px}
+.tardanza-sede li .rein{font-style:normal;font-weight:700;color:var(--red);background:#fdeeee;border-radius:99px;padding:1px 6px}
+.layout{align-items:start}
+.tardanzas{align-items:start}

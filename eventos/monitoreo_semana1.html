@@ -4,7 +4,10 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitoreo de visitas · Semana 1 | COT-PLN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="monitoreo_semana1.css?v=2">
+  <link rel="stylesheet" href="monitoreo_semana1.css?v=3">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
 </head>
 <body>
   <header class="top"><a class="brand" href="../index.html">COT<span>·</span>PLN</a><div class="headtitle"><h1>Monitoreo de visitas</h1><p id="periodo">Semana 1</p></div><a class="back" href="../index.html">⌂ <span>Inicio</span></a></header>
@@ -13,7 +16,7 @@
     <section class="intro">
       <div><div class="eyebrow">REPORTE OPERATIVO</div><h2>Seguimiento de sedes y turnos</h2>
         <p>Promedio de la semana, detalle día por día y cruce del cronograma con el formulario para ver quién no reportó.</p></div>
-      <div class="intro-actions"><button id="reset">↺ Limpiar filtros</button><button id="print">⤓ Imprimir / guardar PDF</button></div>
+      <div class="intro-actions"><button id="reset">↺ Limpiar filtros</button><button id="slides-pdf">▭ Reporte en diapositivas (PDF)</button><button id="slides-ppt">▭ Reporte en diapositivas (PPT)</button><button id="print">⤓ Imprimir</button></div>
     </section>
 
     <nav class="tabs" id="tabs">
@@ -48,9 +51,13 @@
           <div class="legend"><span><i class="ok"></i> Conforme</span><span><i class="warn"></i> Con observación</span><span><i class="neutral"></i> No aplica / sin verificar</span></div>
         </article>
         <article class="panel">
-          <div class="panel-head"><div><h3>Promedio por sede</h3><p>Conformidad y observaciones por registro</p></div></div>
-          <div id="promedio-sedes" class="bars"></div>
+          <div class="panel-head"><div><h3>Promedio por sede</h3><p>Ordenado de menor a mayor conformidad</p></div></div>
+          <div id="promedio-sedes" class="sedes"></div>
         </article>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>Docentes con tardanza por sede</h3><p id="tardanzas-sub">—</p></div><span class="tag">Puntualidad</span></div>
+        <div id="tardanzas-sedes" class="tardanzas"></div>
       </section>
       <section class="panel">
         <div class="panel-head"><div><h3>Hallazgos de la semana</h3><p>Lectura conjunta del formulario y del chat de coordinación</p></div><span class="tag">Requieren seguimiento</span></div>
@@ -80,10 +87,6 @@
         <div class="panel-head"><div><h3>Cumplimiento por monitor</h3><p>Turnos programados en la semana frente a los que sí registraron</p></div></div>
         <div class="table-wrap"><table><thead><tr><th>Monitor</th><th>Programados</th><th>Reportados</th><th>Sin reporte</th><th>Cumplimiento</th></tr></thead><tbody id="cumplimiento-rows"></tbody></table></div>
       </section>
-      <section class="panel">
-        <div class="panel-head"><div><h3>Registros sin asignación en el cronograma</h3><p>Respuestas del formulario que no coinciden con un bloque programado</p></div></div>
-        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Sede / turno</th><th>Monitor</th><th>Observación</th></tr></thead><tbody id="extras-rows"></tbody></table></div>
-      </section>
     </div>
 
     <!-- ===================== RESPUESTAS ===================== -->
@@ -105,11 +108,6 @@
       </section>
     </div>
 
-    <section class="note">
-      <strong>Calidad de datos</strong>
-      <span id="note-text">—</span>
-      <span class="note-count" id="date-alert">—</span>
-    </section>
     <footer>Fuentes: formulario «Monitoreo de visitas a sede», cronograma semanal por sede y turno, y chat de coordinación. Los registros múltiples de un mismo monitor corresponden a aulas o secciones de un mismo turno.</footer>
   </main>
 
@@ -124,5 +122,5 @@
     </div>
   </div>
 
-  <script src="monitoreo_semana1.js?v=2"></script>
+  <script src="monitoreo_semana1.js?v=3"></script>
 </body></html>

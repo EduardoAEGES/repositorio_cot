@@ -1,0 +1,21 @@
+{
+ "nota": "Docentes con tardanza identificados en la semana - cada registro nace de un comentario del formulario o del chat de coordinación.",
+ "registros": [
+  { "fecha": "2026-10-19", "sede": "AQP", "turno": "Turno Mañana", "docente": "ASTULLE PASTOR MARILYN DIXIE", "curso": "PTD", "detalle": "Marcada como tarde en el registro que llegó fechado 19/12 y se reasignó al 19/10", "fuente": "Formulario" },
+  { "fecha": "2026-10-19", "sede": "AQP", "turno": "Turno Mañana", "docente": "ZEGARRA ESCOBEDO LIZBETH KATHERINE", "curso": "PTP", "detalle": "Marcada como tarde en el registro reasignado al 19/10", "fuente": "Formulario" },
+  { "fecha": "2026-10-19", "sede": "AQP", "turno": "Turno Mañana", "docente": "GARCIA HERRERA VICTOR HUGO", "curso": "PPH", "detalle": "Marcado como tarde en el registro reasignado al 19/10", "fuente": "Formulario" },
+  { "fecha": "2026-10-20", "sede": "AQP", "turno": "Turno Mañana", "docente": "ASTULLE PASTOR MARILYN DIXIE", "curso": "", "detalle": "Llegó 07:05", "fuente": "Formulario" },
+  { "fecha": "2026-10-21", "sede": "AQP", "turno": "Turno Mañana", "docente": "ASTULLE PASTOR MARILYN DIXIE", "curso": "", "detalle": "Tarde", "fuente": "Formulario" },
+  { "fecha": "2026-10-21", "sede": "AQP", "turno": "Turno Mañana", "docente": "CHAVEZ GUILLEN JULISA YRELSA", "curso": "", "detalle": "Tarde y error en aula", "fuente": "Formulario" },
+  { "fecha": "2026-10-21", "sede": "AQP", "turno": "Turno Mañana", "docente": "LLAJARUNA TELLES ROBERTO ALONZO", "curso": "", "detalle": "Tarde", "fuente": "Formulario" },
+  { "fecha": "2026-10-22", "sede": "AQP", "turno": "Turno Mañana", "docente": "GONZALO RIVEROS DE CANI", "curso": "Inglés", "detalle": "Más de 20 minutos tarde", "fuente": "Formulario" },
+  { "fecha": "2026-10-22", "sede": "AQP", "turno": "Turno Mañana", "docente": "FIGUEROA VALENZUELA", "curso": "Experiencias Formativas", "detalle": "Alrededor de 20 minutos tarde, laboratorio 8", "fuente": "Formulario" },
+  { "fecha": "2026-10-23", "sede": "AQP", "turno": "Turno Mañana", "docente": "JESSICA OSCO", "curso": "", "detalle": "Llegó 07:10", "fuente": "Formulario" },
+  { "fecha": "2026-10-24", "sede": "AQP", "turno": "Turno Mañana", "docente": "DIEGO ARENAS", "curso": "", "detalle": "Una de las dos tardanzas que el formulario contó sin nombrar", "fuente": "Chat" },
+  { "fecha": "2026-10-24", "sede": "AQP", "turno": "Turno Mañana", "docente": "GARCIA HERRERA VICTOR HUGO", "curso": "EFSRT", "detalle": "Se avisó en el chat que aún no llegaba a la sede", "fuente": "Chat" },
+  { "fecha": "2026-10-21", "sede": "VES", "turno": "Turno Mañana", "docente": "DORIS MINES QUISPE", "curso": "MKT", "detalle": "Algunos minutos de tardanza - aceptó tomar previsiones", "fuente": "Formulario" },
+  { "fecha": "2026-10-21", "sede": "VES", "turno": "Turno Mañana", "docente": "JOSE LUIS TORREJON NAVARRO", "curso": "", "detalle": "Varios minutos de tardanza - se le pidió llegar 10 minutos antes", "fuente": "Formulario" },
+  { "fecha": "2026-10-22", "sede": "SJL", "turno": "Turno Noche", "docente": "GIAN FRANCIS VILLA", "curso": "Experiencia del Cliente", "detalle": "Ingresó al aula 19:06", "fuente": "Formulario" },
+  { "fecha": "2026-10-24", "sede": "NOR", "turno": "Turno Mañana", "docente": "HUARAG JAUREGUI RAUL GUSTAVO", "curso": "Emprendimiento / Modelo de Negocio", "detalle": "Llegó 07:14 - reincidente según SAE", "fuente": "Formulario" }
+ ]
+}
