@@ -1211,7 +1211,7 @@ function cambiarVista(v) {
     const marcoMonitoreo = $('marco-monitoreo');
     if (v === 'monitoreo' && marcoMonitoreo.dataset.cargado !== 'true') {
         marcoMonitoreo.dataset.cargado = 'true';
-        marcoMonitoreo.src = 'monitoreo_semana1.html?embed=1';
+        marcoMonitoreo.src = 'monitoreo_semana1.html?embed=1&v=20261025';
     }
 }
 
