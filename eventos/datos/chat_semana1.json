@@ -82,8 +82,8 @@
    "turno": "Turno Mañana",
    "tema": "Tardanzas docentes",
    "dice_el_formulario": "2 docentes con tardanza",
-   "texto": "En el chat de coordinación se identifican los dos docentes: Diego Arenas y Victor Hugo Garcia Herrera (EFSRT), de quien se avisó en el chat que aún no llegaba a la sede.",
-   "pendiente": "Registrar ambos nombres en el formulario y dar seguimiento a la reincidencia.",
+   "texto": "En el chat de coordinación se identifican los dos docentes: Diego Arenas y Victor Hugo Garcia Herrera (EFSRT), de quien se avisó que aún no llegaba a la sede. Garcia Herrera ya figuraba con tardanza en AQP el 19/10.",
+   "pendiente": "Registrar ambos nombres en el formulario y abrir seguimiento por reincidencia a Garcia Herrera Victor Hugo.",
    "fuente": "Chat de coordinación COT-PLN"
   },
   {
@@ -91,9 +91,9 @@
    "sede": "AQP",
    "turno": "Turno Mañana",
    "tema": "Tardanzas docentes",
-   "dice_el_formulario": "Reporte de asistencia sin detalle de tardanzas",
-   "texto": "El monitor reportó en el chat «todos los docentes presentes, pero con tardanza» e indicó tenerlos anotados; los nombres no se entregaron.",
-   "pendiente": "Pedir a AQP la lista nominal de tardanzas del 19/10.",
+   "dice_el_formulario": "ASTULLE PASTOR MARILYN DIXIE PTD tarde · ZEGARRA ESCOBEDO LIZBETH KATHERINE PTP tarde · GARCIA HERRERA VICTOR HUGO PPH tarde",
+   "texto": "En el chat el monitor solo dijo «todos los docentes presentes, pero con tardanza» e indicó tenerlos anotados. Los nombres sí llegaron, pero en el registro del formulario que venía fechado 19/12/2026 y se reasignó a este día.",
+   "pendiente": "Garcia Herrera Victor Hugo vuelve a aparecer en AQP el 24/10: tratarlo como reincidencia, no como caso aislado.",
    "fuente": "Chat de coordinación COT-PLN"
   },
   {

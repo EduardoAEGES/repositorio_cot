@@ -14,6 +14,10 @@ const MOMENTOS = [
   ['4to monitoreo (10:30 a 10:45)', 'Comentario - 4to monitoreo (10:30 a 10:45)']
 ];
 const ESTADOS = ['Conforme', 'Con observación', 'No aplica', 'No se pudo verificar'];
+/* Ventana horaria de cada momento, en el mismo orden que MOMENTOS. Sirve para
+   ubicar cada mensaje del chat en el momento de control que le corresponde. */
+const VENTANAS = [['06:40', '06:50'], ['06:50', '07:00'], ['07:10', '07:30'], ['08:30', '09:00'], ['10:30', '10:45']];
+const TOLERANCIA = 20; // minutos fuera de la ventana para seguir asociando el mensaje
 /* Fechas mal capturadas en el formulario: 19/12/2026 corresponde al lunes 19/10/2026
    (mismo monitor, misma sede y el chat de ese día confirma el reporte). */
 const FECHAS_CORREGIDAS = { '2026-12-19': '2026-10-19' };
@@ -24,6 +28,20 @@ const dia10 = v => String(v ?? '').slice(0, 10);
 const shortDate = v => { const [y, m, d] = dia10(v).split('-'); return d ? `${d}/${m}/${y}` : '—'; };
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
 const momentoCorto = k => k.replace(/ \(.+/, '');
+const enMinutos = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + (b || 0); };
+/* Momento al que pertenece una hora del chat: la ventana que la contiene o,
+   si cae entre dos, la más cercana dentro de la tolerancia. */
+function momentoDeHora(hora) {
+  if (!hora) return null;
+  const m = enMinutos(hora);
+  let mejor = null;
+  VENTANAS.forEach(([ini, fin], i) => {
+    const d = m < enMinutos(ini) ? enMinutos(ini) - m : m > enMinutos(fin) ? m - enMinutos(fin) : 0;
+    if (!mejor || d < mejor.distancia) mejor = { indice: i, distancia: d };
+  });
+  if (mejor.distancia > TOLERANCIA) return null;
+  return { ...mejor, exacto: mejor.distancia === 0 };
+}
 
 let DATA = [], PROG = { asignaciones: [] }, CHAT = { mensajes: [] }, DIAS = [], VISTA = 'promedio';
 
@@ -33,7 +51,8 @@ function preparar(filas) {
     const original = dia10(r[DATE]);
     const fecha = FECHAS_CORREGIDAS[original] || original;
     const estados = MOMENTOS.map(([k]) => r[k]).filter(Boolean);
-    const notas = MOMENTOS.filter(([, c]) => r[c]).map(([k, c]) => ({ momento: momentoCorto(k), estado: r[k] || '', comentario: r[c] }));
+    const notas = MOMENTOS.map(([k, c], i) => ({ indice: i, momento: momentoCorto(k), estado: r[k] || '', comentario: r[c] || '' }))
+      .filter(n => n.comentario);
     return {
       ...r, fecha, fechaOriginal: original, corregida: fecha !== original,
       estados, notas,
@@ -174,6 +193,12 @@ function renderDias(rows) {
   }).join('');
 }
 
+function lineaChat(m) {
+  return `<div class="chat-inline">
+    <span class="chip-chat">Chat ${esc(m.hora)}${m.ubicacion && !m.ubicacion.exacto ? ' ±' + m.ubicacion.distancia + ' min' : ''}</span>
+    <span><b>${esc(m.autor || 'Chat de coordinación')}:</b> ${esc(m.texto)}</span></div>`;
+}
+
 function bloquePrecision(p) {
   return `<div class="precision">
     <header><span class="chip-chat">Precisión del chat</span><b>${esc(p.tema)}</b><span>${esc(p.sede)}${p.turno ? ' · ' + esc(p.turno) : ''}</span></header>
@@ -193,6 +218,8 @@ function abrirDia(fecha) {
 
   const precisionesDe = (sede, turno) => (CHAT.precisiones || [])
     .filter(p => p.fecha === fecha && p.sede === sede && (!p.turno || p.turno === turno));
+  const mensajesDelDia = CHAT.mensajes.filter(m => m.fecha === fecha).map(m => ({ ...m, ubicacion: momentoDeHora(m.hora) }));
+  const chatDe = (sede, indice) => mensajesDelDia.filter(m => m.sede === sede && m.ubicacion && m.ubicacion.indice === indice);
   const hallazgos = r.filas
     .map(f => ({
       sede: f[CAMPUS], turno: f[TURN], monitor: f[MON], recomendacion: f['Recomendaciones'] || '',
@@ -202,7 +229,7 @@ function abrirDia(fecha) {
     .filter(h => h.puntos.length || h.precisiones.length);
   const nPuntos = hallazgos.reduce((n, h) => n + h.puntos.length, 0);
 
-  const chat = CHAT.mensajes.filter(m => m.fecha === fecha);
+  const chat = mensajesDelDia;
   const sueltas = (CHAT.precisiones || []).filter(p => p.fecha === fecha && !hallazgos.some(h => h.precisiones.includes(p)));
   const adjuntas = hallazgos.reduce((n, h) => n + h.precisiones.length, 0);
 
@@ -215,7 +242,9 @@ function abrirDia(fecha) {
          <header><b>${esc(h.sede)} · ${esc(h.turno)}</b><small>Monitor: ${esc(h.monitor)}</small></header>
          ${h.puntos.map(n => `<div class="punto ${n.estado === 'Con observación' ? '' : 'gris'}">
             <span class="state-chip ${n.estado === 'Con observación' ? 'warn' : 'neutral'}">${esc(n.momento)}: ${esc(n.estado)}</span>
-            <p>${esc(n.comentario) || 'Sin comentario registrado.'}</p></div>`).join('')}
+            <span class="ventana">${VENTANAS[n.indice].join(' a ')}</span>
+            <p>${esc(n.comentario) || 'Sin comentario registrado.'}</p>
+            ${chatDe(h.sede, n.indice).map(m => lineaChat(m)).join('')}</div>`).join('')}
          ${h.precisiones.map(p => bloquePrecision(p)).join('')}
          ${h.recomendacion ? `<div class="reco"><b>Recomendación:</b> ${esc(h.recomendacion)}</div>` : ''}
        </article>`).join(''), 'Sin observaciones registradas este día.') +
@@ -223,7 +252,8 @@ function abrirDia(fecha) {
     bloque(`Evidencia del chat de coordinación (${chat.length + sueltas.length + adjuntas})`,
       sueltas.map(p => bloquePrecision(p)).join('') + chat.map(m =>
       `<article class="chat-msg ${esc(m.tipo)}">
-         <header><b>${esc(m.autor || 'Chat de coordinación')}</b><span>${[m.hora, m.sede].filter(Boolean).map(esc).join(' · ')}</span></header>
+         <header><b>${esc(m.autor || 'Chat de coordinación')}</b><span>${[m.hora, m.sede,
+            m.ubicacion ? momentoCorto(MOMENTOS[m.ubicacion.indice][0]) : null].filter(Boolean).map(esc).join(' · ')}</span></header>
          <p>${esc(m.texto)}</p></article>`).join(''),
       adjuntas ? `Las ${adjuntas} precisiones del chat de este día están adjuntas a los hallazgos de arriba.`
                : 'No hay mensajes del chat guardados para este día.') +

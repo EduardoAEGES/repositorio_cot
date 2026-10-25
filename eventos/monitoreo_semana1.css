@@ -71,3 +71,8 @@
 .precision p{margin:6px 0 0;font-size:12px;line-height:1.5;color:#4d5361}
 .precision p.dice{color:var(--muted);font-style:italic}
 .precision .pendiente{margin-top:7px;background:#fff6e4;border-radius:8px;padding:6px 9px;font-size:11.5px;color:#7a5a16}
+
+/* ===== cruce del chat con el momento de control ===== */
+.punto .ventana{font-size:9px;color:var(--muted);font-weight:600;margin-left:4px}
+.chat-inline{display:flex;gap:7px;align-items:flex-start;margin-top:6px;background:#f4f1f8;border-radius:8px;padding:6px 8px;font-size:11.5px;line-height:1.45;color:#4d5361}
+.chat-inline .chip-chat{white-space:nowrap}
