@@ -447,8 +447,47 @@ function datosDelReporte() {
 
 const MORADO = [113, 75, 103], TINTA = [45, 48, 58], SUAVE = [138, 144, 160];
 
+/* Las librerías del reporte se cargan al pulsar el botón y se intentan varios
+   CDN: si uno está caído o bloqueado por la red de la sede, se usa el siguiente. */
+function cargarScript(url) {
+  return new Promise((ok, falla) => {
+    const s = document.createElement('script');
+    s.src = url; s.onload = ok; s.onerror = () => falla(new Error(url));
+    document.head.append(s);
+  });
+}
+async function asegurarLib(nombre, listo, urls) {
+  if (listo()) return;
+  for (const url of urls) {
+    try { await cargarScript(url); } catch (e) { continue; }
+    if (listo()) return;
+  }
+  throw new Error(`no se pudo cargar la librería de ${nombre} desde ningún servidor, revisa la conexión`);
+}
+const hayJsPDF = () => !!(window.jspdf && window.jspdf.jsPDF);
+const hayAutoTable = () => hayJsPDF() && typeof window.jspdf.jsPDF.API.autoTable === 'function';
+const hayPptx = () => typeof window.PptxGenJS !== 'undefined';
+
+async function cargarLibsPDF() {
+  await asegurarLib('PDF', hayJsPDF, [
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  ]);
+  await asegurarLib('tablas del PDF', hayAutoTable, [
+    'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+    'https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'
+  ]);
+}
+const cargarLibsPPT = () => asegurarLib('PPT', hayPptx, [
+  'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+  'https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js'
+]);
+
 async function reportePDF() {
-  if (!window.jspdf) throw new Error('no se cargó la librería de PDF, revisa la conexión y recarga la página');
+  await cargarLibsPDF();
   const d = datosDelReporte();
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -534,7 +573,7 @@ async function reportePDF() {
 }
 
 async function reportePPT() {
-  if (typeof PptxGenJS === 'undefined') throw new Error('no se cargó la librería de PPT, revisa la conexión y recarga la página');
+  await cargarLibsPPT();
   const d = datosDelReporte();
   const ppt = new PptxGenJS();
   ppt.layout = 'LAYOUT_16x9';
