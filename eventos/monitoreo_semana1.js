@@ -174,6 +174,15 @@ function renderDias(rows) {
   }).join('');
 }
 
+function bloquePrecision(p) {
+  return `<div class="precision">
+    <header><span class="chip-chat">Precisión del chat</span><b>${esc(p.tema)}</b><span>${esc(p.sede)}${p.turno ? ' · ' + esc(p.turno) : ''}</span></header>
+    ${p.dice_el_formulario ? `<p class="dice">El formulario dice: «${esc(p.dice_el_formulario)}»</p>` : ''}
+    <p>${esc(p.texto)}</p>
+    ${p.pendiente ? `<div class="pendiente"><b>Pendiente:</b> ${esc(p.pendiente)}</div>` : ''}
+  </div>`;
+}
+
 function abrirDia(fecha) {
   const r = resumenDia(fecha, filtered());
   const d = DIAS.find(x => x.fecha === fecha) || { dia: '' };
@@ -182,15 +191,20 @@ function abrirDia(fecha) {
   $('dia-sub').textContent = [plural(r.filas.length, 'registro', 'registros'), `${r.conf}% de conformidad`,
     plural(r.obs, 'observación', 'observaciones'), plural(r.faltantes.length, 'monitor sin reporte', 'monitores sin reporte')].join(' · ');
 
+  const precisionesDe = (sede, turno) => (CHAT.precisiones || [])
+    .filter(p => p.fecha === fecha && p.sede === sede && (!p.turno || p.turno === turno));
   const hallazgos = r.filas
     .map(f => ({
       sede: f[CAMPUS], turno: f[TURN], monitor: f[MON], recomendacion: f['Recomendaciones'] || '',
+      precisiones: precisionesDe(f[CAMPUS], f[TURN]),
       puntos: f.notas.filter(n => n.estado === 'Con observación' || n.estado === 'No se pudo verificar')
     }))
-    .filter(h => h.puntos.length);
+    .filter(h => h.puntos.length || h.precisiones.length);
   const nPuntos = hallazgos.reduce((n, h) => n + h.puntos.length, 0);
 
   const chat = CHAT.mensajes.filter(m => m.fecha === fecha);
+  const sueltas = (CHAT.precisiones || []).filter(p => p.fecha === fecha && !hallazgos.some(h => h.precisiones.includes(p)));
+  const adjuntas = hallazgos.reduce((n, h) => n + h.precisiones.length, 0);
 
   const bloque = (titulo, contenido, vacio) =>
     `<section class="det-bloque"><h4>${titulo}</h4>${contenido || `<p class="no-data">${vacio}</p>`}</section>`;
@@ -202,14 +216,17 @@ function abrirDia(fecha) {
          ${h.puntos.map(n => `<div class="punto ${n.estado === 'Con observación' ? '' : 'gris'}">
             <span class="state-chip ${n.estado === 'Con observación' ? 'warn' : 'neutral'}">${esc(n.momento)}: ${esc(n.estado)}</span>
             <p>${esc(n.comentario) || 'Sin comentario registrado.'}</p></div>`).join('')}
+         ${h.precisiones.map(p => bloquePrecision(p)).join('')}
          ${h.recomendacion ? `<div class="reco"><b>Recomendación:</b> ${esc(h.recomendacion)}</div>` : ''}
        </article>`).join(''), 'Sin observaciones registradas este día.') +
 
-    bloque(`Evidencia del chat de coordinación (${chat.length})`, chat.map(m =>
+    bloque(`Evidencia del chat de coordinación (${chat.length + sueltas.length + adjuntas})`,
+      sueltas.map(p => bloquePrecision(p)).join('') + chat.map(m =>
       `<article class="chat-msg ${esc(m.tipo)}">
          <header><b>${esc(m.autor)}</b><span>${esc(m.hora)}${m.sede ? ' · ' + esc(m.sede) : ''}</span></header>
          <p>${esc(m.texto)}</p></article>`).join(''),
-      'No hay mensajes del chat guardados para este día.') +
+      adjuntas ? `Las ${adjuntas} precisiones del chat de este día están adjuntas a los hallazgos de arriba.`
+               : 'No hay mensajes del chat guardados para este día.') +
 
     bloque(`Programados que no registraron (${r.faltantes.length})`, r.faltantes.length ?
       `<div class="table-wrap"><table><thead><tr><th>Sede / turno</th><th>Monitor</th><th>Aulas</th><th>Estado</th></tr></thead><tbody>` +

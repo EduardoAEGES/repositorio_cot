@@ -62,3 +62,12 @@
 .hallazgo .punto{margin-top:7px;padding-left:9px;border-left:2px solid var(--line)}
 .hallazgo .punto.gris{opacity:.82}
 .hallazgo .punto p{margin:4px 0 0}
+
+/* ===== precisiones tomadas del chat ===== */
+.precision{margin-top:9px;background:#f4f1f8;border:1px solid #e0d8ea;border-left:3px solid var(--brand);border-radius:10px;padding:9px 11px}
+.precision header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.precision header b{color:var(--ink);font-size:12px}
+.chip-chat{background:var(--brand);color:#fff;border-radius:99px;padding:2px 8px;font-size:9px;font-weight:700;letter-spacing:.3px}
+.precision p{margin:6px 0 0;font-size:12px;line-height:1.5;color:#4d5361}
+.precision p.dice{color:var(--muted);font-style:italic}
+.precision .pendiente{margin-top:7px;background:#fff6e4;border-radius:8px;padding:6px 9px;font-size:11.5px;color:#7a5a16}

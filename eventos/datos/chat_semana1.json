@@ -2,21 +2,101 @@
  "fuente": "Chat de coordinación COT-PLN (grupo de monitoreo de sedes).",
  "nota": "Evidencia complementaria al formulario: sirve para poner nombre y detalle a observaciones que en el formulario quedaron sin precisar.",
  "mensajes": [
-  { "fecha": "2026-10-19", "hora": "07:08", "autor": "JOSÉ KOHAGURA", "sede": null, "tipo": "coordinacion",
-    "texto": "Hola a todos, cómo están, muy buenos días. Me comentan cómo les va en sus sedes por favor, muchas gracias." },
-  { "fecha": "2026-10-19", "hora": "07:11", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "reporte",
-    "texto": "En AQP todos los docentes presentes." },
-  { "fecha": "2026-10-19", "hora": "07:13", "autor": "DURAN DE LA FUENTE JORGE ALEJANDRO", "sede": "ATE", "tipo": "reporte",
-    "texto": "Buenos días, en sede Ate todo con normalidad hasta el momento." },
-  { "fecha": "2026-10-19", "hora": "07:14", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "incidencia",
-    "texto": "En AQP todos los docentes presentes, pero con tardanza." },
-  { "fecha": "2026-10-19", "hora": "07:15", "autor": "JOSÉ KOHAGURA", "sede": "AQP", "tipo": "pendiente",
-    "texto": "Pero con tardanza: quiénes llegaron tarde, eso habría que ver." },
-  { "fecha": "2026-10-19", "hora": "07:16", "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO", "sede": "AQP", "tipo": "pendiente",
-    "texto": "Ya los tengo anotados. (Pendiente: entregar los nombres de los docentes con tardanza en AQP.)" },
-  { "fecha": "2026-10-19", "hora": "07:17", "autor": "JOSÉ KOHAGURA", "sede": null, "tipo": "coordinacion",
-    "texto": "¿Las demás sedes cómo van?" },
-  { "fecha": "2026-10-19", "hora": "07:19", "autor": "RAMIREZ PINEDA JOSE CIRILO", "sede": "SJL", "tipo": "incidencia",
-    "texto": "Buenos días. En la sede San Juan de Lurigancho los televisores tienen la información desactualizada y hay docentes y alumnos que se guían de ese recurso. Estoy en la entrada orientando a los alumnos; quien está a cargo menciona que actualizar la información de los monitores es responsabilidad de TI." }
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:08",
+   "autor": "JOSÉ KOHAGURA",
+   "sede": null,
+   "tipo": "coordinacion",
+   "texto": "Hola a todos, cómo están, muy buenos días. Me comentan cómo les va en sus sedes por favor, muchas gracias."
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:11",
+   "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO",
+   "sede": "AQP",
+   "tipo": "reporte",
+   "texto": "En AQP todos los docentes presentes."
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:13",
+   "autor": "DURAN DE LA FUENTE JORGE ALEJANDRO",
+   "sede": "ATE",
+   "tipo": "reporte",
+   "texto": "Buenos días, en sede Ate todo con normalidad hasta el momento."
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:14",
+   "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO",
+   "sede": "AQP",
+   "tipo": "incidencia",
+   "texto": "En AQP todos los docentes presentes, pero con tardanza."
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:15",
+   "autor": "JOSÉ KOHAGURA",
+   "sede": "AQP",
+   "tipo": "pendiente",
+   "texto": "Pero con tardanza: quiénes llegaron tarde, eso habría que ver."
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:16",
+   "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO",
+   "sede": "AQP",
+   "tipo": "pendiente",
+   "texto": "Ya los tengo anotados. (Pendiente: entregar los nombres de los docentes con tardanza en AQP.)"
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:17",
+   "autor": "JOSÉ KOHAGURA",
+   "sede": null,
+   "tipo": "coordinacion",
+   "texto": "¿Las demás sedes cómo van?"
+  },
+  {
+   "fecha": "2026-10-19",
+   "hora": "07:19",
+   "autor": "RAMIREZ PINEDA JOSE CIRILO",
+   "sede": "SJL",
+   "tipo": "incidencia",
+   "texto": "Buenos días. En la sede San Juan de Lurigancho los televisores tienen la información desactualizada y hay docentes y alumnos que se guían de ese recurso. Estoy en la entrada orientando a los alumnos; quien está a cargo menciona que actualizar la información de los monitores es responsabilidad de TI."
+  }
+ ],
+ "precisiones": [
+  {
+   "fecha": "2026-10-24",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "tema": "Tardanzas docentes",
+   "dice_el_formulario": "2 docentes con tardanza",
+   "texto": "En el chat de coordinación se identifican los dos docentes: Diego Arenas y un docente de EFSRT (nombre por confirmar con la sede).",
+   "pendiente": "Confirmar el nombre del docente de EFSRT y registrarlo en el formulario.",
+   "fuente": "Chat de coordinación COT-PLN"
+  },
+  {
+   "fecha": "2026-10-19",
+   "sede": "AQP",
+   "turno": "Turno Mañana",
+   "tema": "Tardanzas docentes",
+   "dice_el_formulario": "Reporte de asistencia sin detalle de tardanzas",
+   "texto": "El monitor reportó en el chat «todos los docentes presentes, pero con tardanza» e indicó tenerlos anotados; los nombres no se entregaron.",
+   "pendiente": "Pedir a AQP la lista nominal de tardanzas del 19/10.",
+   "fuente": "Chat de coordinación COT-PLN"
+  },
+  {
+   "fecha": "2026-10-19",
+   "sede": "SJL",
+   "turno": "Turno Mañana",
+   "tema": "Información de sede",
+   "dice_el_formulario": "Listado / pantallas desactualizadas",
+   "texto": "El chat precisa que son los televisores de la entrada y que la sede señala a TI como responsable de actualizarlos, mientras la gestión del contenido corresponde a la coordinación de sede.",
+   "pendiente": "Asignar responsable y fecha para actualizar las pantallas de SJL.",
+   "fuente": "Chat de coordinación COT-PLN"
+  }
  ]
 }
