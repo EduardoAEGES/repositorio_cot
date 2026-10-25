@@ -1205,8 +1205,10 @@ function cambiarVista(v) {
     document.querySelectorAll('#pestanas-top button').forEach(b => b.classList.toggle('on', b.dataset.vista === v));
     $('vista-alineamiento').classList.toggle('oculto', v !== 'alineamiento');
     $('vista-evaldo').classList.toggle('oculto', v !== 'evaldo');
+    $('vista-monitoreo').classList.toggle('oculto', v !== 'monitoreo');
     // El reporte de desempeño se carga la primera vez que se abre su pestaña.
     if (v === 'evaldo' && !$('marco-evaldo').src) $('marco-evaldo').src = 'evaldo/index.html';
+    if (v === 'monitoreo' && !$('marco-monitoreo').src) $('marco-monitoreo').src = 'monitoreo_semana1.html?embed=1';
 }
 
 function cambiarSub(v) {

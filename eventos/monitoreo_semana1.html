@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitoreo de visitas · Semana 1 | COT-PLN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="monitoreo_semana1.css">
+</head>
+<body>
+  <header class="top"><a class="brand" href="../index.html">COT<span>·</span>PLN</a><div class="headtitle"><h1>Monitoreo de visitas</h1><p>Semana 1 · 19 al 24 de octubre de 2026</p></div><a class="back" href="../index.html">⌂ <span>Inicio</span></a></header>
+  <main>
+    <section class="intro"><div><div class="eyebrow">REPORTE OPERATIVO</div><h2>Seguimiento de sedes y turnos</h2><p>Resultados del formulario, incidencias reportadas y puntos por conciliar con la programación semanal.</p></div><div class="intro-actions"><button id="reset">↺ Limpiar filtros</button><button id="print">⤓ Imprimir / guardar PDF</button></div></section>
+    <section class="filters panel"><div class="filter-title"><div><strong>Explorar resultados</strong><small id="filter-summary">Mostrando todas las respuestas</small></div><span class="live"><i></i> Datos del formulario</span></div><div class="filter-grid">
+      <label>Sede<select id="sede"><option value="">Todas las sedes</option></select></label><label>Turno<select id="turno"><option value="">Todos los turnos</option></select></label><label>Monitor<select id="monitor"><option value="">Todos los monitores</option></select></label><label>Estado observado<select id="estado"><option value="">Todos los estados</option><option>Conforme</option><option>Con observación</option><option>No se pudo verificar</option><option>No aplica</option></select></label><label class="search">Buscar en observaciones<input id="buscar" type="search" placeholder="Docente, incidencia, recomendación…"></label>
+    </div></section>
+    <section id="kpis" class="kpis"></section>
+    <section class="layout"><article class="panel"><div class="panel-head"><div><h3>Estados por momento</h3><p>Conteo de respuestas dentro de los filtros</p></div></div><div id="status-chart" class="status-chart"></div><div class="legend"><span><i class="ok"></i> Conforme</span><span><i class="warn"></i> Con observación</span><span><i class="neutral"></i> No aplica / sin verificar</span></div></article>
+      <article class="panel"><div class="panel-head"><div><h3>Registros por sede</h3><p>Distribución de respuestas registradas</p></div></div><div id="campus-chart" class="bars"></div></article>
+    </section>
+    <section class="panel"><div class="panel-head"><div><h3>Hallazgos de la semana</h3><p>Lectura conjunta de formulario y mensajes del 19/10</p></div><span class="tag">Requieren seguimiento</span></div><div id="issues" class="issues"></div></section>
+    <section class="panel"><div class="panel-head"><div><h3>Respuestas de monitoreo</h3><p id="table-count"></p></div><button class="text-btn" id="download">Descargar CSV filtrado</button></div><div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Sede / turno</th><th>Monitor</th><th>Estados</th><th>Hallazgos y recomendaciones</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+    <section class="note"><strong>Conciliación pendiente</strong><span>El cronograma adjunto contiene espacios sin responsable identificable y dos respuestas de AQP están fechadas 19/12/2026. No se señala a un monitor como ausente sin validar la asignación diaria y corregir las fechas.</span><span class="note-count" id="date-alert">2 fechas por revisar</span></section>
+    <footer>Fuente: formulario “Monitoreo de visitas a sede”, programación semanal e incidencias compartidas. Los registros múltiples pueden corresponder a aulas o secciones.</footer>
+  </main>
+  <script src="monitoreo_semana1.js"></script>
+</body></html>

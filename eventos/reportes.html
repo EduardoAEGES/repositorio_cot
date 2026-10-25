@@ -105,6 +105,8 @@
 
         #marco-evaldo { width: 100%; height: calc(100vh - 210px); min-height: 640px; border: 1px solid var(--line);
                         border-radius: 13px; background: #fff; box-shadow: var(--sombra); }
+        #marco-monitoreo { width: 100%; height: calc(100vh - 210px); min-height: 780px; border: 1px solid var(--line);
+                           border-radius: 13px; background: #fff; box-shadow: var(--sombra); }
         .oculto { display: none !important; }
         .pestanas { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin: 16px 0 12px; flex-wrap: wrap; }
         .pestanas button { font: inherit; font-size: 13.5px; font-weight: 600; background: none; border: none; border-bottom: 3px solid transparent;
@@ -157,6 +159,7 @@
         <div class="pestanas" id="pestanas-top">
             <button class="on" data-vista="alineamiento"><i class="ph ph-chart-bar"></i> Reporte alineamiento</button>
             <button data-vista="evaldo"><i class="ph ph-chalkboard-teacher"></i> Desempeño docente</button>
+            <button data-vista="monitoreo"><i class="ph ph-binoculars"></i> Monitoreo semana 1</button>
         </div>
 
         <section id="vista-alineamiento">
@@ -233,6 +236,16 @@
                 </div>
             </div>
             <iframe id="marco-evaldo" title="Reporte de desempeño docente" loading="lazy"></iframe>
+        </section>
+
+        <section id="vista-monitoreo" class="oculto">
+            <div class="barra" style="margin-top:0;">
+                <div class="info">Monitoreo de visitas · Semana 1 · 19 al 24 de octubre de 2026.</div>
+                <div class="acciones">
+                    <a class="btn btn-ghost" href="monitoreo_semana1.html" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out"></i> Abrir en pestaña nueva</a>
+                </div>
+            </div>
+            <iframe id="marco-monitoreo" title="Dashboard de monitoreo de visitas, semana 1" loading="lazy"></iframe>
         </section>
     </main>
 
