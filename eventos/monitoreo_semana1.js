@@ -445,7 +445,38 @@ function datosDelReporte() {
   };
 }
 
-const MORADO = [113, 75, 103], TINTA = [45, 48, 58], SUAVE = [138, 144, 160];
+/* Identidad de la plantilla Certus 2026: azul marino, acentos magenta y celeste,
+   Arial. Los fondos (con el logo de Certus arriba a la derecha) salen de la
+   plantilla oficial: portada, contenido y cierre. */
+const CERTUS = {
+  azul: '071767', magenta: 'FC0045', celeste: '20D3FF', tinta: '1F2537', gris: '5B6478',
+  borde: 'E3E7F0', zebra: 'F3F5FA', blanco: 'FFFFFF'
+};
+const FONDOS = { portada: 'certus/fondo_portada.jpg', contenido: 'certus/fondo_contenido.jpg', cierre: 'certus/fondo_cierre.jpg' };
+const rgb = hex => [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
+/* PDF y PPT comparten la retícula, en pulgadas de una diapositiva 16:9 */
+const LAMINA = { w: 10, h: 5.625, mx: 0.5, tituloY: 0.3, bajadaY: 0.9, contenidoY: 1.2, pieY: 5.3 };
+/* Columnas que van centradas (números y fechas) en cada tabla */
+const CENTRADAS = { momentos: [1, 2, 3, 4], sedes: [1, 2, 3, 4], dias: [1, 2, 3, 4], tardanzas: [0], faltantes: [0, 2], hallazgos: [] };
+/* Indicadores que se leen como alerta (van en magenta) */
+const KPI_ALERTA = ['Observaciones', 'Sin reporte', 'Tardanzas'];
+/* Diapositivas de tablas: [clave en datos, título, bajada, encabezados, anchos relativos] */
+function laminasDeTablas(d) {
+  return [
+    ['momentos', 'Conformidad por momento de control', 'Estados evaluables: conforme y con observación',
+      ['Momento', 'Ventana', 'Conforme', 'Con observación', 'Conformidad'], [3, 2, 1.4, 1.6, 1.4]],
+    ['sedes', 'Promedio por sede', 'Ordenado de menor a mayor conformidad',
+      ['Sede', 'Visitas', 'Conformidad', 'Obs. por visita', 'Tardanzas'], [3.4, 1.2, 1.5, 1.5, 1.3]],
+    ['dias', 'La semana día por día', 'Registros, conformidad y pendientes de cada día',
+      ['Día', 'Registros', 'Conformidad', 'Observaciones', 'Sin reporte'], [2.6, 1.4, 1.5, 1.6, 1.5]],
+    d.tardanzas.length && ['tardanzas', 'Docentes con tardanza', `${d.tardanzas.length} tardanzas registradas en la semana`,
+      ['Fecha', 'Sede', 'Docente', 'Curso', 'Detalle'], [1.1, 1.6, 2.4, 2.4, 2.6]],
+    d.faltantes.length && ['faltantes', 'Monitores programados sin reporte', `${d.faltantes.length} asignaciones del cronograma sin respuesta`,
+      ['Día', 'Sede', 'Turno', 'Monitor programado', 'Estado'], [1.7, 1.8, 1.3, 2.8, 2.4]],
+    ['hallazgos', 'Hallazgos y siguientes pasos', 'Lectura conjunta del formulario y del chat de coordinación',
+      ['Tema', 'Qué se observó', 'Siguiente paso'], [1.8, 4.2, 3.2]]
+  ].filter(Boolean);
+}
 
 /* Las librerías del reporte se cargan al pulsar el botón y se intentan varios
    CDN: si uno está caído o bloqueado por la red de la sede, se usa el siguiente. */
@@ -486,140 +517,171 @@ const cargarLibsPPT = () => asegurarLib('PPT', hayPptx, [
   'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js'
 ]);
 
+/* Fondos como data URL (jsPDF los necesita así; pptxgenjs también los acepta) */
+const FONDOS_CACHE = {};
+async function fondo(nombre) {
+  if (!FONDOS_CACHE[nombre]) {
+    const r = await fetch(FONDOS[nombre]);
+    if (!r.ok) throw new Error('no se encontró el fondo ' + FONDOS[nombre]);
+    const blob = await r.blob();
+    FONDOS_CACHE[nombre] = await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(blob); });
+  }
+  return FONDOS_CACHE[nombre];
+}
+const generadoEl = () => `Generado el ${new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
 async function reportePDF() {
   await cargarLibsPDF();
   const d = datosDelReporte();
+  const [fPortada, fContenido, fCierre] = await Promise.all(['portada', 'contenido', 'cierre'].map(fondo));
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const AN = pdf.internal.pageSize.getWidth(), AL = pdf.internal.pageSize.getHeight(), M = 14;
+  const L = LAMINA, M = L.mx;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'in', format: [L.h, L.w] });
+  pdf.setFont('helvetica');   // equivalente métrico de Arial en el PDF
   let primera = true;
-
-  const diapositiva = (titulo, bajada) => {
-    if (!primera) pdf.addPage();
-    primera = false;
-    pdf.setFillColor(...MORADO); pdf.rect(0, 0, AN, 17, 'F');
-    pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13);
-    pdf.text(titulo, M, 11);
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8);
-    pdf.text('CERTUS - COT-PLN', AN - M, 11, { align: 'right' });
-    pdf.setTextColor(...SUAVE); pdf.setFontSize(9);
-    if (bajada) pdf.text(bajada, M, 25);
-    pdf.setTextColor(...TINTA);
+  const pagina = img => { if (!primera) pdf.addPage([L.h, L.w], 'landscape'); primera = false; pdf.addImage(img, 'JPEG', 0, 0, L.w, L.h); };
+  const encabezado = (titulo, bajada) => {
+    pdf.setTextColor(...rgb(CERTUS.azul)); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(22);
+    pdf.text(titulo, M, L.tituloY + 0.3);
+    if (bajada) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(11); pdf.setTextColor(...rgb(CERTUS.gris)); pdf.text(bajada, M, L.bajadaY); }
   };
-  const tabla = (head, body, y) => pdf.autoTable({
-    head: [head], body, startY: y, margin: { left: M, right: M },
-    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2.4, textColor: TINTA },
-    headStyles: { fillColor: MORADO, textColor: 255, fontSize: 8.5 },
-    alternateRowStyles: { fillColor: [248, 245, 248] }
-  });
+  const lamina = (titulo, bajada) => { pagina(fContenido); encabezado(titulo, bajada); };
 
-  /* Portada */
-  pdf.setFillColor(...MORADO); pdf.rect(0, 0, AN, AL, 'F');
-  pdf.setTextColor(255); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(30);
-  pdf.text(d.titulo, M, AL / 2 - 10);
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(14);
-  pdf.text(d.subtitulo, M, AL / 2 + 2);
-  pdf.setFontSize(10);
-  pdf.text(`Generado el ${new Date().toLocaleDateString('es-PE')}`, M, AL - 18);
-  primera = false;
+  /* Portada: fondo azul con el edificio y el logo; texto a la izquierda */
+  pagina(fPortada);
+  pdf.setTextColor(...rgb(CERTUS.celeste)); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11);
+  pdf.text('EQUIPO COT-PLN', 0.6, 1.75, { charSpace: 0.02 });
+  pdf.setTextColor(255); pdf.setFontSize(34);
+  pdf.text(pdf.splitTextToSize(d.titulo, 4.4), 0.6, 2.3, { lineHeightFactor: 1.05 });
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(16);
+  pdf.text(d.subtitulo, 0.6, 3.55);
+  pdf.setFontSize(11); pdf.setTextColor(210, 218, 245);
+  pdf.text(generadoEl(), 0.6, 4.75);
 
-  /* Indicadores */
-  diapositiva('Indicadores de la semana', 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación');
-  const porFila = 3, anchoK = (AN - 2 * M - (porFila - 1) * 6) / porFila;
-  let x = M, y = 34;
+  /* Indicadores en tarjetas */
+  lamina('Indicadores de la semana', 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación');
+  const gap = 0.3, ancho = (L.w - 2 * M - 2 * gap) / 3, alto = 1.8;
   d.kpis.forEach((k, i) => {
-    if (i && i % porFila === 0) { x = M; y += 36; }
-    pdf.setFillColor(248, 245, 248); pdf.setDrawColor(228, 222, 228);
-    pdf.roundedRect(x, y, anchoK, 31, 3, 3, 'FD');
-    pdf.setFontSize(8.5); pdf.setTextColor(...SUAVE); pdf.setFont('helvetica', 'bold');
-    pdf.text(k[0], x + 5, y + 8);
-    pdf.setFontSize(22); pdf.setTextColor(...MORADO);
-    pdf.text(k[1], x + 5, y + 20);
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...SUAVE);
-    pdf.text(pdf.splitTextToSize(k[2], anchoK - 10).slice(0, 2), x + 5, y + 26);
-    pdf.setTextColor(...TINTA);
-    x += anchoK + 6;
+    const x = M + (i % 3) * (ancho + gap), y = L.contenidoY + Math.floor(i / 3) * (alto + gap);
+    pdf.setFillColor(255, 255, 255); pdf.setDrawColor(...rgb(CERTUS.borde)); pdf.setLineWidth(0.01);
+    pdf.roundedRect(x, y, ancho, alto, 0.12, 0.12, 'FD');
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(...rgb(CERTUS.gris));
+    pdf.text(k[0].toUpperCase(), x + 0.22, y + 0.4);
+    pdf.setFontSize(32); pdf.setTextColor(...rgb(KPI_ALERTA.includes(k[0]) ? CERTUS.magenta : CERTUS.azul));
+    pdf.text(k[1], x + 0.22, y + 1.05);
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(...rgb(CERTUS.gris));
+    pdf.text(pdf.splitTextToSize(k[2], ancho - 0.44).slice(0, 2), x + 0.22, y + 1.4);
   });
 
-  diapositiva('Conformidad por momento de control', 'Estados evaluables: conforme y con observación');
-  tabla(['Momento', 'Ventana', 'Conforme', 'Con observación', 'Conformidad'], d.momentos, 32);
-
-  diapositiva('Promedio por sede', 'Ordenado de menor a mayor conformidad');
-  tabla(['Sede', 'Visitas', 'Conformidad', 'Obs/visita', 'Tardanzas'], d.sedes, 32);
-
-  diapositiva('La semana día por día', 'Registros, conformidad y pendientes de cada día');
-  tabla(['Día', 'Registros', 'Conformidad', 'Observaciones', 'Sin reporte'], d.dias, 32);
-
-  if (d.tardanzas.length) {
-    diapositiva('Docentes con tardanza', `${d.tardanzas.length} tardanzas registradas en la semana`);
-    tabla(['Fecha', 'Sede', 'Docente', 'Curso', 'Detalle'], d.tardanzas, 32);
+  /* Tablas: si una no cabe, sigue en otra lámina con el mismo fondo y título */
+  for (const [clave, titulo, bajada, head, pesos] of laminasDeTablas(d)) {
+    lamina(titulo, bajada);
+    const total = pesos.reduce((a, b) => a + b, 0), util = L.w - 2 * M;
+    const columnStyles = {};
+    pesos.forEach((p, i) => { columnStyles[i] = { cellWidth: util * p / total, halign: CENTRADAS[clave].includes(i) ? 'center' : 'left' }; });
+    pdf.autoTable({
+      head: [head], body: d[clave], startY: L.contenidoY,
+      margin: { left: M, right: M, top: L.contenidoY, bottom: L.h - L.pieY + 0.12 },
+      styles: { font: 'helvetica', fontSize: 10, cellPadding: { top: 0.07, bottom: 0.07, left: 0.1, right: 0.1 },
+        textColor: rgb(CERTUS.tinta), lineColor: rgb(CERTUS.borde), lineWidth: 0.008, valign: 'middle' },
+      headStyles: { fillColor: rgb(CERTUS.azul), textColor: 255, fontStyle: 'bold', fontSize: 10 },
+      alternateRowStyles: { fillColor: rgb(CERTUS.zebra) },
+      bodyStyles: { fillColor: [255, 255, 255] },
+      columnStyles, rowPageBreak: 'avoid',
+      willDrawPage: data => { if (data.pageNumber > 1) { pdf.addImage(fContenido, 'JPEG', 0, 0, L.w, L.h); encabezado(titulo + ' (continuación)', bajada); } }
+    });
   }
-  if (d.faltantes.length) {
-    diapositiva('Monitores programados sin reporte', `${d.faltantes.length} asignaciones del cronograma sin respuesta`);
-    tabla(['Día', 'Sede', 'Turno', 'Monitor programado', 'Estado'], d.faltantes, 32);
-  }
 
-  diapositiva('Hallazgos y siguientes pasos', 'Lectura conjunta del formulario y del chat de coordinación');
-  tabla(['Tema', 'Qué se observó', 'Siguiente paso'], d.hallazgos, 32);
+  /* Cierre: logo de Certus al centro (viene en el fondo) */
+  pagina(fCierre);
 
   const n = pdf.internal.getNumberOfPages();
-  for (let i = 2; i <= n; i++) {
+  for (let i = 2; i < n; i++) {
     pdf.setPage(i);
-    pdf.setFontSize(7.5); pdf.setTextColor(...SUAVE);
-    pdf.text(`${d.titulo} - ${d.subtitulo}`, M, AL - 6);
-    pdf.text(`${i} / ${n}`, AN - M, AL - 6, { align: 'right' });
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(...rgb(CERTUS.gris));
+    pdf.text(`${d.titulo} · ${d.subtitulo}`, M, L.pieY + 0.12);
+    pdf.text(`${i} / ${n}`, L.w - M, L.pieY + 0.12, { align: 'right' });
   }
   pdf.save('monitoreo_semana1_diapositivas.pdf');
 }
 
-async function reportePPT() {
+/* PPT con diseños (layouts) Certus: portada, contenido y cierre. El fondo, el
+   pie y el número de diapositiva van en el diseño, así se editan en un lugar. */
+async function construirPPT() {
   await cargarLibsPPT();
   const d = datosDelReporte();
+  const [fPortada, fContenido, fCierre] = await Promise.all(['portada', 'contenido', 'cierre'].map(fondo));
+  const L = LAMINA, M = L.mx;
   const ppt = new PptxGenJS();
   ppt.layout = 'LAYOUT_16x9';
-  const MOR = '714B67', GRIS = '8A90A0', INK = '2D303A';
+  ppt.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial' };
+  ppt.title = d.titulo; ppt.author = 'Equipo COT-PLN'; ppt.company = 'CERTUS';
+  const pie = { fontFace: 'Arial', fontSize: 8, color: CERTUS.gris };
+  ppt.defineSlideMaster({ title: 'CERTUS_PORTADA', background: { data: fPortada } });
+  ppt.defineSlideMaster({
+    title: 'CERTUS_CONTENIDO', background: { data: fContenido },
+    objects: [{ text: { text: `${d.titulo} · ${d.subtitulo}`, options: Object.assign({ x: M, y: L.pieY - 0.02, w: 7, h: 0.25, margin: 0 }, pie) } }],
+    slideNumber: Object.assign({ x: L.w - M - 1, y: L.pieY - 0.02, w: 1, h: 0.25, align: 'right' }, pie)
+  });
+  ppt.defineSlideMaster({ title: 'CERTUS_CIERRE', background: { data: fCierre } });
 
-  const portada = ppt.addSlide();
-  portada.background = { color: MOR };
-  portada.addText(d.titulo, { x: 0.6, y: 2.0, w: 8.8, fontSize: 36, bold: true, color: 'FFFFFF' });
-  portada.addText(d.subtitulo, { x: 0.6, y: 3.1, w: 8.8, fontSize: 18, color: 'F0E6EE' });
-  portada.addText(`Generado el ${new Date().toLocaleDateString('es-PE')}`, { x: 0.6, y: 4.7, fontSize: 12, color: 'E3D4DE' });
-
-  const nueva = (titulo, bajada) => {
-    const s = ppt.addSlide();
-    s.addShape(ppt.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.75, fill: { color: MOR } });
-    s.addText(titulo, { x: 0.4, y: 0.12, w: 7.5, fontSize: 18, bold: true, color: 'FFFFFF' });
-    s.addText('CERTUS - COT-PLN', { x: 7.4, y: 0.2, w: 2.2, fontSize: 10, color: 'F0E6EE', align: 'right' });
-    if (bajada) s.addText(bajada, { x: 0.4, y: 0.85, w: 9.2, fontSize: 11, color: GRIS });
-    return s;
+  const titulo = (s, t, bajada) => {
+    s.addText(t, { x: M, y: L.tituloY, w: 7.6, h: 0.45, fontFace: 'Arial', fontSize: 24, bold: true, color: CERTUS.azul, margin: 0, isTextBox: true });
+    if (bajada) s.addText(bajada, { x: M, y: L.bajadaY - 0.16, w: 7.6, h: 0.25, fontFace: 'Arial', fontSize: 12, color: CERTUS.gris, margin: 0, isTextBox: true });
   };
-  const conTabla = (s, head, body) => s.addTable([
-    head.map(h => ({ text: h, options: { bold: true, color: 'FFFFFF', fill: { color: MOR } } })),
-    ...body.map(f => f.map(c => ({ text: String(c), options: { color: INK } })))
-  ], { x: 0.4, y: 1.3, w: 9.2, fontSize: 10, border: { pt: 0.5, color: 'E5E7ED' }, autoPage: true });
+  const lamina = (t, bajada) => { const s = ppt.addSlide({ masterName: 'CERTUS_CONTENIDO' }); titulo(s, t, bajada); return s; };
 
-  const ind = nueva('Indicadores de la semana', 'Formulario cruzado con el cronograma y el chat de coordinación');
+  const portada = ppt.addSlide({ masterName: 'CERTUS_PORTADA' });
+  portada.addText('EQUIPO COT-PLN', { x: 0.6, y: 1.5, w: 5, h: 0.3, fontFace: 'Arial', fontSize: 12, bold: true, color: CERTUS.celeste, charSpacing: 2, margin: 0, isTextBox: true });
+  portada.addText(d.titulo, { x: 0.6, y: 1.9, w: 4.6, h: 1.35, fontFace: 'Arial', fontSize: 36, bold: true, color: CERTUS.blanco, margin: 0, valign: 'top', isTextBox: true });
+  portada.addText(d.subtitulo, { x: 0.6, y: 3.3, w: 5.2, h: 0.4, fontFace: 'Arial', fontSize: 18, color: CERTUS.blanco, margin: 0, isTextBox: true });
+  portada.addText(generadoEl(), { x: 0.6, y: 4.55, w: 5, h: 0.3, fontFace: 'Arial', fontSize: 12, color: 'D2DAF5', margin: 0, isTextBox: true });
+
+  const ind = lamina('Indicadores de la semana', 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación');
+  const gap = 0.3, ancho = (L.w - 2 * M - 2 * gap) / 3, alto = 1.8;
   d.kpis.forEach((k, i) => {
-    const x = 0.4 + (i % 3) * 3.12, y = 1.35 + Math.floor(i / 3) * 1.9;
-    ind.addShape(ppt.ShapeType.roundRect, { x, y, w: 2.95, h: 1.65, fill: { color: 'F8F5F8' }, line: { color: 'E4DEE4' } });
-    ind.addText(k[0], { x: x + 0.15, y: y + 0.1, w: 2.6, fontSize: 10, bold: true, color: GRIS });
-    ind.addText(k[1], { x: x + 0.15, y: y + 0.45, w: 2.6, fontSize: 26, bold: true, color: MOR });
-    ind.addText(k[2], { x: x + 0.15, y: y + 1.12, w: 2.65, fontSize: 9, color: GRIS });
+    const x = M + (i % 3) * (ancho + gap), y = L.contenidoY + Math.floor(i / 3) * (alto + gap);
+    ind.addShape(ppt.ShapeType.roundRect, { x, y, w: ancho, h: alto, rectRadius: 0.12, fill: { color: CERTUS.blanco }, line: { color: CERTUS.borde, width: 0.75 }, objectName: 'Tarjeta ' + k[0] });
+    ind.addText(k[0].toUpperCase(), { x: x + 0.22, y: y + 0.2, w: ancho - 0.44, h: 0.3, fontFace: 'Arial', fontSize: 10, bold: true, color: CERTUS.gris, margin: 0, isTextBox: true });
+    ind.addText(k[1], { x: x + 0.22, y: y + 0.55, w: ancho - 0.44, h: 0.6, fontFace: 'Arial', fontSize: 34, bold: true, color: KPI_ALERTA.includes(k[0]) ? CERTUS.magenta : CERTUS.azul, margin: 0, isTextBox: true });
+    ind.addText(k[2], { x: x + 0.22, y: y + 1.22, w: ancho - 0.44, h: 0.45, fontFace: 'Arial', fontSize: 10, color: CERTUS.gris, margin: 0, valign: 'top', isTextBox: true });
   });
 
-  conTabla(nueva('Conformidad por momento de control', 'Estados evaluables: conforme y con observación'),
-    ['Momento', 'Ventana', 'Conforme', 'Con observación', 'Conformidad'], d.momentos);
-  conTabla(nueva('Promedio por sede', 'Ordenado de menor a mayor conformidad'),
-    ['Sede', 'Visitas', 'Conformidad', 'Obs/visita', 'Tardanzas'], d.sedes);
-  conTabla(nueva('La semana día por día', 'Registros, conformidad y pendientes de cada día'),
-    ['Día', 'Registros', 'Conformidad', 'Observaciones', 'Sin reporte'], d.dias);
-  if (d.tardanzas.length) conTabla(nueva('Docentes con tardanza', `${d.tardanzas.length} tardanzas registradas`),
-    ['Fecha', 'Sede', 'Docente', 'Curso', 'Detalle'], d.tardanzas);
-  if (d.faltantes.length) conTabla(nueva('Monitores programados sin reporte', `${d.faltantes.length} asignaciones sin respuesta`),
-    ['Día', 'Sede', 'Turno', 'Monitor programado', 'Estado'], d.faltantes);
-  conTabla(nueva('Hallazgos y siguientes pasos', 'Lectura conjunta del formulario y del chat'),
-    ['Tema', 'Qué se observó', 'Siguiente paso'], d.hallazgos);
+  /* Las filas se reparten aquí (y no con autoPage de pptxgenjs, que parte el
+     texto de una celda entre diapositivas): se estima el alto de cada fila por
+     el largo de su texto y se abre otra diapositiva antes de llegar al pie. */
+  const CHARS_PULGADA = 15, ALTO_LINEA = 0.165, ALTO_FILA = 0.12, ALTO_CABECERA = 0.3;
+  const altoFila = (fila, colW) => ALTO_FILA + ALTO_LINEA *
+    Math.max(...fila.map((c, i) => Math.max(1, Math.ceil(String(c).length / ((colW[i] - 0.16) * CHARS_PULGADA)))));
+  for (const [clave, t, bajada, head, pesos] of laminasDeTablas(d)) {
+    const total = pesos.reduce((a, b) => a + b, 0), util = L.w - 2 * M;
+    const colW = pesos.map(p => util * p / total);
+    const centro = i => CENTRADAS[clave].includes(i) ? 'center' : 'left';
+    const disponible = L.pieY - 0.15 - L.contenidoY - ALTO_CABECERA;
+    const tandas = [[]];
+    let usado = 0;
+    d[clave].forEach(f => {
+      const h = altoFila(f, colW);
+      if (usado + h > disponible && tandas[tandas.length - 1].length) { tandas.push([]); usado = 0; }
+      tandas[tandas.length - 1].push(f); usado += h;
+    });
+    tandas.forEach((filas, n) => {
+      const s = lamina(n ? t + ' (continuación)' : t, bajada);
+      s.addTable([
+        head.map((h, i) => ({ text: h, options: { bold: true, color: CERTUS.blanco, fill: { color: CERTUS.azul }, align: centro(i) } })),
+        ...filas.map((f, r) => f.map((c, i) => ({ text: String(c), options: { color: CERTUS.tinta, align: centro(i), fill: { color: r % 2 ? CERTUS.zebra : CERTUS.blanco } } })))
+      ], {
+        x: M, y: L.contenidoY, w: util, colW, fontFace: 'Arial', fontSize: 10, valign: 'middle',
+        margin: [0.04, 0.08, 0.04, 0.08], border: { type: 'solid', pt: 0.5, color: CERTUS.borde }, objectName: 'Tabla ' + t
+      });
+    });
+  }
 
+  ppt.addSlide({ masterName: 'CERTUS_CIERRE' });
+  return ppt;
+}
+async function reportePPT() {
+  const ppt = await construirPPT();
   await ppt.writeFile({ fileName: 'monitoreo_semana1_diapositivas.pptx' });
 }
 
