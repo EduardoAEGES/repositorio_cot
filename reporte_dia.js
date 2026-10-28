@@ -307,6 +307,7 @@
               '<button class="rd-mini rd-ocultar" id="rdOcultar" title="Oculta de la vista los docentes marcados"><i class="fas fa-user-slash"></i> Ocultar (0)</button>' +
               '<button class="rd-mini" id="rdMostrar" style="display:none"><i class="fas fa-eye"></i> Mostrar ocultos (0)</button>' +
               '<button class="rd-mini" id="rdCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
+              '<button class="rd-mini" id="rdExcelVir" title="Excel con todas las secciones virtuales de COT y PLN, por día y con el enlace a la clase"><i class="fas fa-file-excel"></i> Excel virtual</button>' +
               '<button class="rd-mini" id="rdRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
               '<button class="rd-mini" id="rdReset"><i class="fas fa-rotate-left"></i> Restablecer</button>' +
             '</div>' +
@@ -350,6 +351,7 @@
       document.getElementById('rdQ').value = '';
       pintar();
     };
+    document.getElementById('rdExcelVir').onclick = excelVirtual;
     document.getElementById('rdRecargar').onclick = () => {
       DATOS = null;
       try { sessionStorage.removeItem(CACHE); } catch (e) { /* nada */ }
@@ -556,6 +558,91 @@
       mensaje('<div class="rd-vacio"><b>No se pudieron cargar los datos.</b><br>' +
               esc(err.message) + '<br><br>Revisa tu conexión y pulsa <b>Recargar</b>.</div>');
     });
+  }
+
+  /* Excel con todas las secciones virtuales de COT y PLN.
+     No depende de los filtros de la pantalla: siempre sale la semana completa.
+     Hoja 1: una fila por clase y día. Hoja 2: una fila por sección. */
+  // La librería de Excel ya viene con horario.html; si esa copia no llegó se
+  // pide a otro servidor antes de rendirse.
+  function cargarXLSX() {
+    if (typeof XLSX !== 'undefined') return Promise.resolve();
+    const urls = [
+      'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+      'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    ];
+    return urls.reduce((cadena, url) => cadena.catch(() => new Promise((ok, falla) => {
+      if (typeof XLSX !== 'undefined') return ok();
+      const sc = document.createElement('script');
+      sc.src = url;
+      sc.onload = () => (typeof XLSX !== 'undefined' ? ok() : falla(new Error(url)));
+      sc.onerror = () => falla(new Error(url));
+      document.head.append(sc);
+    })), Promise.reject());
+  }
+
+  async function excelVirtual() {
+    try { await cargarXLSX(); }
+    catch (e) { alert('No se pudo cargar la librería de Excel. Revisa la conexión e intenta de nuevo.'); return; }
+    const sel = filas().filter(f => f.modalidad === 'VIRTUAL' &&
+      (enPrograma(f, 'COT') || enPrograma(f, 'PLN')));
+    if (!sel.length) { alert('No hay secciones virtuales de COT ni PLN con los datos cargados.'); return; }
+
+    const enlaceDe = f => { const sn = shortNameDe(f); return sn ? CAMPUS_URL + encodeURIComponent(sn) : ''; };
+    const ordenDia = (a, b) => a.dia - b.dia || (a.ini || '').localeCompare(b.ini || '') ||
+      a.docente.localeCompare(b.docente, 'es');
+
+    const porDia = sel.slice().sort(ordenDia).map(f => ({
+      'Día': DIAS[f.dia], 'Inicio': f.ini, 'Fin': f.fin, 'Programa': f.area,
+      'Curso': f.curso, 'Sección': f.seccion, 'NRC': f.nrc, 'Carga': f.carga,
+      'Docente': f.docente, 'DNI': f.dni, 'Turno': TURNO_LABEL[f.turno] || f.turno || '',
+      'Sede': f.sede, 'Periodo': rotuloBloque(f.bloque), 'Enlace a la clase': enlaceDe(f)
+    }));
+
+    // una fila por sección, con todos sus días juntos
+    const mapa = new Map();
+    for (const f of sel.slice().sort(ordenDia)) {
+      const clave = [f.area, f.curso, f.seccion, f.nrc, f.docente, f.bloque].join('|');
+      if (!mapa.has(clave)) mapa.set(clave, { f, dias: [], horas: new Set() });
+      const g = mapa.get(clave);
+      g.dias.push(DIAS[f.dia]);
+      g.horas.add(`${f.ini} - ${f.fin}`);
+    }
+    const porSeccion = [...mapa.values()].map(({ f, dias, horas }) => ({
+      'Programa': f.area, 'Curso': f.curso, 'Sección': f.seccion, 'NRC': f.nrc, 'Carga': f.carga,
+      'Docente': f.docente, 'DNI': f.dni, 'Turno': TURNO_LABEL[f.turno] || f.turno || '',
+      'Sede': f.sede, 'Periodo': rotuloBloque(f.bloque),
+      'Días': dias.join(' / '), 'Horario': [...horas].join(' / '),
+      'Clases en la semana': dias.length, 'Enlace a la clase': enlaceDe(f)
+    })).sort((a, b) => a.Programa.localeCompare(b.Programa) || a.Curso.localeCompare(b.Curso, 'es') ||
+      a['Sección'].localeCompare(b['Sección'], 'es'));
+
+    // el enlace queda clicable en la celda
+    const conEnlaces = (hoja, filasObj, columna) => {
+      filasObj.forEach((fila, i) => {
+        const url = fila[columna];
+        if (!url) return;
+        const ref = XLSX.utils.encode_cell({ r: i + 1, c: Object.keys(fila).indexOf(columna) });
+        if (hoja[ref]) hoja[ref].l = { Target: url, Tooltip: 'Abrir la clase en Campus Digital' };
+      });
+      return hoja;
+    };
+    const anchos = filasObj => Object.keys(filasObj[0]).map(k =>
+      ({ wch: Math.min(52, Math.max(k.length + 2, ...filasObj.map(f => String(f[k] ?? '').length + 2))) }));
+
+    const h1 = XLSX.utils.json_to_sheet(porDia);
+    const h2 = XLSX.utils.json_to_sheet(porSeccion);
+    h1['!cols'] = anchos(porDia); h2['!cols'] = anchos(porSeccion);
+    h1['!autofilter'] = { ref: h1['!ref'] }; h2['!autofilter'] = { ref: h2['!ref'] };
+    conEnlaces(h1, porDia, 'Enlace a la clase');
+    conEnlaces(h2, porSeccion, 'Enlace a la clase');
+
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, h1, 'Por día');
+    XLSX.utils.book_append_sheet(libro, h2, 'Secciones');
+    const hoy = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(libro, `secciones_virtuales_cot_pln_${hoy}.xlsx`);
   }
 
   function exportar() {
