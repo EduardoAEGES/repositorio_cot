@@ -308,6 +308,7 @@
               '<button class="rd-mini" id="rdMostrar" style="display:none"><i class="fas fa-eye"></i> Mostrar ocultos (0)</button>' +
               '<button class="rd-mini" id="rdCsv"><i class="fas fa-file-csv"></i> Exportar</button>' +
               '<button class="rd-mini" id="rdExcelVir" title="Excel con todas las secciones virtuales de COT y PLN, por día y con el enlace a la clase"><i class="fas fa-file-excel"></i> Excel virtual</button>' +
+              '<button class="rd-mini" id="rdCsvVir" title="Lo mismo en CSV: una fila por clase y día, con el enlace a la clase"><i class="fas fa-file-csv"></i> CSV virtual</button>' +
               '<button class="rd-mini" id="rdRecargar"><i class="fas fa-rotate"></i> Recargar</button>' +
               '<button class="rd-mini" id="rdReset"><i class="fas fa-rotate-left"></i> Restablecer</button>' +
             '</div>' +
@@ -352,6 +353,7 @@
       pintar();
     };
     document.getElementById('rdExcelVir').onclick = excelVirtual;
+    document.getElementById('rdCsvVir').onclick = csvVirtual;
     document.getElementById('rdRecargar').onclick = () => {
       DATOS = null;
       try { sessionStorage.removeItem(CACHE); } catch (e) { /* nada */ }
@@ -582,12 +584,11 @@
     })), Promise.reject());
   }
 
-  async function excelVirtual() {
-    try { await cargarXLSX(); }
-    catch (e) { alert('No se pudo cargar la librería de Excel. Revisa la conexión e intenta de nuevo.'); return; }
+  // Filas de las secciones virtuales de COT y PLN, en las dos vistas que se exportan.
+  function filasVirtuales() {
     const sel = filas().filter(f => f.modalidad === 'VIRTUAL' &&
       (enPrograma(f, 'COT') || enPrograma(f, 'PLN')));
-    if (!sel.length) { alert('No hay secciones virtuales de COT ni PLN con los datos cargados.'); return; }
+    if (!sel.length) return null;
 
     const enlaceDe = f => { const sn = shortNameDe(f); return sn ? CAMPUS_URL + encodeURIComponent(sn) : ''; };
     const ordenDia = (a, b) => a.dia - b.dia || (a.ini || '').localeCompare(b.ini || '') ||
@@ -618,6 +619,38 @@
     })).sort((a, b) => a.Programa.localeCompare(b.Programa) || a.Curso.localeCompare(b.Curso, 'es') ||
       a['Sección'].localeCompare(b['Sección'], 'es'));
 
+    return { porDia, porSeccion };
+  }
+
+  const hoy = () => new Date().toISOString().slice(0, 10);
+  function bajar(nombre, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // CSV de las mismas secciones virtuales, una fila por clase y día.
+  function csvVirtual() {
+    const datos = filasVirtuales();
+    if (!datos) { alert('No hay secciones virtuales de COT ni PLN con los datos cargados.'); return; }
+    const cols = Object.keys(datos.porDia[0]);
+    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const texto = [cols.map(q).join(',')]
+      .concat(datos.porDia.map(f => cols.map(c => q(f[c])).join(',')))
+      .join('\r\n');
+    bajar(`secciones_virtuales_cot_pln_${hoy()}.csv`,
+      new Blob(['\ufeff' + texto], { type: 'text/csv;charset=utf-8;' }));
+  }
+
+  async function excelVirtual() {
+    try { await cargarXLSX(); }
+    catch (e) { alert('No se pudo cargar la librería de Excel. Revisa la conexión e intenta de nuevo.'); return; }
+    const datos = filasVirtuales();
+    if (!datos) { alert('No hay secciones virtuales de COT ni PLN con los datos cargados.'); return; }
+    const { porDia, porSeccion } = datos;
+
     // el enlace queda clicable en la celda
     const conEnlaces = (hoja, filasObj, columna) => {
       filasObj.forEach((fila, i) => {
@@ -641,8 +674,7 @@
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, h1, 'Por día');
     XLSX.utils.book_append_sheet(libro, h2, 'Secciones');
-    const hoy = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(libro, `secciones_virtuales_cot_pln_${hoy}.xlsx`);
+    XLSX.writeFile(libro, `secciones_virtuales_cot_pln_${hoy()}.xlsx`);
   }
 
   function exportar() {
