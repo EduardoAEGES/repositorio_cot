@@ -16,6 +16,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
         :root {
@@ -426,6 +428,14 @@
                     <button class="btn-primary" id="btn-generar"
                         title="Emite las que falten; desmarca «Solo pendientes» para regenerar también las existentes">
                         <i class="ph ph-certificate"></i> Generar / actualizar constancias</button>
+                    <button class="btn-ghost" id="btn-ppt-unico" style="background-color:#c43e1c;color:#fff;border-color:#c43e1c;"
+                        title="Un PowerPoint con todas las constancias, una por diapositiva">
+                        <i class="ph ph-microsoft-powerpoint-logo"></i> PPT: todas en uno
+                    </button>
+                    <button class="btn-ghost" id="btn-ppt-separado" style="background-color:#e36b45;color:#fff;border-color:#e36b45;"
+                        title="Un PowerPoint por persona, todos dentro de un ZIP">
+                        <i class="ph ph-microsoft-powerpoint-logo"></i> PPT: uno por persona
+                    </button>
                     <span id="conteo-participantes" style="color:var(--muted);font-size:13px;"></span>
                 </div>
 
@@ -442,6 +452,14 @@
                     <button class="btn-primary" id="btn-generar-sel" disabled
                         title="Emite o actualiza la constancia solo de las personas marcadas">
                         <i class="ph ph-certificate"></i> Generar seleccionados
+                    </button>
+                    <button class="btn-ghost" id="btn-ppt-unico-sel" style="background-color:#c43e1c;color:#fff;border-color:#c43e1c;"
+                        title="Un PowerPoint con las constancias de los marcados">
+                        <i class="ph ph-microsoft-powerpoint-logo"></i> PPT de los marcados
+                    </button>
+                    <button class="btn-ghost" id="btn-ppt-separado-sel" style="background-color:#e36b45;color:#fff;border-color:#e36b45;"
+                        title="Un PowerPoint por persona (ZIP) de los marcados">
+                        <i class="ph ph-microsoft-powerpoint-logo"></i> PPT por persona (marcados)
                     </button>
                     <span class="sel-sep"></span>
                     <label style="margin:0;color:var(--muted);font-size:13px;">Diseño:</label>
@@ -1067,7 +1085,7 @@
         </div>
     </div>
     <script src="evidencias.js?v=20261011a"></script>
-    <script src="gestor.js?v=20261018a"></script>
+    <script src="gestor.js?v=20261029a"></script>
 </body>
 
 

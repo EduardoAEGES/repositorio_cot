@@ -2036,6 +2036,138 @@ async function generarConstancias(lista, esSeleccion) {
     await cargarEventos();
 }
 
+/* ------------------------------------------------------------------ *
+ *  CONSTANCIAS EN POWERPOINT
+ *  Cada constancia se dibuja en el mismo canvas que usa el PDF y se coloca
+ *  como imagen a página completa en una diapositiva A4 horizontal.
+ * ------------------------------------------------------------------ */
+const PPT_ANCHO = 11.69, PPT_ALTO = 8.27;   // A4 horizontal en pulgadas
+
+function nuevoPptx() {
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name: 'A4H', width: PPT_ANCHO, height: PPT_ALTO });
+    pptx.layout = 'A4H';
+    pptx.author = 'CERTUS · COT-PLN';
+    pptx.title = EVENTO_ACTUAL ? EVENTO_ACTUAL.nombre : 'Constancias';
+    return pptx;
+}
+
+function descargarBlob(blob, nombre) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+
+function nombreArchivoParticipante(p) {
+    const base = `${p.dni || 's-dni'}_${(p.apellidos || '') + ' ' + (p.nombres || '')}`.trim() || 'constancia';
+    return base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 70);
+}
+
+/* Dibuja las constancias de `lista` y devuelve [{p, imagen}]. */
+async function imagenesConstancias(lista) {
+    await document.fonts.ready;          // si no, salen con las fuentes de reserva
+    await cargarPlantillasRemotas();     // y con el diseño que esté vigente
+    const salida = [];
+    for (let i = 0; i < lista.length; i++) {
+        msg($('msg-generacion'), `Preparando constancia ${i + 1} de ${lista.length}...`, '');
+        const canvas = await dibujarConstancia(lista[i]);
+        salida.push({ p: lista[i], imagen: canvas.toDataURL('image/jpeg', 0.92) });
+        $('progreso').style.width = Math.round(((i + 1) * 100) / lista.length) + '%';
+        await new Promise((r) => setTimeout(r, 0));   // deja respirar al navegador
+    }
+    return salida;
+}
+
+/* Lista sobre la que trabajan los botones de PowerPoint. */
+function listaParaPpt(soloSeleccion) {
+    const lista = soloSeleccion ? participantesSeleccionados() : PARTICIPANTES;
+    if (!lista.length) {
+        msg($('msg-generacion'), soloSeleccion
+            ? 'No hay participantes seleccionados.'
+            : 'No hay participantes en este evento.', 'err');
+        return null;
+    }
+    return lista;
+}
+
+function botonesPpt() {
+    return ['btn-ppt-unico', 'btn-ppt-separado', 'btn-ppt-unico-sel', 'btn-ppt-separado-sel']
+        .map((id) => $(id)).filter(Boolean);
+}
+
+async function descargarPptUnico(soloSeleccion) {
+    const lista = listaParaPpt(soloSeleccion);
+    if (!lista) return;
+    botonesPpt().forEach((b) => { b.disabled = true; });
+    mostrar($('barra-generacion'), true);
+    try {
+        const imgs = await imagenesConstancias(lista);
+        msg($('msg-generacion'), 'Armando el PowerPoint...', '');
+        const pptx = nuevoPptx();
+        imgs.forEach(({ p, imagen }) => {
+            const slide = pptx.addSlide();
+            slide.addImage({ data: imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
+            slide.addNotes(`${p.apellidos || ''} ${p.nombres || ''} · DNI ${p.dni || '—'}`.trim());
+        });
+        const blob = await pptx.write('blob');
+        descargarBlob(blob, `constancias_${slugEvento()}.pptx`);
+        msg($('msg-generacion'), `✅ PowerPoint con ${imgs.length} constancia(s) descargado.`, 'ok');
+    } catch (e) {
+        console.error(e);
+        msg($('msg-generacion'), 'No se pudo generar el PowerPoint: ' + (e.message || e), 'err');
+    } finally {
+        botonesPpt().forEach((b) => { b.disabled = false; });
+        $('progreso').style.width = '0%';
+        mostrar($('barra-generacion'), false);
+    }
+}
+
+async function descargarPptSeparados(soloSeleccion) {
+    const lista = listaParaPpt(soloSeleccion);
+    if (!lista) return;
+    botonesPpt().forEach((b) => { b.disabled = true; });
+    mostrar($('barra-generacion'), true);
+    try {
+        const imgs = await imagenesConstancias(lista);
+        const zip = new JSZip();
+        const carpeta = zip.folder(`constancias_${slugEvento()}`);
+        for (let i = 0; i < imgs.length; i++) {
+            msg($('msg-generacion'), `Armando PowerPoint ${i + 1} de ${imgs.length}...`, '');
+            const pptx = nuevoPptx();
+            const slide = pptx.addSlide();
+            slide.addImage({ data: imgs[i].imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
+            carpeta.file(`${nombreArchivoParticipante(imgs[i].p)}.pptx`, await pptx.write('blob'));
+            await new Promise((r) => setTimeout(r, 0));
+        }
+        msg($('msg-generacion'), 'Comprimiendo el ZIP...', '');
+        const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+            $('progreso').style.width = Math.round(meta.percent) + '%';
+        });
+        descargarBlob(blob, `constancias_ppt_${slugEvento()}.zip`);
+        msg($('msg-generacion'), `✅ ZIP con ${imgs.length} PowerPoint(s), uno por persona.`, 'ok');
+    } catch (e) {
+        console.error(e);
+        msg($('msg-generacion'), 'No se pudo generar el ZIP: ' + (e.message || e), 'err');
+    } finally {
+        botonesPpt().forEach((b) => { b.disabled = false; });
+        $('progreso').style.width = '0%';
+        mostrar($('barra-generacion'), false);
+    }
+}
+
+function slugEvento() {
+    const base = (EVENTO_ACTUAL && (EVENTO_ACTUAL.sheet_id || EVENTO_ACTUAL.nombre)) || 'evento';
+    return String(base).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 50).toLowerCase();
+}
+
+window.descargarPptUnico = descargarPptUnico;
+window.descargarPptSeparados = descargarPptSeparados;
+
 function mostrarVista(id) {
     ['vista-eventos', 'vista-constancias'].forEach((v) => mostrar($(v), v === id));
     // Al volver a la lista se olvida el evento abierto (ver abrirGestor).
@@ -2504,6 +2636,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     $('btn-generar').addEventListener('click', () => generarConstancias());
     $('btn-generar-sel').addEventListener('click', () => generarConstancias(participantesSeleccionados(), true));
+    $('btn-ppt-unico').addEventListener('click', () => descargarPptUnico(false));
+    $('btn-ppt-separado').addEventListener('click', () => descargarPptSeparados(false));
+    $('btn-ppt-unico-sel').addEventListener('click', () => descargarPptUnico(true));
+    $('btn-ppt-separado-sel').addEventListener('click', () => descargarPptSeparados(true));
 
     $('btn-disenio').addEventListener('click', abrirDisenio);
 
