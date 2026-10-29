@@ -2044,6 +2044,9 @@ async function generarConstancias(lista, esSeleccion) {
 const PPT_ANCHO = 11.69, PPT_ALTO = 8.27;   // A4 horizontal en pulgadas
 
 function nuevoPptx() {
+    if (typeof PptxGenJS === 'undefined') {
+        throw new Error('no se pudo cargar la librería de PowerPoint; revisa la conexión y recarga la página');
+    }
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'A4H', width: PPT_ANCHO, height: PPT_ALTO });
     pptx.layout = 'A4H';
@@ -2133,6 +2136,9 @@ async function descargarPptSeparados(soloSeleccion) {
     mostrar($('barra-generacion'), true);
     try {
         const imgs = await imagenesConstancias(lista);
+        if (typeof JSZip === 'undefined') {
+            throw new Error('no se pudo cargar la librería de ZIP; revisa la conexión y recarga la página');
+        }
         const zip = new JSZip();
         const carpeta = zip.folder(`constancias_${slugEvento()}`);
         for (let i = 0; i < imgs.length; i++) {
