@@ -2070,6 +2070,161 @@ function nombreArchivoParticipante(p) {
     return base.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 70);
 }
 
+/* --- Constancia editable: cada texto va como cuadro de texto de PowerPoint,
+   así se puede corregir un nombre o un cargo desde el propio PowerPoint. --- */
+const PX_A_PULG = PPT_ANCHO / 1123;          // el lienzo mide 1123 x 794 px
+const PY_A_PULG = PPT_ALTO / 794;
+const PX_A_PT = 72 * PX_A_PULG;              // tamaño de letra: px del lienzo -> puntos
+const SERIF_PPT = 'Georgia';                 // la tipografía de reserva del diseño
+const SANS_PPT = 'Arial';
+
+const aPulgX = (px) => px * PX_A_PULG;
+const aPulgY = (px) => px * PY_A_PULG;
+const aPt = (px) => Math.round(px * PX_A_PT * 10) / 10;
+
+/* Caja de texto centrada en `cx`, con su centro vertical en `cy` (como fillText). */
+function cajaCentrada(cx, cy, anchoPx, altoPx) {
+    return {
+        x: aPulgX(cx - anchoPx / 2), y: aPulgY(cy - altoPx / 2),
+        w: aPulgX(anchoPx), h: aPulgY(altoPx)
+    };
+}
+
+/* Convierte una imagen ya cargada en data URL. Con `aclararFondo` vuelve
+   transparente el blanco de las firmas escaneadas, que en el canvas se funde
+   con 'multiply' y en PowerPoint saldría como un recuadro blanco. */
+function imagenADataUrl(img, aclararFondo) {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0, c.width, c.height);
+    if (aclararFondo) {
+        try {
+            const d = cx.getImageData(0, 0, c.width, c.height);
+            for (let i = 0; i < d.data.length; i += 4) {
+                const [r, g, b] = [d.data[i], d.data[i + 1], d.data[i + 2]];
+                if (r > 225 && g > 225 && b > 225) d.data[i + 3] = 0;
+            }
+            cx.putImageData(d, 0, 0);
+        } catch (e) { /* imagen de otro origen: se deja tal cual */ }
+    }
+    return c.toDataURL('image/png');
+}
+
+/* Cuenta los renglones que ocupará un texto, para bajar la fecha igual que el canvas. */
+function contarLineas(ctx, texto, anchoMax) {
+    let total = 0;
+    (texto || '').split('\n').forEach((parrafo) => {
+        let linea = '', n = 0;
+        parrafo.split(' ').forEach((palabra, i) => {
+            const prueba = linea + palabra + ' ';
+            if (ctx.measureText(prueba).width > anchoMax && i > 0) { n++; linea = palabra + ' '; }
+            else linea = prueba;
+        });
+        total += n + 1;
+    });
+    return total;
+}
+
+async function agregarDiapositivaEditable(pptx, p, ev) {
+    ev = ev || EVENTO_ACTUAL;
+    const t = plantilla((p && p.plantilla_id) || 1);
+    const [fondo, logo] = await cargarRecursosConstancia(t.fondo || 'cert_fondo.png');
+    const firmas = Array.isArray(t.firmas) ? t.firmas : [];
+    const imgsFirma = await Promise.all(firmas.map((f) => cargarImg(f.img || f.archivo || '').catch(() => null)));
+    const cfgLogoExtra = logoExtraParaEvento(ev);
+    const imgLogoExtra = cfgLogoExtra ? await cargarImg(cfgLogoExtra.img || cfgLogoExtra.archivo || '').catch(() => null) : null;
+
+    const valores = valoresPlaceholder(p, ev);
+    const texto = (s) => sustituir(s || '', valores);
+    const ctx = $('cert-canvas').getContext('2d');
+    const slide = pptx.addSlide();
+
+    slide.addImage({ data: imagenADataUrl(fondo), x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
+    slide.addImage({ data: imagenADataUrl(logo), x: aPulgX(23), y: aPulgY(18), w: aPulgX(152), h: aPulgY(89) });
+    if (imgLogoExtra) {
+        slide.addImage({
+            data: imagenADataUrl(imgLogoExtra), x: aPulgX(cfgLogoExtra.x), y: aPulgY(cfgLogoExtra.y),
+            w: aPulgX(cfgLogoExtra.w), h: aPulgY(cfgLogoExtra.h)
+        });
+    }
+
+    const comun = { align: 'center', valign: 'middle', margin: 0, isTextBox: true };
+    slide.addText(texto(t.titulo), {
+        ...cajaCentrada(561, 213, 1000, 70), ...comun,
+        fontFace: SERIF_PPT, fontSize: aPt(46), bold: true, color: '1F2A5C'
+    });
+    slide.addText(texto(t.otorgado), {
+        ...cajaCentrada(561, 282, 800, 32), ...comun,
+        fontFace: SERIF_PPT, fontSize: aPt(19), italic: true, color: '5A6172'
+    });
+
+    // El nombre se encoge igual que en el canvas si no cabe en el ancho útil.
+    const nombre = valores['<<Apellidos_y_Nombres>>'];
+    let tamNombre = 48;
+    do {
+        ctx.font = `600 ${tamNombre}px "Playfair Display", Georgia, serif`;
+        tamNombre -= 2;
+    } while (ctx.measureText(nombre).width > 880 && tamNombre > 24);
+    slide.addText(nombre, {
+        ...cajaCentrada(561, 348, 940, 70), ...comun,
+        fontFace: SERIF_PPT, fontSize: aPt(tamNombre), bold: true, color: '1F2A5C', shrinkText: true
+    });
+
+    // Filete bajo el nombre: un rectángulo muy fino se ve igual en PowerPoint
+    // y en los visores que ignoran las líneas de alto cero.
+    slide.addShape(pptx.ShapeType.rect, {
+        x: aPulgX(280), y: aPulgY(384), w: aPulgX(563), h: aPulgY(1.2),
+        fill: { color: '1F2A5C', transparency: 45 }, line: { type: 'none' }
+    });
+
+    // El cuerpo lo reparte PowerPoint; la fecha baja según los renglones que ocupe.
+    ctx.font = '18px "Libre Baskerville", Georgia, serif';
+    const cuerpo = texto(t.cuerpo);
+    const lineas = contarLineas(ctx, cuerpo, 850);
+    slide.addText(cuerpo, {
+        x: aPulgX(561 - 425), y: aPulgY(425 - 20), w: aPulgX(850), h: aPulgY(lineas * 29 + 12),
+        align: 'center', valign: 'top', margin: 0, isTextBox: true,
+        fontFace: SERIF_PPT, fontSize: aPt(18), color: '39415A', lineSpacing: aPt(29)
+    });
+
+    const yCiudad = Math.max(519, 425 + lineas * 29 + 14);
+    slide.addText(texto(t.ciudad), {
+        ...cajaCentrada(561, yCiudad, 700, 30), ...comun,
+        fontFace: SERIF_PPT, fontSize: aPt(17), italic: true, color: '5A6172'
+    });
+
+    firmas.forEach((f, i) => {
+        if (imgsFirma[i]) {
+            slide.addImage({
+                data: imagenADataUrl(imgsFirma[i], true),
+                x: aPulgX(f.x), y: aPulgY(f.y), w: aPulgX(f.w), h: aPulgY(f.h)
+            });
+        }
+        const partes = texto(f.texto || '').split('\n');
+        // Cada línea es su propio párrafo centrado: el nombre algo mayor que el cargo.
+        const runs = partes.map((linea, idx) => ({
+            text: linea,
+            options: {
+                breakLine: idx < partes.length - 1, align: 'center',
+                fontSize: aPt(idx === 0 ? FIRMANTE_NOMBRE_PX : FIRMANTE_CARGO_PX)
+            }
+        }));
+        slide.addText(runs, {
+            x: aPulgX(f.x + f.w / 2 - 250), y: aPulgY(f.y + f.h), w: aPulgX(500), h: aPulgY(26 + partes.length * 18),
+            align: 'center', valign: 'top', margin: 0, isTextBox: true,
+            fontFace: SANS_PPT, color: '1B2340', lineSpacing: aPt(18)
+        });
+    });
+    return slide;
+}
+
+function pptEditable() {
+    const chk = $('chk-ppt-editable');
+    return !!(chk && chk.checked);
+}
+
 /* Dibuja las constancias de `lista` y devuelve [{p, imagen}]. */
 async function imagenesConstancias(lista) {
     await document.fonts.ready;          // si no, salen con las fuentes de reserva
@@ -2108,17 +2263,30 @@ async function descargarPptUnico(soloSeleccion) {
     botonesPpt().forEach((b) => { b.disabled = true; });
     mostrar($('barra-generacion'), true);
     try {
-        const imgs = await imagenesConstancias(lista);
-        msg($('msg-generacion'), 'Armando el PowerPoint...', '');
+        const editable = pptEditable();
         const pptx = nuevoPptx();
-        imgs.forEach(({ p, imagen }) => {
-            const slide = pptx.addSlide();
-            slide.addImage({ data: imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
-            slide.addNotes(`${p.apellidos || ''} ${p.nombres || ''} · DNI ${p.dni || '—'}`.trim());
-        });
+        if (editable) {
+            await document.fonts.ready;
+            await cargarPlantillasRemotas();
+            for (let i = 0; i < lista.length; i++) {
+                msg($('msg-generacion'), `Armando constancia editable ${i + 1} de ${lista.length}...`, '');
+                const slide = await agregarDiapositivaEditable(pptx, lista[i]);
+                slide.addNotes(`${lista[i].apellidos || ''} ${lista[i].nombres || ''} · DNI ${lista[i].dni || '—'}`.trim());
+                $('progreso').style.width = Math.round(((i + 1) * 100) / lista.length) + '%';
+                await new Promise((r) => setTimeout(r, 0));
+            }
+        } else {
+            const imgs = await imagenesConstancias(lista);
+            msg($('msg-generacion'), 'Armando el PowerPoint...', '');
+            imgs.forEach(({ p, imagen }) => {
+                const slide = pptx.addSlide();
+                slide.addImage({ data: imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
+                slide.addNotes(`${p.apellidos || ''} ${p.nombres || ''} · DNI ${p.dni || '—'}`.trim());
+            });
+        }
         const blob = await pptx.write('blob');
-        descargarBlob(blob, `constancias_${slugEvento()}.pptx`);
-        msg($('msg-generacion'), `✅ PowerPoint con ${imgs.length} constancia(s) descargado.`, 'ok');
+        descargarBlob(blob, `constancias${editable ? '_editables' : ''}_${slugEvento()}.pptx`);
+        msg($('msg-generacion'), `✅ PowerPoint${editable ? ' editable' : ''} con ${lista.length} constancia(s) descargado.`, 'ok');
     } catch (e) {
         console.error(e);
         msg($('msg-generacion'), 'No se pudo generar el PowerPoint: ' + (e.message || e), 'err');
@@ -2135,26 +2303,33 @@ async function descargarPptSeparados(soloSeleccion) {
     botonesPpt().forEach((b) => { b.disabled = true; });
     mostrar($('barra-generacion'), true);
     try {
-        const imgs = await imagenesConstancias(lista);
+        const editable = pptEditable();
         if (typeof JSZip === 'undefined') {
             throw new Error('no se pudo cargar la librería de ZIP; revisa la conexión y recarga la página');
         }
+        const imgs = editable ? null : await imagenesConstancias(lista);
+        if (editable) { await document.fonts.ready; await cargarPlantillasRemotas(); }
         const zip = new JSZip();
         const carpeta = zip.folder(`constancias_${slugEvento()}`);
-        for (let i = 0; i < imgs.length; i++) {
-            msg($('msg-generacion'), `Armando PowerPoint ${i + 1} de ${imgs.length}...`, '');
+        for (let i = 0; i < lista.length; i++) {
+            msg($('msg-generacion'), `Armando PowerPoint ${i + 1} de ${lista.length}...`, '');
             const pptx = nuevoPptx();
-            const slide = pptx.addSlide();
-            slide.addImage({ data: imgs[i].imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
-            carpeta.file(`${nombreArchivoParticipante(imgs[i].p)}.pptx`, await pptx.write('blob'));
+            if (editable) {
+                await agregarDiapositivaEditable(pptx, lista[i]);
+                $('progreso').style.width = Math.round(((i + 1) * 100) / lista.length) + '%';
+            } else {
+                const slide = pptx.addSlide();
+                slide.addImage({ data: imgs[i].imagen, x: 0, y: 0, w: PPT_ANCHO, h: PPT_ALTO });
+            }
+            carpeta.file(`${nombreArchivoParticipante(lista[i])}.pptx`, await pptx.write('blob'));
             await new Promise((r) => setTimeout(r, 0));
         }
         msg($('msg-generacion'), 'Comprimiendo el ZIP...', '');
         const blob = await zip.generateAsync({ type: 'blob' }, (meta) => {
             $('progreso').style.width = Math.round(meta.percent) + '%';
         });
-        descargarBlob(blob, `constancias_ppt_${slugEvento()}.zip`);
-        msg($('msg-generacion'), `✅ ZIP con ${imgs.length} PowerPoint(s), uno por persona.`, 'ok');
+        descargarBlob(blob, `constancias_ppt${editable ? '_editables' : ''}_${slugEvento()}.zip`);
+        msg($('msg-generacion'), `✅ ZIP con ${lista.length} PowerPoint(s)${editable ? ' editables' : ''}, uno por persona.`, 'ok');
     } catch (e) {
         console.error(e);
         msg($('msg-generacion'), 'No se pudo generar el ZIP: ' + (e.message || e), 'err');
