@@ -815,9 +815,12 @@
   async function cargar(forzar) {
     mensaje('<div class="sc-cargando"><i class="fas fa-spinner fa-spin"></i><br>Cargando cursos y secciones…</div>');
     try {
-      if (!DATOS || forzar) await Promise.all([cargarClases(), cargarManuales(), cargarAjustes()]);
+      // Si Supabase no responde, mostrar error en vez de quedarse cargando indefinidamente
+      const conTiempo = (p, ms = 10000) => Promise.race([p, new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('Supabase no respondió a tiempo. Revisa la conexión y vuelve a abrir el monitoreo.')), ms))]);
+      if (!DATOS || forzar) await conTiempo(Promise.all([cargarClases(), cargarManuales(), cargarAjustes()]));
       pintarDias(); pintarSedes();
-      await cargarRegistros();
+      await conTiempo(cargarRegistros());
       pintar();
     } catch (err) {
       mensaje('<div class="sc-vacio"><b>No se pudieron cargar los datos.</b><br>' + esc(err.message) + '</div>');

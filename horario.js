@@ -1325,6 +1325,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Aviso "Cargando datos" sobre toda la pantalla mientras haya descargas en curso
     let cargasActivas = 0;
     let cargaTimer = null;
+    let cargaMaxTimer = null;
+    const CARGA_MAX_VISIBLE_MS = 6000; // tiempo máximo que el aviso se mantiene aunque una descarga siga colgada
     function overlayCarga() {
         let ov = document.getElementById('cargaOverlay');
         if (!ov) {
@@ -1343,13 +1345,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return async function (...args) {
             cargasActivas++;
             // pequeña espera para no parpadear en recargas instantáneas
-            if (!cargaTimer) cargaTimer = setTimeout(() => overlayCarga().classList.add('visible'), 150);
+            if (!cargaTimer) cargaTimer = setTimeout(() => {
+                overlayCarga().classList.add('visible');
+                // Ocultar aunque una petición quede colgada (evita pantalla bloqueada indefinidamente)
+                clearTimeout(cargaMaxTimer);
+                cargaMaxTimer = setTimeout(() => {
+                    const ov = document.getElementById('cargaOverlay');
+                    if (ov) ov.classList.remove('visible');
+                }, CARGA_MAX_VISIBLE_MS);
+            }, 150);
             try {
                 return await fn.apply(this, args);
             } finally {
                 if (--cargasActivas === 0) {
                     clearTimeout(cargaTimer);
+                    clearTimeout(cargaMaxTimer);
                     cargaTimer = null;
+                    cargaMaxTimer = null;
                     const ov = document.getElementById('cargaOverlay');
                     if (ov) ov.classList.remove('visible');
                 }
