@@ -787,7 +787,14 @@ function estadisticas(c) {
     const o = f.reduce((n, r) => n + r.conformes, 0), b = f.reduce((n, r) => n + r.observaciones, 0);
     sedes[s] = { visitas: f.length, conf: o + b ? pct(o, o + b) : null, tard: tard.filter(t => t.sede === s).length };
   }
+  // Cobertura: turnos del cronograma con registro del monitor asignado (mismo criterio que «Sin reporte»)
+  let prog = 0, rep = 0;
+  for (const a of c.PROG.asignaciones) for (const m of a.monitores) {
+    prog++;
+    if (filas.some(r => r.fecha === a.fecha && r[CAMPUS] === a.sede && r[TURN] === a.turno && r[MON] === m)) rep++;
+  }
   return {
+    prog, rep, cobertura: prog ? pct(rep, prog) : null,
     visitas: filas.length, monitores: new Set(filas.map(r => r[MON])).size,
     conf: pct(ok, ok + obs), obs, obsVisita: filas.length ? obs / filas.length : 0,
     tard: tard.length, tardVisita: filas.length ? tard.length / filas.length : 0,
@@ -826,7 +833,9 @@ function renderComparativo() {
     tarjeta('Observaciones por visita', A.obsVisita, B.obsVisita, uno, { mejor: 'bajo', dec: 1 }, `${A.obs} y ${B.obs} observaciones en total`),
     tarjeta('Tardanzas por visita', A.tardVisita, B.tardVisita, dos, { mejor: 'bajo', dec: 2 }, `${A.tard} y ${B.tard} tardanzas en total`),
     tarjeta('Respuestas', A.visitas, B.visitas, entero, {}, `${A.monitores} y ${B.monitores} monitores con registro`),
-    tarjeta('Sedes visitadas', A.sedesN, B.sedesN, entero, {}, 'Sedes con al menos un registro'),
+    A.cobertura != null && B.cobertura != null
+      ? tarjeta('Cobertura del cronograma', A.cobertura, B.cobertura, por, { mejor: 'alto', unidad: 'pts' }, `${A.rep} de ${A.prog} y ${B.rep} de ${B.prog} turnos con registro`)
+      : tarjeta('Sedes visitadas', A.sedesN, B.sedesN, entero, {}, 'Sedes con al menos un registro'),
     tarjeta('Días con registro', A.dias, B.dias, entero, {}, 'Días de la semana con visitas')
   ].join('');
 
@@ -880,6 +889,8 @@ function renderComparativo() {
   const iMejor = dMom.reduce((m, v, i) => v !== null && (m === -1 || v > dMom[m]) ? i : m, -1);
   if (iPeor >= 0 && dMom[iPeor] < 0) puntos.push(`El momento de control que más cayó fue «${momentoCorto(MOMENTOS[iPeor][0])}»: de ${A.momentos[iPeor]}% a ${B.momentos[iPeor]}% (${Math.abs(dMom[iPeor])} pts).`);
   if (iMejor >= 0 && dMom[iMejor] > 0) puntos.push(`El que más mejoró fue «${momentoCorto(MOMENTOS[iMejor][0])}»: de ${A.momentos[iMejor]}% a ${B.momentos[iMejor]}% (+${dMom[iMejor]} pts).`);
+  if (A.cobertura != null && B.cobertura != null && A.cobertura !== B.cobertura)
+    puntos.push(`La cobertura del cronograma ${B.cobertura > A.cobertura ? 'subió' : 'bajó'} de ${A.cobertura}% a ${B.cobertura}%: ${B.rep} de ${B.prog} turnos programados tienen registro del monitor asignado.`);
   puntos.push(`Tardanzas: ${A.tard} en ${sA} (${A.tardVisita.toFixed(2)} por visita) y ${B.tard} en ${sB} (${B.tardVisita.toFixed(2)} por visita).`);
   const soloA = sedesU.filter(s => A.sedes[s] && A.sedes[s].visitas && !(B.sedes[s] && B.sedes[s].visitas));
   const soloB = sedesU.filter(s => B.sedes[s] && B.sedes[s].visitas && !(A.sedes[s] && A.sedes[s].visitas));
