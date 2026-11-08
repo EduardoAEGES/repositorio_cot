@@ -108,3 +108,36 @@
 .tardanza-sede li .rein{font-style:normal;font-weight:700;color:var(--red);background:#fdeeee;border-radius:99px;padding:1px 6px}
 .layout{align-items:start}
 .tardanzas{align-items:start}
+
+/* ===== selector de semana y comparativo ===== */
+.semanas{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+.semanas-rotulo{align-self:center;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.semanas button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--line);background:#fff;border-radius:11px;padding:8px 14px;color:var(--ink);transition:.15s}
+.semanas button b{font-size:13px}
+.semanas button small{font-size:10.5px;color:var(--muted)}
+.semanas button:hover{border-color:var(--brand)}
+.semanas button.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:var(--shadow)}
+.semanas button.on small{color:#ffffffc7}
+.semanas button.comparar:not(.on){border-style:dashed}
+#comparativo{display:none}
+.comparando #comparativo{display:block}
+.comparando .tabs,.comparando .filters,.comparando #kpis,.comparando [id^="vista-"],.comparando #reset,.comparando #slides-pdf,.comparando #slides-ppt{display:none!important}
+.kpis-cmp{grid-template-columns:repeat(3,1fr)}
+.kpi.cmp .cmp-vals{display:flex;align-items:center;gap:10px;margin:5px 0 6px}
+.kpi.cmp .cmp-vals span{display:flex;flex-direction:column}
+.kpi.cmp .cmp-vals small{font-size:9.5px;color:var(--muted);font-weight:600}
+.kpi.cmp .cmp-vals b{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--brand)}
+.kpi.cmp .cmp-vals i{font-style:normal;color:var(--muted);font-size:16px;align-self:flex-end;padding-bottom:3px}
+.delta{display:inline-block;font-size:10px;font-weight:700;border-radius:99px;padding:3px 8px;background:#f0f1f4;color:#656b79;white-space:nowrap}
+.delta.mejora{background:#eaf5ef;color:var(--ok)}
+.delta.empeora{background:#fdeeee;color:#a43b3b}
+.cambios{margin:0;padding-left:18px;display:grid;gap:7px;font-size:12px;line-height:1.5;color:#3f4555}
+.nota-cmp{margin:12px 0 0;font-size:10.5px;color:var(--muted)}
+.sub{color:var(--muted);font-size:10px}
+.sin{color:var(--muted);font-style:italic}
+.repetidos{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.repetidos li{background:#faf9fb;border:1px solid var(--line);border-left:3px solid var(--red);border-radius:10px;padding:9px 11px;font-size:11.5px}
+.repetidos li span{display:block;color:var(--muted);font-size:10.5px;margin-top:2px}
+@media(max-width:850px){.kpis-cmp{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.kpis-cmp{grid-template-columns:1fr}.semanas button{flex:1}}
+@media print{.semanas{display:none!important}.comparando #comparativo{display:block}}

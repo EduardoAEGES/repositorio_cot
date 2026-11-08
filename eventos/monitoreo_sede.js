@@ -1,15 +1,18 @@
-/* ===== Monitoreo de visitas · una página por semana =====
-   La página define window.SEMANA (1 si no se define) y este script lee
-   datos/monitoreo_semanaN.json, programacion_semanaN.json, chat_semanaN.json,
-   tardanzas_semanaN.json y, desde la semana 2, hallazgos_semanaN.json.
+/* ===== Monitoreo de visitas a sede · una semana o el comparativo =====
+   Un selector arriba cambia entre las semanas de SEMANAS y el comparativo. Por cada
+   semana N se lee datos/monitoreo_semanaN.json, programacion_semanaN.json,
+   chat_semanaN.json, tardanzas_semanaN.json y, desde la semana 2, hallazgos_semanaN.json.
+   Para sumar una semana: agrega su número a SEMANAS y un botón en monitoreo_sede.html.
    Si la semana no tiene cronograma cargado, se ocultan los indicadores que lo necesitan.
-   Tres lecturas sobre los mismos datos:
+   Tres lecturas sobre los datos de cada semana:
    1. Promedio de la semana (conformidad por momento y por sede).
    2. Reporte por día: una tarjeta por día y, al hacer clic, el detalle de los hallazgos.
    3. Sin reporte: cruce del cronograma con el formulario para ver quién no registró.
    El chat de coordinación se usa como evidencia complementaria del día. */
 
-const SEMANA = window.SEMANA || 1;
+const SEMANAS = [1, 3];
+let SEMANA = 1;          // semana que se está viendo
+const CACHE = {};        // datos ya cargados de cada semana
 const CAMPUS = 'Sede Monitoreada', TURN = 'Turno', MON = 'Monitor', DATE = 'Fecha';
 const MOMENTOS = [
   ['Pre monitoreo (6:40 a 6:50)', 'Comentario - Pre monitoreo (6:40 a 6:50)'],
@@ -378,6 +381,7 @@ let HALLAZGOS = [
   ['Asistencia y acceso', 'Un grupo sin estudiantes durante los primeros 15 minutos en Arequipa y docentes de otra línea ausentes en Surco; algunas observaciones no se verificaron por falta de acceso oportuno.', 'Validar asistencia con coordinación y habilitar el acceso al monitoreo virtual.'],
   ['Cobertura del cronograma', 'El cruce del cronograma con el formulario ya identifica los turnos programados sin respuesta; revisa la pestaña «Sin reporte» para el detalle por monitor.', 'Confirmar con cada monitor si la visita no se hizo o solo faltó registrarla.']
 ];
+const HALLAZGOS_SEMANA1 = HALLAZGOS;
 /* El hallazgo de puntualidad se arma con los datos, no con un texto fijo. */
 function hallazgoPuntualidad() {
   const todas = TARD.registros || [];
@@ -737,31 +741,197 @@ function cambiarVista(v) {
   for (const id of ['promedio', 'dias', 'faltantes', 'respuestas']) $('vista-' + id).classList.toggle('oculto', id !== v);
 }
 
+/* ---------- datos por semana ---------- */
+async function pedir(url, obligatorio) {
+  const res = await fetch(url);
+  if (!res.ok) { if (obligatorio) throw new Error('No se encontró ' + url); return null; }
+  return res.json();
+}
+async function cargarSemana(n) {
+  if (CACHE[n]) return CACHE[n];
+  const filas = await pedir(`datos/monitoreo_semana${n}.json`, true);
+  const [prog, chat, tard, hall] = await Promise.all([
+    pedir(`datos/programacion_semana${n}.json`), pedir(`datos/chat_semana${n}.json`),
+    pedir(`datos/tardanzas_semana${n}.json`), n === 1 ? null : pedir(`datos/hallazgos_semana${n}.json`)
+  ]);
+  return (CACHE[n] = {
+    DATA: preparar(filas),
+    PROG: prog || { asignaciones: [] }, CHAT: chat || { mensajes: [] }, TARD: tard || { registros: [] },
+    HALL: n === 1 ? HALLAZGOS_SEMANA1 : (hall && hall.hallazgos) || []
+  });
+}
+/* Deja la semana n como la que muestran todas las vistas */
+function usarSemana(n) {
+  const c = CACHE[n];
+  SEMANA = n; DATA = c.DATA; PROG = c.PROG; CHAT = c.CHAT; TARD = c.TARD; HALLAZGOS = c.HALL;
+  DIAS = diasDeLaSemana();
+}
+function llenarFiltros() {
+  for (const id of ['sede', 'turno', 'monitor']) {
+    const s = $(id);
+    while (s.options.length > 1) s.remove(1);
+    s.value = '';
+  }
+  $('estado').value = ''; $('buscar').value = '';
+  fillSelect('sede', unique(CAMPUS), v => SEDES[v] || v); fillSelect('turno', unique(TURN)); fillSelect('monitor', unique(MON));
+}
+
+/* ---------- comparativo entre semanas ---------- */
+const normalizar = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+function estadisticas(c) {
+  const filas = c.DATA, tard = c.TARD.registros || [];
+  const ok = filas.reduce((n, r) => n + r.conformes, 0), obs = filas.reduce((n, r) => n + r.observaciones, 0);
+  const sedes = {};
+  for (const s of new Set([...filas.map(r => r[CAMPUS]), ...tard.map(t => t.sede)])) {
+    const f = filas.filter(r => r[CAMPUS] === s);
+    const o = f.reduce((n, r) => n + r.conformes, 0), b = f.reduce((n, r) => n + r.observaciones, 0);
+    sedes[s] = { visitas: f.length, conf: o + b ? pct(o, o + b) : null, tard: tard.filter(t => t.sede === s).length };
+  }
+  return {
+    visitas: filas.length, monitores: new Set(filas.map(r => r[MON])).size,
+    conf: pct(ok, ok + obs), obs, obsVisita: filas.length ? obs / filas.length : 0,
+    tard: tard.length, tardVisita: filas.length ? tard.length / filas.length : 0,
+    sedesN: new Set(filas.map(r => r[CAMPUS])).size, dias: new Set(filas.map(r => r.fecha)).size,
+    momentos: MOMENTOS.map(([k]) => {
+      const a = filas.filter(r => r[k] === 'Conforme').length, b = filas.filter(r => r[k] === 'Con observación').length;
+      return a + b ? pct(a, a + b) : null;
+    }),
+    sedes, tardList: tard
+  };
+}
+/* Diferencia entre dos valores; «mejor» dice si subir (alto) o bajar (bajo) es bueno. */
+function delta(a, b, { mejor = null, unidad = '', dec = 0 } = {}) {
+  if (a == null || b == null) return '<span class="delta neutro">—</span>';
+  const d = +(b - a).toFixed(dec);
+  const cls = d === 0 ? 'igual' : !mejor ? 'neutro' : (d > 0) === (mejor === 'alto') ? 'mejora' : 'empeora';
+  const txt = d === 0 ? 'Sin cambio' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(dec) + (unidad ? ' ' + unidad : '');
+  return `<span class="delta ${cls}">${txt}</span>`;
+}
+const barraPct = v => v == null ? '—' :
+  `<div class="mini-bar"><span class="${v >= 90 ? '' : v >= 75 ? 'warn' : 'red'}" style="width:${v}%"></span></div> ${v}%`;
+
+function renderComparativo() {
+  const nA = SEMANAS[SEMANAS.length - 2], nB = SEMANAS[SEMANAS.length - 1];
+  const A = estadisticas(CACHE[nA]), B = estadisticas(CACHE[nB]);
+  const sA = `Semana ${nA}`, sB = `Semana ${nB}`;
+  const nombre = s => SEDES[s] || s;
+
+  const tarjeta = (titulo, a, b, fmt, opts, hint) =>
+    `<article class="kpi cmp"><div class="label">${esc(titulo)}</div>
+      <div class="cmp-vals"><span><small>${sA}</small><b>${fmt(a)}</b></span><i>→</i><span><small>${sB}</small><b>${fmt(b)}</b></span></div>
+      ${delta(a, b, opts)}${hint ? `<div class="hint">${esc(hint)}</div>` : ''}</article>`;
+  const entero = v => String(v), uno = v => v.toFixed(1), dos = v => v.toFixed(2), por = v => v + '%';
+  const tarjetas = [
+    tarjeta('Conformidad promedio', A.conf, B.conf, por, { mejor: 'alto', unidad: 'pts' }, 'Conformes sobre estados evaluables'),
+    tarjeta('Observaciones por visita', A.obsVisita, B.obsVisita, uno, { mejor: 'bajo', dec: 1 }, `${A.obs} y ${B.obs} observaciones en total`),
+    tarjeta('Tardanzas por visita', A.tardVisita, B.tardVisita, dos, { mejor: 'bajo', dec: 2 }, `${A.tard} y ${B.tard} tardanzas en total`),
+    tarjeta('Respuestas', A.visitas, B.visitas, entero, {}, `${A.monitores} y ${B.monitores} monitores con registro`),
+    tarjeta('Sedes visitadas', A.sedesN, B.sedesN, entero, {}, 'Sedes con al menos un registro'),
+    tarjeta('Días con registro', A.dias, B.dias, entero, {}, 'Días de la semana con visitas')
+  ].join('');
+
+  /* por sede */
+  const sedesU = [...new Set([...Object.keys(A.sedes), ...Object.keys(B.sedes)])];
+  const cambioSede = s => {
+    const a = A.sedes[s], b = B.sedes[s];
+    return a && b && a.conf != null && b.conf != null ? b.conf - a.conf : null;
+  };
+  sedesU.sort((x, y) => (cambioSede(x) ?? 999) - (cambioSede(y) ?? 999) || nombre(x).localeCompare(nombre(y), 'es'));
+  const celdaSede = x => x && x.visitas
+    ? `${barraPct(x.conf)}<small class="sub"> ${x.visitas} ${x.visitas === 1 ? 'visita' : 'visitas'}</small>`
+    : '<span class="sin">Sin visitas</span>';
+  const filasSedes = sedesU.map(s => {
+    const a = A.sedes[s], b = B.sedes[s];
+    const ta = a ? a.tard : 0, tb = b ? b.tard : 0;
+    return `<tr><td><b>${esc(nombre(s))}</b></td><td>${celdaSede(a)}</td><td>${celdaSede(b)}</td>` +
+      `<td>${delta(a && a.conf, b && b.conf, { mejor: 'alto', unidad: 'pts' })}</td>` +
+      `<td>${ta} → ${tb} ${delta(ta, tb, { mejor: 'bajo' })}</td></tr>`;
+  }).join('');
+
+  /* por momento de control */
+  const filasMomentos = MOMENTOS.map(([k], i) =>
+    `<tr><td>${esc(momentoCorto(k))}<br><small class="sub">${VENTANAS[i].join(' a ')}</small></td><td>${barraPct(A.momentos[i])}</td><td>${barraPct(B.momentos[i])}</td>` +
+    `<td>${delta(A.momentos[i], B.momentos[i], { mejor: 'alto', unidad: 'pts' })}</td></tr>`).join('');
+
+  /* docentes con tardanza en las dos semanas */
+  const agrupar = lista => {
+    const m = new Map();
+    for (const t of lista) { const k = normalizar(t.docente); if (!m.has(k)) m.set(k, []); m.get(k).push(t); }
+    return m;
+  };
+  const gA = agrupar(A.tardList), gB = agrupar(B.tardList);
+  const repetidos = [...gA.keys()].filter(k => gB.has(k) && !k.startsWith('DOCENTE NO IDENTIFICADO'));
+  const donde = lista => lista.map(t => `${shortDate(t.fecha).slice(0, 5)} ${nombre(t.sede)}`).join(', ');
+
+  /* lectura automática de lo que cambió */
+  const puntos = [];
+  const dc = B.conf - A.conf;
+  puntos.push(dc === 0
+    ? `La conformidad promedio se mantiene en ${B.conf}% entre ${sA} y ${sB}.`
+    : `La conformidad promedio ${dc > 0 ? 'subió' : 'bajó'} de ${A.conf}% a ${B.conf}% (${Math.abs(dc)} pts).`);
+  const comparables = sedesU.filter(s => cambioSede(s) !== null);
+  if (comparables.length) {
+    const peor = comparables[0], mejor = comparables[comparables.length - 1];
+    if (cambioSede(peor) < 0) puntos.push(`Mayor caída por sede: ${nombre(peor)}, de ${A.sedes[peor].conf}% a ${B.sedes[peor].conf}% (${Math.abs(cambioSede(peor))} pts).`);
+    if (cambioSede(mejor) > 0) puntos.push(`Mayor mejora por sede: ${nombre(mejor)}, de ${A.sedes[mejor].conf}% a ${B.sedes[mejor].conf}% (+${cambioSede(mejor)} pts).`);
+  }
+  const dMom = MOMENTOS.map((_, i) => A.momentos[i] == null || B.momentos[i] == null ? null : B.momentos[i] - A.momentos[i]);
+  const iPeor = dMom.reduce((m, v, i) => v !== null && (m === -1 || v < dMom[m]) ? i : m, -1);
+  const iMejor = dMom.reduce((m, v, i) => v !== null && (m === -1 || v > dMom[m]) ? i : m, -1);
+  if (iPeor >= 0 && dMom[iPeor] < 0) puntos.push(`El momento de control que más cayó fue «${momentoCorto(MOMENTOS[iPeor][0])}»: de ${A.momentos[iPeor]}% a ${B.momentos[iPeor]}% (${Math.abs(dMom[iPeor])} pts).`);
+  if (iMejor >= 0 && dMom[iMejor] > 0) puntos.push(`El que más mejoró fue «${momentoCorto(MOMENTOS[iMejor][0])}»: de ${A.momentos[iMejor]}% a ${B.momentos[iMejor]}% (+${dMom[iMejor]} pts).`);
+  puntos.push(`Tardanzas: ${A.tard} en ${sA} (${A.tardVisita.toFixed(2)} por visita) y ${B.tard} en ${sB} (${B.tardVisita.toFixed(2)} por visita).`);
+  const soloA = sedesU.filter(s => A.sedes[s] && A.sedes[s].visitas && !(B.sedes[s] && B.sedes[s].visitas));
+  const soloB = sedesU.filter(s => B.sedes[s] && B.sedes[s].visitas && !(A.sedes[s] && A.sedes[s].visitas));
+  if (soloA.length) puntos.push(`Sin visitas registradas en ${sB}: ${soloA.map(nombre).join(', ')}.`);
+  if (soloB.length) puntos.push(`Sin visitas registradas en ${sA}: ${soloB.map(nombre).join(', ')}.`);
+  puntos.push(repetidos.length
+    ? `${repetidos.length} ${repetidos.length === 1 ? 'docente con tardanza' : 'docentes con tardanza'} en las dos semanas: ${repetidos.map(k => gB.get(k)[0].docente).join(', ')}.`
+    : 'Ningún docente repite tardanza entre las dos semanas.');
+  const cronoA = CACHE[nA].PROG.asignaciones.length > 0, cronoB = CACHE[nB].PROG.asignaciones.length > 0;
+
+  $('comparativo').innerHTML =
+    `<section class="kpis kpis-cmp">${tarjetas}</section>` +
+    `<section class="panel"><div class="panel-head"><div><h3>Qué cambió de ${sA} a ${sB}</h3><p>Lectura automática de las diferencias entre ambas semanas</p></div><span class="tag">Comparativo</span></div>
+       <ul class="cambios">${puntos.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+       <p class="nota-cmp">Las semanas tienen distinto número de visitas (${A.visitas} y ${B.visitas}): compara porcentajes y tasas por visita, no totales.${cronoA !== cronoB ? ` Solo ${cronoA ? sA : sB} tiene cronograma cargado, por eso no se compara la cobertura ni los monitores sin reporte.` : ''}</p></section>` +
+    `<section class="panel"><div class="panel-head"><div><h3>Conformidad por sede</h3><p>Ordenado de la mayor caída a la mayor mejora</p></div></div>
+       <div class="table-wrap"><table><thead><tr><th>Sede</th><th>${sA}</th><th>${sB}</th><th>Cambio</th><th>Tardanzas</th></tr></thead><tbody>${filasSedes}</tbody></table></div></section>` +
+    `<section class="layout">
+       <article class="panel"><div class="panel-head"><div><h3>Conformidad por momento de control</h3><p>Sobre los estados evaluables</p></div></div>
+         <div class="table-wrap"><table><thead><tr><th>Momento</th><th>${sA}</th><th>${sB}</th><th>Cambio</th></tr></thead><tbody>${filasMomentos}</tbody></table></div></article>
+       <article class="panel"><div class="panel-head"><div><h3>Docentes con tardanza en ambas semanas</h3><p>Coinciden por nombre en los registros de tardanza</p></div></div>
+         ${repetidos.length ? `<ul class="repetidos">${repetidos.map(k => `<li><b>${esc(gB.get(k)[0].docente)}</b><span>${sA}: ${esc(donde(gA.get(k)))}</span><span>${sB}: ${esc(donde(gB.get(k)))}</span></li>`).join('')}</ul>`
+           : '<div class="no-data">Ningún docente aparece con tardanza en las dos semanas.</div>'}</article>
+     </section>`;
+}
+
+/* ---------- semana o comparativo ---------- */
+function mostrar(sel) {
+  const comparar = sel === 'comparar';
+  document.body.classList.toggle('comparando', comparar);
+  for (const b of document.querySelectorAll('#selector-semana button')) b.classList.toggle('on', b.dataset.sem === String(sel));
+  $('intro-sub').textContent = comparar
+    ? 'Qué cambió entre la semana anterior y la más reciente: conformidad, tardanzas y sedes.'
+    : 'Promedio de la semana, detalle día por día y cruce del cronograma con el formulario para ver quién no reportó.';
+  if (comparar) {
+    $('periodo').textContent = 'Comparativo de semanas';
+    renderComparativo();
+    return;
+  }
+  usarSemana(Number(sel));
+  $('periodo').textContent = PROG.periodo ? `${PROG.semana || 'Semana ' + SEMANA} - ${PROG.periodo}` : `Semana ${SEMANA}`;
+  // Sin cronograma no hay pestaña «Sin reporte»
+  document.querySelector('#tabs [data-vista="faltantes"]').hidden = !hayCronograma();
+  llenarFiltros();
+  render();
+  cambiarVista(VISTA === 'faltantes' && !hayCronograma() ? 'promedio' : VISTA);
+}
+
 /* ---------- arranque ---------- */
 async function init() {
   try {
-    const pedir = async (url, obligatorio) => {
-      const res = await fetch(url);
-      if (!res.ok) { if (obligatorio) throw new Error('No se encontró ' + url); return null; }
-      return res.json();
-    };
-    DATA = preparar(await pedir(`datos/monitoreo_semana${SEMANA}.json`, true));
-    PROG = (await pedir(`datos/programacion_semana${SEMANA}.json`)) || { asignaciones: [] };
-    CHAT = (await pedir(`datos/chat_semana${SEMANA}.json`)) || { mensajes: [] };
-    TARD = (await pedir(`datos/tardanzas_semana${SEMANA}.json`)) || { registros: [] };
-    if (SEMANA !== 1) {
-      const h = await pedir(`datos/hallazgos_semana${SEMANA}.json`);
-      HALLAZGOS = h && h.hallazgos ? h.hallazgos : [];
-    }
-    DIAS = diasDeLaSemana();
-
-    if (PROG.periodo) $('periodo').textContent = `${PROG.semana || 'Semana ' + SEMANA} - ${PROG.periodo}`;
-    // Sin cronograma no hay pestaña «Sin reporte»
-    if (!hayCronograma()) document.querySelector('#tabs [data-vista="faltantes"]').hidden = true;
-    fillSelect('sede', unique(CAMPUS), v => SEDES[v] || v); fillSelect('turno', unique(TURN)); fillSelect('monitor', unique(MON));
-
-    render();
-    cambiarVista('promedio');
+    await Promise.all(SEMANAS.map(cargarSemana));
 
     for (const id of ['sede', 'turno', 'monitor', 'estado']) $(id).addEventListener('change', render);
     $('buscar').addEventListener('input', render);
@@ -772,8 +942,13 @@ async function init() {
     $('download').onclick = csvRespuestas;
     $('download-faltantes').onclick = csvFaltantes;
     for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => cambiarVista(b.dataset.vista);
+    for (const b of document.querySelectorAll('#selector-semana button')) b.onclick = () => mostrar(b.dataset.sem);
     $('modal-dia').addEventListener('click', e => { if (e.target.id === 'modal-dia' || e.target.hasAttribute('data-cerrar')) $('modal-dia').classList.remove('abierto'); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-dia').classList.remove('abierto'); });
+
+    // ?semana=1, ?semana=3 o ?semana=comparar; sin parámetro abre la semana más reciente
+    const pedida = new URLSearchParams(location.search).get('semana');
+    mostrar(pedida === 'comparar' || SEMANAS.includes(Number(pedida)) ? pedida : String(SEMANAS[SEMANAS.length - 1]));
   } catch (e) {
     document.querySelector('main').innerHTML =
       `<div class="panel">No se pudieron cargar los datos: ${esc(e.message)}. Abre esta página desde el servidor del proyecto (GitHub Pages o localhost).</div>`;
