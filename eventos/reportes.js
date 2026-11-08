@@ -1212,7 +1212,7 @@ function cambiarVista(v) {
     const marcoMonitoreo = $('marco-monitoreo');
     if (v === 'monitoreo' && marcoMonitoreo.dataset.cargado !== 'true') {
         marcoMonitoreo.dataset.cargado = 'true';
-        marcoMonitoreo.src = 'monitoreo_sede.html?embed=1&v=20261108d';
+        marcoMonitoreo.src = 'monitoreo_sede.html?embed=1&v=20261108e';
     }
 }
 

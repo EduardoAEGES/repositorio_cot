@@ -144,6 +144,29 @@ function reportoSlot(a, monitor) {
   return !!e && e.estado !== 'falta';
 }
 const enOtraFecha = () => [...turnos().values()].filter(e => e.estado === 'otra_fecha').length;
+const turnoCorto = t => String(t || '').replace('Turno ', '').toLowerCase();
+const diaSemana = f => { const n = new Date(f + 'T12:00:00').toLocaleDateString('es-PE', { weekday: 'long' }); return n.charAt(0).toUpperCase() + n.slice(1); };
+/* Qué cambió entre el turno programado y la visita que lo cubre */
+function queCambio(a, v) {
+  const c = [];
+  if (v.fecha !== a.fecha) c.push(v.fecha < a.fecha ? 'monitoreó antes de la fecha programada' : 'monitoreó después de la fecha programada');
+  if (v[CAMPUS] !== a.sede) c.push('en otra sede');
+  if (v[TURN] !== a.turno) c.push('en otro turno');
+  return c.join(', ').replace(/^./, x => x.toUpperCase()) || 'Mismo turno';
+}
+/* Turnos programados que se cubrieron con una visita del monitor en otra fecha, sede o turno */
+function cubiertosOtraFecha() {
+  const lista = [];
+  for (const a of PROG.asignaciones) for (const m of a.monitores) {
+    const e = turnos().get(claveTurno(a, m));
+    if (e && e.estado === 'otra_fecha') lista.push(Object.assign({}, a, { monitor: m, visita: e.visita, cambio: queCambio(a, e.visita) }));
+  }
+  return lista.sort((x, y) => x.fecha.localeCompare(y.fecha) || x.monitor.localeCompare(y.monitor, 'es'));
+}
+const textoProgramado = f => `${diaSemana(f.fecha)} ${shortDate(f.fecha).slice(0, 5)} · ${SEDES[f.sede] || f.sede} · ${turnoCorto(f.turno)}`;
+const textoVisita = v => `${diaSemana(v.fecha)} ${shortDate(v.fecha).slice(0, 5)} · ${SEDES[v[CAMPUS]] || v[CAMPUS]} · ${turnoCorto(v[TURN])}`;
+const filaOtraFecha = f => `<tr><td>${esc(textoProgramado(f))}</td><td>${esc(f.monitor)}</td><td>${esc(textoVisita(f.visita))}</td>` +
+  `<td><span class="state-chip">Turno cubierto</span><br>${esc(f.cambio)}</td></tr>`;
 function faltantes() {
   const lista = [];
   for (const a of PROG.asignaciones) {
@@ -351,6 +374,11 @@ function abrirDia(fecha) {
         `<td>${f.cubiertoPorOtro ? '<span class="state-chip neutral">Turno cubierto por otro monitor</span>' : '<span class="state-chip red">Sin ningún registro del turno</span>'}</td></tr>`).join('') +
       `</tbody></table></div>` : '', 'Todos los monitores programados registraron el formulario.') +
 
+    ((hayCronograma() && cubiertosOtraFecha().some(f => f.fecha === fecha)) ? bloque : () => '')(
+      `Programados que monitorearon en otra fecha (${cubiertosOtraFecha().filter(f => f.fecha === fecha).length})`,
+      `<div class="table-wrap"><table><thead><tr><th>Programado</th><th>Monitor</th><th>Monitoreó</th><th>Qué pasó</th></tr></thead><tbody>` +
+      cubiertosOtraFecha().filter(f => f.fecha === fecha).map(filaOtraFecha).join('') + `</tbody></table></div>`, '') +
+
     bloque(`Registros del día (${r.filas.length})`, r.filas.length ?
       `<div class="table-wrap"><table><thead><tr><th>Sede / turno</th><th>Monitor</th><th>Estados</th></tr></thead><tbody>` +
       r.filas.map(f => `<tr><td><b>${nombreSede(f[CAMPUS])}</b><br>${esc(f[TURN])}</td><td>${esc(f[MON])}${f.corregida ? '<br><span class="tag">fecha corregida</span>' : ''}${etiquetaOrigen(f)}</td>` +
@@ -371,6 +399,13 @@ function renderFaltantes() {
     `<td>${esc(f.monitor)}</td><td>${f.aulas}</td>` +
     `<td>${f.cubiertoPorOtro ? '<span class="state-chip neutral">Turno cubierto por otro monitor</span>' : '<span class="state-chip red">Sin ningún registro del turno</span>'}</td></tr>`).join('')
     : '<tr><td colspan="5" class="empty">Todos los turnos programados tienen respuesta.</td></tr>';
+
+  const otraFecha = cubiertosOtraFecha();
+  $('otrafecha-sub').textContent = otraFecha.length
+    ? `${otraFecha.length} ${otraFecha.length === 1 ? 'turno programado no tiene' : 'turnos programados no tienen'} registro en su día, pero el monitor visitó otra fecha, sede o turno: se cuentan como cubiertos y no figuran como sin reporte`
+    : 'Ningún turno se cubrió con una visita en otra fecha.';
+  $('otrafecha-rows').innerHTML = otraFecha.length ? otraFecha.map(filaOtraFecha).join('')
+    : '<tr><td colspan="4" class="empty">Todos los turnos cubiertos se registraron en su día, sede y turno.</td></tr>';
 
   $('cumplimiento-rows').innerHTML = cumplimiento().map(c => {
     const p = pct(c.rep, c.prog);
@@ -502,6 +537,7 @@ function datosDelReporte() {
       `${f.dia} ${shortDate(f.fecha)}`, SEDES[f.sede] || f.sede, f.turno, f.monitor,
       f.cubiertoPorOtro ? 'Turno cubierto por otro monitor' : 'Sin ningún registro del turno'
     ]),
+    otraFecha: hayCronograma() ? cubiertosOtraFecha().map(f => [textoProgramado(f), f.monitor, textoVisita(f.visita), f.cambio]) : [],
     hallazgos: [hallazgoPuntualidad(), ...HALLAZGOS].filter(Boolean)
   };
 }
@@ -518,7 +554,7 @@ const rgb = hex => [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16));
 /* PDF y PPT comparten la retícula, en pulgadas de una diapositiva 16:9 */
 const LAMINA = { w: 10, h: 5.625, mx: 0.5, tituloY: 0.3, bajadaY: 0.9, contenidoY: 1.2, pieY: 5.3 };
 /* Columnas que van centradas (números y fechas) en cada tabla */
-const CENTRADAS = { momentos: [1, 2, 3, 4], sedes: [1, 2, 3, 4], dias: [1, 2, 3, 4], tardanzas: [0], faltantes: [0, 2], hallazgos: [] };
+const CENTRADAS = { momentos: [1, 2, 3, 4], sedes: [1, 2, 3, 4], dias: [1, 2, 3, 4], tardanzas: [0], faltantes: [0, 2], otraFecha: [], hallazgos: [] };
 /* Indicadores que se leen como alerta (van en magenta) */
 const KPI_ALERTA = ['Observaciones', 'Sin reporte', 'Tardanzas'];
 /* Diapositivas de tablas: [clave en datos, título, bajada, encabezados, anchos relativos] */
@@ -535,6 +571,8 @@ function laminasDeTablas(d) {
       ['Fecha', 'Sede', 'Docente', 'Curso', 'Detalle'], [1.1, 1.6, 2.4, 2.4, 2.6]],
     d.faltantes.length && ['faltantes', 'Monitores programados sin reporte', `${d.faltantes.length} asignaciones del cronograma sin respuesta`,
       ['Día', 'Sede', 'Turno', 'Monitor programado', 'Estado'], [1.7, 1.8, 1.3, 2.8, 2.4]],
+    d.otraFecha.length && ['otraFecha', 'Turnos cubiertos en otra fecha', `${d.otraFecha.length} turnos: el monitor no visitó en su día, pero sí en otra fecha, sede o turno`,
+      ['Programado', 'Monitor', 'Monitoreó', 'Qué pasó'], [2.5, 2.6, 2.5, 2.4]],
     ['hallazgos', 'Hallazgos y siguientes pasos', CHAT.mensajes.length ? 'Lectura conjunta del formulario y del chat de coordinación' : 'Lectura del formulario de monitoreo',
       ['Tema', 'Qué se observó', 'Siguiente paso'], [1.8, 4.2, 3.2]]
   ].filter(Boolean);
