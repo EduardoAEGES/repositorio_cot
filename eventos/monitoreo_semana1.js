@@ -1,10 +1,15 @@
-/* ===== Monitoreo de visitas · Semana 1 =====
+/* ===== Monitoreo de visitas · una página por semana =====
+   La página define window.SEMANA (1 si no se define) y este script lee
+   datos/monitoreo_semanaN.json, programacion_semanaN.json, chat_semanaN.json,
+   tardanzas_semanaN.json y, desde la semana 2, hallazgos_semanaN.json.
+   Si la semana no tiene cronograma cargado, se ocultan los indicadores que lo necesitan.
    Tres lecturas sobre los mismos datos:
    1. Promedio de la semana (conformidad por momento y por sede).
    2. Reporte por día: una tarjeta por día y, al hacer clic, el detalle de los hallazgos.
    3. Sin reporte: cruce del cronograma con el formulario para ver quién no registró.
    El chat de coordinación se usa como evidencia complementaria del día. */
 
+const SEMANA = window.SEMANA || 1;
 const CAMPUS = 'Sede Monitoreada', TURN = 'Turno', MON = 'Monitor', DATE = 'Fecha';
 const MOMENTOS = [
   ['Pre monitoreo (6:40 a 6:50)', 'Comentario - Pre monitoreo (6:40 a 6:50)'],
@@ -51,6 +56,8 @@ function momentoDeHora(hora) {
 }
 
 let DATA = [], PROG = { asignaciones: [] }, CHAT = { mensajes: [] }, TARD = { registros: [] }, DIAS = [], VISTA = 'promedio';
+/* Sin cronograma no se puede cruzar con el formulario: no hay «sin reporte» ni cobertura. */
+const hayCronograma = () => PROG.asignaciones.length > 0;
 
 /* ---------- preparación ---------- */
 function preparar(filas) {
@@ -75,7 +82,11 @@ function diasDeLaSemana() {
   const fechas = [...new Set([...PROG.asignaciones.map(a => a.fecha), ...DATA.map(r => r.fecha)])].sort();
   const nombre = {};
   for (const a of PROG.asignaciones) nombre[a.fecha] = a.dia;
-  return fechas.map(f => ({ fecha: f, dia: nombre[f] || shortDate(f) }));
+  const diaDe = f => {
+    const n = new Date(f + 'T12:00:00').toLocaleDateString('es-PE', { weekday: 'long' });
+    return n ? n.charAt(0).toUpperCase() + n.slice(1) : shortDate(f);
+  };
+  return fechas.map(f => ({ fecha: f, dia: nombre[f] || diaDe(f) }));
 }
 
 /* ---------- filtros ---------- */
@@ -129,12 +140,18 @@ function renderKpis(rows) {
   const falt = faltantes();
   const promObs = rows.length ? (obs / rows.length).toFixed(1) : '0.0';
   const slots = PROG.asignaciones.reduce((n, a) => n + a.monitores.length, 0);
+  const tard = TARD.registros || [];
   const tarjetas = [
     ['Respuestas', rows.length, `${new Set(rows.map(r => r[MON])).size} monitores con registro`, 'brand'],
     ['Conformidad promedio', pct(ok, evaluables) + '%', `${ok} conformes de ${evaluables} estados evaluables`, 'ok'],
     ['Observaciones', obs, `${promObs} por visita registrada`, 'warn'],
-    ['Cobertura del cronograma', pct(slots - falt.length, slots) + '%', `${slots - falt.length} de ${slots} turnos programados`, 'brand'],
-    ['Sin reporte', falt.length, 'Monitores programados que no registraron', 'red']
+    ...(hayCronograma() ? [
+      ['Cobertura del cronograma', pct(slots - falt.length, slots) + '%', `${slots - falt.length} de ${slots} turnos programados`, 'brand'],
+      ['Sin reporte', falt.length, 'Monitores programados que no registraron', 'red']
+    ] : [
+      ['Sedes visitadas', new Set(rows.map(r => r[CAMPUS])).size, `${new Set(rows.map(r => r.fecha)).size} días con registro`, 'brand'],
+      ['Tardanzas', tard.length, `${new Set(tard.map(t => t.docente)).size} docentes`, 'red']
+    ])
   ];
   $('kpis').innerHTML = tarjetas.map(x =>
     `<article class="kpi ${x[3]}"><div class="label">${x[0]}</div><div class="value">${x[1]}</div><div class="hint">${esc(x[2])}</div></article>`).join('');
@@ -217,7 +234,7 @@ function renderDias(rows) {
     return `<button class="dia-card ${tono}" data-fecha="${d.fecha}">
       <div class="dia-nombre">${esc(d.dia)}</div><div class="dia-fecha">${shortDate(d.fecha)}</div>
       <div class="dia-metricas"><span class="grande">${r.filas.length}</span><small>registros - ${r.sedes} sedes</small></div>
-      <div class="dia-pills"><span class="pill ok">${r.conf}% conforme</span><span class="pill warn">${r.obs} obs.</span><span class="pill red">${r.faltantes.length} sin reporte</span></div>
+      <div class="dia-pills"><span class="pill ok">${r.conf}% conforme</span><span class="pill warn">${r.obs} obs.</span>${hayCronograma() ? `<span class="pill red">${r.faltantes.length} sin reporte</span>` : ''}</div>
       <div class="dia-cta">Ver hallazgos →</div></button>`;
   }).join('');
   for (const b of document.querySelectorAll('.dia-card')) b.onclick = () => abrirDia(b.dataset.fecha);
@@ -250,7 +267,8 @@ function abrirDia(fecha) {
   $('dia-titulo').textContent = `${d.dia} ${shortDate(fecha)}`;
   const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
   $('dia-sub').textContent = [plural(r.filas.length, 'registro', 'registros'), `${r.conf}% de conformidad`,
-    plural(r.obs, 'observación', 'observaciones'), plural(r.faltantes.length, 'monitor sin reporte', 'monitores sin reporte')].join(' - ');
+    plural(r.obs, 'observación', 'observaciones'),
+    ...(hayCronograma() ? [plural(r.faltantes.length, 'monitor sin reporte', 'monitores sin reporte')] : [])].join(' - ');
 
   const precisionesDe = (sede, turno) => (CHAT.precisiones || [])
     .filter(p => p.fecha === fecha && p.sede === sede && (!p.turno || p.turno === turno));
@@ -285,7 +303,7 @@ function abrirDia(fecha) {
          ${h.recomendacion ? `<div class="reco"><b>Recomendación:</b> ${esc(h.recomendacion)}</div>` : ''}
        </article>`).join(''), 'Sin observaciones registradas este día.') +
 
-    bloque(`Evidencia del chat de coordinación (${chat.length + sueltas.length + adjuntas})`,
+    ((CHAT.mensajes.length || (CHAT.precisiones || []).length) ? bloque : () => '')(`Evidencia del chat de coordinación (${chat.length + sueltas.length + adjuntas})`,
       sueltas.map(p => bloquePrecision(p)).join('') + chat.map(m =>
       `<article class="chat-msg ${esc(m.tipo)}">
          <header><b>${esc(m.autor || 'Chat de coordinación')}</b><span>${[m.hora, m.sede,
@@ -294,7 +312,7 @@ function abrirDia(fecha) {
       adjuntas ? `Las ${adjuntas} precisiones del chat de este día están adjuntas a los hallazgos de arriba.`
                : 'No hay mensajes del chat guardados para este día.') +
 
-    bloque(`Programados que no registraron (${r.faltantes.length})`, r.faltantes.length ?
+    (hayCronograma() ? bloque : () => '')(`Programados que no registraron (${r.faltantes.length})`, r.faltantes.length ?
       `<div class="table-wrap"><table><thead><tr><th>Sede / turno</th><th>Monitor</th><th>Aulas</th><th>Estado</th></tr></thead><tbody>` +
       r.faltantes.map(f => `<tr><td><b>${nombreSede(f.sede)}</b><br>${esc(f.turno)}</td><td>${esc(f.monitor)}</td><td>${f.aulas}</td>` +
         `<td>${f.cubiertoPorOtro ? '<span class="state-chip neutral">Turno cubierto por otro monitor</span>' : '<span class="state-chip red">Sin ningún registro del turno</span>'}</td></tr>`).join('') +
@@ -351,7 +369,8 @@ function renderRespuestas(rows) {
 }
 
 /* ---------- hallazgos transversales ---------- */
-const HALLAZGOS = [
+/* Semana 1: texto fijo. Desde la semana 2 se lee de datos/hallazgos_semanaN.json (ver init). */
+let HALLAZGOS = [
 
   ['Break y retorno', 'Salidas tardías, retornos de hasta ~20 minutos y una demora que afectó el ingreso de estudiantes después del receso en Surco.', 'Fijar el tiempo permitido y verificar el retorno al aula en el 3er monitoreo.'],
   ['Desarrollo de clase', 'En monitoreos virtuales aparecen sesiones con actividades pendientes, sílabo no presentado, cierres sin ideas fuerza, fondos no institucionales y dificultades técnicas.', 'Seguimiento docente individual y resolver accesos antes de la siguiente visita.'],
@@ -389,11 +408,11 @@ function descargar(nombre, filas) {
 }
 function csvRespuestas() {
   const cols = ['Fecha', MON, CAMPUS, TURN, ...MOMENTOS.flat(), 'Recomendaciones'];
-  descargar('monitoreo_semana1_filtrado.csv', [cols, ...filtered().map(r => cols.map(k => k === 'Fecha' ? shortDate(r.fecha) : r[k]))]);
+  descargar(`monitoreo_semana${SEMANA}_filtrado.csv`, [cols, ...filtered().map(r => cols.map(k => k === 'Fecha' ? shortDate(r.fecha) : r[k]))]);
 }
 function csvFaltantes() {
   const cols = ['Día', 'Fecha', 'Sede', 'Turno', 'Monitor programado', 'Aulas', 'Estado'];
-  descargar('monitoreo_semana1_sin_reporte.csv', [cols, ...faltantes().map(f =>
+  descargar(`monitoreo_semana${SEMANA}_sin_reporte.csv`, [cols, ...faltantes().map(f =>
     [f.dia, shortDate(f.fecha), SEDES[f.sede] || f.sede, f.turno, f.monitor, f.aulas, f.cubiertoPorOtro ? 'Turno cubierto por otro monitor' : 'Sin ningún registro del turno'])]);
 }
 
@@ -411,13 +430,18 @@ function datosDelReporte() {
 
   return {
     titulo: 'Monitoreo de visitas a sede',
-    subtitulo: `${PROG.semana || 'Semana 1'} - ${PROG.periodo || ''}`,
+    subtitulo: `${PROG.semana || 'Semana ' + SEMANA} - ${PROG.periodo || ''}`,
     kpis: [
       ['Respuestas', String(rows.length), `${new Set(rows.map(r => r[MON])).size} monitores con registro`],
       ['Conformidad promedio', pct(ok, ok + obs) + '%', `${ok} conformes de ${ok + obs} estados evaluables`],
       ['Observaciones', String(obs), `${rows.length ? (obs / rows.length).toFixed(1) : '0.0'} por visita`],
-      ['Cobertura del cronograma', pct(slots - falt.length, slots) + '%', `${slots - falt.length} de ${slots} turnos`],
-      ['Sin reporte', String(falt.length), 'Monitores programados sin registro'],
+      ...(hayCronograma() ? [
+        ['Cobertura del cronograma', pct(slots - falt.length, slots) + '%', `${slots - falt.length} de ${slots} turnos`],
+        ['Sin reporte', String(falt.length), 'Monitores programados sin registro']
+      ] : [
+        ['Sedes visitadas', String(new Set(rows.map(r => r[CAMPUS])).size), 'Sedes con al menos un registro'],
+        ['Días con registro', String(new Set(rows.map(r => r.fecha)).size), 'Días de la semana con visitas registradas']
+      ]),
       ['Tardanzas', String(todasTard.length), `${new Set(todasTard.map(t => t.docente)).size} docentes`]
     ],
     momentos: MOMENTOS.map(([k], i) => {
@@ -431,7 +455,8 @@ function datosDelReporte() {
     }).sort((a, b) => parseInt(a[2]) - parseInt(b[2])),
     dias: DIAS.map(d => {
       const r = resumenDia(d.fecha, rows);
-      return [`${d.dia} ${shortDate(d.fecha)}`, String(r.filas.length), r.conf + '%', String(r.obs), String(r.faltantes.length)];
+      const fila = [`${d.dia} ${shortDate(d.fecha)}`, String(r.filas.length), r.conf + '%', String(r.obs)];
+      return hayCronograma() ? [...fila, String(r.faltantes.length)] : fila;
     }),
     tardanzas: todasTard.map(t => [
       shortDate(t.fecha), SEDES[t.sede] || t.sede, t.docente, t.curso || '-',
@@ -467,13 +492,14 @@ function laminasDeTablas(d) {
       ['Momento', 'Ventana', 'Conforme', 'Con observación', 'Conformidad'], [3, 2, 1.4, 1.6, 1.4]],
     ['sedes', 'Promedio por sede', 'Ordenado de menor a mayor conformidad',
       ['Sede', 'Visitas', 'Conformidad', 'Obs. por visita', 'Tardanzas'], [3.4, 1.2, 1.5, 1.5, 1.3]],
-    ['dias', 'La semana día por día', 'Registros, conformidad y pendientes de cada día',
-      ['Día', 'Registros', 'Conformidad', 'Observaciones', 'Sin reporte'], [2.6, 1.4, 1.5, 1.6, 1.5]],
+    ['dias', 'La semana día por día', hayCronograma() ? 'Registros, conformidad y pendientes de cada día' : 'Registros y conformidad de cada día',
+      hayCronograma() ? ['Día', 'Registros', 'Conformidad', 'Observaciones', 'Sin reporte'] : ['Día', 'Registros', 'Conformidad', 'Observaciones'],
+      hayCronograma() ? [2.6, 1.4, 1.5, 1.6, 1.5] : [3.2, 1.8, 2, 2.2]],
     d.tardanzas.length && ['tardanzas', 'Docentes con tardanza', `${d.tardanzas.length} tardanzas registradas en la semana`,
       ['Fecha', 'Sede', 'Docente', 'Curso', 'Detalle'], [1.1, 1.6, 2.4, 2.4, 2.6]],
     d.faltantes.length && ['faltantes', 'Monitores programados sin reporte', `${d.faltantes.length} asignaciones del cronograma sin respuesta`,
       ['Día', 'Sede', 'Turno', 'Monitor programado', 'Estado'], [1.7, 1.8, 1.3, 2.8, 2.4]],
-    ['hallazgos', 'Hallazgos y siguientes pasos', 'Lectura conjunta del formulario y del chat de coordinación',
+    ['hallazgos', 'Hallazgos y siguientes pasos', CHAT.mensajes.length ? 'Lectura conjunta del formulario y del chat de coordinación' : 'Lectura del formulario de monitoreo',
       ['Tema', 'Qué se observó', 'Siguiente paso'], [1.8, 4.2, 3.2]]
   ].filter(Boolean);
 }
@@ -559,7 +585,7 @@ async function reportePDF() {
   pdf.text(generadoEl(), 0.6, 4.75);
 
   /* Indicadores en tarjetas */
-  lamina('Indicadores de la semana', 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación');
+  lamina('Indicadores de la semana', hayCronograma() ? 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación' : 'Formulario de monitoreo de visitas a sede');
   const gap = 0.3, ancho = (L.w - 2 * M - 2 * gap) / 3, alto = 1.8;
   d.kpis.forEach((k, i) => {
     const x = M + (i % 3) * (ancho + gap), y = L.contenidoY + Math.floor(i / 3) * (alto + gap);
@@ -602,7 +628,7 @@ async function reportePDF() {
     pdf.text(`${d.titulo} · ${d.subtitulo}`, M, L.pieY + 0.12);
     pdf.text(`${i} / ${n}`, L.w - M, L.pieY + 0.12, { align: 'right' });
   }
-  pdf.save('monitoreo_semana1_diapositivas.pdf');
+  pdf.save(`monitoreo_semana${SEMANA}_diapositivas.pdf`);
 }
 
 /* PPT con diseños (layouts) Certus: portada, contenido y cierre. El fondo, el
@@ -637,7 +663,7 @@ async function construirPPT() {
   portada.addText(d.subtitulo, { x: 0.6, y: 3.3, w: 5.2, h: 0.4, fontFace: 'Arial', fontSize: 18, color: CERTUS.blanco, margin: 0, isTextBox: true });
   portada.addText(generadoEl(), { x: 0.6, y: 4.55, w: 5, h: 0.3, fontFace: 'Arial', fontSize: 12, color: 'D2DAF5', margin: 0, isTextBox: true });
 
-  const ind = lamina('Indicadores de la semana', 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación');
+  const ind = lamina('Indicadores de la semana', hayCronograma() ? 'Formulario de monitoreo cruzado con el cronograma y el chat de coordinación' : 'Formulario de monitoreo de visitas a sede');
   const gap = 0.3, ancho = (L.w - 2 * M - 2 * gap) / 3, alto = 1.8;
   d.kpis.forEach((k, i) => {
     const x = M + (i % 3) * (ancho + gap), y = L.contenidoY + Math.floor(i / 3) * (alto + gap);
@@ -682,7 +708,7 @@ async function construirPPT() {
 }
 async function reportePPT() {
   const ppt = await construirPPT();
-  await ppt.writeFile({ fileName: 'monitoreo_semana1_diapositivas.pptx' });
+  await ppt.writeFile({ fileName: `monitoreo_semana${SEMANA}_diapositivas.pptx` });
 }
 
 async function generar(boton, fn, etiqueta) {
@@ -719,13 +745,19 @@ async function init() {
       if (!res.ok) { if (obligatorio) throw new Error('No se encontró ' + url); return null; }
       return res.json();
     };
-    DATA = preparar(await pedir('datos/monitoreo_semana1.json', true));
-    PROG = (await pedir('datos/programacion_semana1.json')) || { asignaciones: [] };
-    CHAT = (await pedir('datos/chat_semana1.json')) || { mensajes: [] };
-    TARD = (await pedir('datos/tardanzas_semana1.json')) || { registros: [] };
+    DATA = preparar(await pedir(`datos/monitoreo_semana${SEMANA}.json`, true));
+    PROG = (await pedir(`datos/programacion_semana${SEMANA}.json`)) || { asignaciones: [] };
+    CHAT = (await pedir(`datos/chat_semana${SEMANA}.json`)) || { mensajes: [] };
+    TARD = (await pedir(`datos/tardanzas_semana${SEMANA}.json`)) || { registros: [] };
+    if (SEMANA !== 1) {
+      const h = await pedir(`datos/hallazgos_semana${SEMANA}.json`);
+      HALLAZGOS = h && h.hallazgos ? h.hallazgos : [];
+    }
     DIAS = diasDeLaSemana();
 
-    if (PROG.periodo) $('periodo').textContent = `${PROG.semana || 'Semana 1'} - ${PROG.periodo}`;
+    if (PROG.periodo) $('periodo').textContent = `${PROG.semana || 'Semana ' + SEMANA} - ${PROG.periodo}`;
+    // Sin cronograma no hay pestaña «Sin reporte»
+    if (!hayCronograma()) document.querySelector('#tabs [data-vista="faltantes"]').hidden = true;
     fillSelect('sede', unique(CAMPUS), v => SEDES[v] || v); fillSelect('turno', unique(TURN)); fillSelect('monitor', unique(MON));
 
     render();

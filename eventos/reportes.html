@@ -105,7 +105,7 @@
 
         #marco-evaldo { width: 100%; height: calc(100vh - 210px); min-height: 640px; border: 1px solid var(--line);
                         border-radius: 13px; background: #fff; box-shadow: var(--sombra); }
-        #marco-monitoreo { width: 100%; height: calc(100vh - 210px); min-height: 780px; border: 1px solid var(--line);
+        #marco-monitoreo, #marco-monitoreo3 { width: 100%; height: calc(100vh - 210px); min-height: 780px; border: 1px solid var(--line);
                            border-radius: 13px; background: #fff; box-shadow: var(--sombra); }
         .oculto { display: none !important; }
         .pestanas { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin: 16px 0 12px; flex-wrap: wrap; }
@@ -160,6 +160,7 @@
             <button class="on" data-vista="alineamiento"><i class="ph ph-chart-bar"></i> Reporte alineamiento</button>
             <button data-vista="evaldo"><i class="ph ph-chalkboard-teacher"></i> Desempeño docente</button>
             <button data-vista="monitoreo"><i class="ph ph-binoculars"></i> Monitoreo semana 1</button>
+            <button data-vista="monitoreo3"><i class="ph ph-binoculars"></i> Monitoreo semana 3</button>
         </div>
 
         <section id="vista-alineamiento">
@@ -246,6 +247,16 @@
                 </div>
             </div>
             <iframe id="marco-monitoreo" title="Dashboard de monitoreo de visitas, semana 1" loading="lazy"></iframe>
+        </section>
+
+        <section id="vista-monitoreo3" class="oculto">
+            <div class="barra" style="margin-top:0;">
+                <div class="info">Monitoreo de visitas · Semana 3 · 2 al 7 de noviembre de 2026 · promedio de la semana, detalle por día y tardanzas (cronograma pendiente de cargar).</div>
+                <div class="acciones">
+                    <a class="btn btn-ghost" href="monitoreo_semana3.html" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out"></i> Abrir en pestaña nueva</a>
+                </div>
+            </div>
+            <iframe id="marco-monitoreo3" title="Dashboard de monitoreo de visitas, semana 3" loading="lazy"></iframe>
         </section>
     </main>
 

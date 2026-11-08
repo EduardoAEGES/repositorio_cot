@@ -1,0 +1,16 @@
+{
+  "nota": "Docentes con tardanza identificados en la semana 3 - cada registro nace de un comentario del formulario de monitoreo.",
+  "registros": [
+    {"fecha": "2026-11-04", "sede": "AQP", "turno": "Turno Mañana", "docente": "CHAVEZ GUILLEN JULISA YRELSA", "curso": "", "detalle": "Llegó tarde; se conversó con Milagros Correa para que la contacte", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "AQP", "turno": "Turno Mañana", "docente": "CUNO SOSA WILLIAM BERMAN", "curso": "", "detalle": "Se demoró en dar inicio a la sesión a pesar de tener alumnos en el aula", "fuente": "Formulario"},
+    {"fecha": "2026-11-07", "sede": "AQP", "turno": "Turno Mañana", "docente": "GARCIA HERRERA VICTOR HUGO", "curso": "EXPERIENCIA FORMATIVA (CNI)-VI", "detalle": "Inició su clase con tardanza a las 07:09", "fuente": "Formulario"},
+    {"fecha": "2026-11-07", "sede": "AQP", "turno": "Turno Mañana", "docente": "ARENAS BARNETT DIEGO ENRIQUE", "curso": "BANCA COMERCIAL", "detalle": "Inició su clase con tardanza a las 07:03", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "NOR", "turno": "Turno Mañana", "docente": "RAÚL HUARAG", "curso": "Emprendimiento", "detalle": "Avisó minutos antes que no llegaría a tiempo por tráfico; los estudiantes se retiraron y la clase se reprogramó", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "NOR", "turno": "Turno Mañana", "docente": "ERIKA CUARESMA", "curso": "Estrategia de Medios Digitales", "detalle": "Avisó minutos antes que no llegaría a tiempo por tráfico; los estudiantes se retiraron y la clase se reprogramó", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "VES", "turno": "Turno Mañana", "docente": "JOSE LUIS TORREJON NAVARRO", "curso": "", "detalle": "No estaba en su aula y los alumnos lo esperaban; llegó aproximadamente a las 07:09", "fuente": "Formulario"},
+    {"fecha": "2026-11-05", "sede": "ATE", "turno": "Turno Noche", "docente": "GISELA JOYO", "curso": "Lab 501", "detalle": "No había llegado en el 1er monitoreo; llegó a las 07:08", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "SJL", "turno": "Turno Noche", "docente": "Docente no identificado (501L EFSRT)", "curso": "EFSRT 8:30 a 10:00 pm", "detalle": "No llegó hasta las 8:50 pm, se reportó a SAE y llegó a las 9:00 pm", "fuente": "Formulario"},
+    {"fecha": "2026-11-07", "sede": "SUR", "turno": "Turno Mañana", "docente": "SEQUEIROS DAVID", "curso": "PENSAMIENTO LÓGICO", "detalle": "Llegó al aula a las 07:08; indicó que marcó desde su móvil a las 06:53", "fuente": "Formulario"},
+    {"fecha": "2026-11-04", "sede": "VIR", "turno": "Turno Mañana", "docente": "PUENTE DE LA VEGA", "curso": "ADMINISTRACIÓN DE NEGOCIOS - I", "detalle": "No inició a las 07:00 aunque había alumnos conectados; comenzó a las 07:06", "fuente": "Formulario"}
+  ]
+}

@@ -1206,13 +1206,18 @@ function cambiarVista(v) {
     $('vista-alineamiento').classList.toggle('oculto', v !== 'alineamiento');
     $('vista-evaldo').classList.toggle('oculto', v !== 'evaldo');
     $('vista-monitoreo').classList.toggle('oculto', v !== 'monitoreo');
+    $('vista-monitoreo3').classList.toggle('oculto', v !== 'monitoreo3');
     // El reporte de desempeño se carga la primera vez que se abre su pestaña.
     if (v === 'evaldo' && !$('marco-evaldo').src) $('marco-evaldo').src = 'evaldo/index.html';
-    const marcoMonitoreo = $('marco-monitoreo');
-    if (v === 'monitoreo' && marcoMonitoreo.dataset.cargado !== 'true') {
-        marcoMonitoreo.dataset.cargado = 'true';
-        marcoMonitoreo.src = 'monitoreo_semana1.html?embed=1&v=20261025';
-    }
+    // Cada semana de monitoreo carga su dashboard la primera vez que se abre.
+    [['monitoreo', 'marco-monitoreo', 'monitoreo_semana1.html?embed=1&v=20261107'],
+     ['monitoreo3', 'marco-monitoreo3', 'monitoreo_semana3.html?embed=1&v=20261107']].forEach(([vista, marcoId, url]) => {
+        const marco = $(marcoId);
+        if (v === vista && marco.dataset.cargado !== 'true') {
+            marco.dataset.cargado = 'true';
+            marco.src = url;
+        }
+    });
 }
 
 function cambiarSub(v) {
