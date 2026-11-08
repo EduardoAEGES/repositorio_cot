@@ -1,8 +1,13 @@
 {
  "semana": "Semana 3",
  "periodo": "2 al 7 de noviembre de 2026",
- "fuente": "Mismo cronograma de monitoreo por sede y turno que la semana 1 (19 al 24 de octubre), trasladado a las fechas del 2 al 7 de noviembre.",
- "nota_jefatura": "José Kohagura figura en el cronograma como jefatura que acompaña la visita, no como monitor: no se le exige registro en el formulario ni cuenta en el cumplimiento.",
+ "fuente": "Cronograma de monitoreo de la semana 3 por sede y turno (imagen compartida por el equipo COT-PLN). Las aulas sin número en la imagen se toman del cronograma de la semana 1.",
+ "nota_jefatura": "Diego Vásquez, Jorge Durán y José Kohagura son coordinadores: si no registraron el formulario, su turno se cuenta como conforme y sin observaciones.",
+ "coordinadores": [
+  "VASQUEZ CHAVEZ DIEGO ARMANDO",
+  "DURAN DE LA FUENTE JORGE ALEJANDRO",
+  "JOSÉ KOHAGURA"
+ ],
  "asignaciones": [
   {
    "fecha": "2026-11-02",
@@ -11,7 +16,7 @@
    "turno": "Turno Mañana",
    "aulas": 9,
    "monitores": [
-    "VASQUEZ CHAVEZ DIEGO ARMANDO"
+    "MAYORGA SALAS MARISOL ESTRELLA"
    ],
    "jefatura": []
   },
@@ -43,9 +48,7 @@
    "sede": "AQP",
    "turno": "Turno Mañana",
    "aulas": 7,
-   "monitores": [
-    "MAYORGA SALAS MARISOL ESTRELLA"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -76,9 +79,7 @@
    "sede": "NOR",
    "turno": "Turno Mañana",
    "aulas": 11,
-   "monitores": [
-    "ESTRADA PONTE SANDIBELL"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -87,9 +88,7 @@
    "sede": "NOR",
    "turno": "Turno Mañana",
    "aulas": 13,
-   "monitores": [
-    "BORJA ROJAS JULIO MIGUEL"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -109,7 +108,9 @@
    "sede": "NOR",
    "turno": "Turno Mañana",
    "aulas": 14,
-   "monitores": [],
+   "monitores": [
+    "ESTRADA PONTE SANDIBELL"
+   ],
    "jefatura": []
   },
   {
@@ -128,7 +129,7 @@
    "turno": "Turno Mañana",
    "aulas": 15,
    "monitores": [
-    "NAVARRO ARAGON JULIO MARTIN"
+    "BORJA ROJAS JULIO MIGUEL"
    ],
    "jefatura": []
   },
@@ -138,9 +139,7 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 8,
-   "monitores": [
-    "DURAN DE LA FUENTE JORGE ALEJANDRO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -149,9 +148,7 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 7,
-   "monitores": [
-    "CONDOR SURICHAQUI LUIS ENRIQUE"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -160,7 +157,9 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": [],
+   "monitores": [
+    "CONDOR SURICHAQUI LUIS ENRIQUE"
+   ],
    "jefatura": []
   },
   {
@@ -169,7 +168,9 @@
    "sede": "ATE",
    "turno": "Turno Mañana",
    "aulas": 5,
-   "monitores": [],
+   "monitores": [
+    "DURAN DE LA FUENTE JORGE ALEJANDRO"
+   ],
    "jefatura": []
   },
   {
@@ -214,9 +215,7 @@
    "sede": "VES",
    "turno": "Turno Mañana",
    "aulas": 4,
-   "monitores": [
-    "GARCIA SALAZAR EDUARDO ANTONIO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -257,9 +256,7 @@
    "monitores": [
     "FIGUEROA YNCA FERNANDO FREDY"
    ],
-   "jefatura": [
-    "JOSÉ KOHAGURA"
-   ]
+   "jefatura": []
   },
   {
    "fecha": "2026-11-03",
@@ -276,10 +273,10 @@
    "sede": "SUR",
    "turno": "Turno Mañana",
    "aulas": 9,
-   "monitores": [],
-   "jefatura": [
-    "JOSÉ KOHAGURA"
-   ]
+   "monitores": [
+    "GARCIA SALAZAR EDUARDO ANTONIO"
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-11-05",
@@ -306,7 +303,7 @@
    "turno": "Turno Mañana",
    "aulas": 14,
    "monitores": [
-    "CORNEJO MAVILA STEPHANIA"
+    "NAVARRO ARAGON JULIO MARTIN"
    ],
    "jefatura": []
   },
@@ -327,7 +324,9 @@
    "sede": "SJL",
    "turno": "Turno Mañana",
    "aulas": 10,
-   "monitores": [],
+   "monitores": [
+    "JOSÉ KOHAGURA"
+   ],
    "jefatura": []
   },
   {
@@ -445,7 +444,9 @@
    "sede": "NOR",
    "turno": "Turno Noche",
    "aulas": 9,
-   "monitores": [],
+   "monitores": [
+    "NAVARRO ARAGON JULIO MARTIN"
+   ],
    "jefatura": []
   },
   {
@@ -474,9 +475,7 @@
    "sede": "NOR",
    "turno": "Turno Noche",
    "aulas": 14,
-   "monitores": [
-    "NAVARRO ARAGON JULIO MARTIN"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -496,23 +495,12 @@
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 6,
-   "monitores": [
-    "DURAN DE LA FUENTE JORGE ALEJANDRO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
    "fecha": "2026-11-03",
    "dia": "Martes",
-   "sede": "ATE",
-   "turno": "Turno Noche",
-   "aulas": 5,
-   "monitores": [],
-   "jefatura": []
-  },
-  {
-   "fecha": "2026-11-04",
-   "dia": "Miércoles",
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 5,
@@ -522,12 +510,23 @@
    "jefatura": []
   },
   {
+   "fecha": "2026-11-04",
+   "dia": "Miércoles",
+   "sede": "ATE",
+   "turno": "Turno Noche",
+   "aulas": 5,
+   "monitores": [],
+   "jefatura": []
+  },
+  {
    "fecha": "2026-11-05",
    "dia": "Jueves",
    "sede": "ATE",
    "turno": "Turno Noche",
    "aulas": 5,
-   "monitores": [],
+   "monitores": [
+    "FIGUEROA YNCA FERNANDO FREDY"
+   ],
    "jefatura": []
   },
   {
@@ -583,7 +582,9 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 3,
-   "monitores": [],
+   "monitores": [
+    "RAMIREZ PINEDA JOSE CIRILO"
+   ],
    "jefatura": []
   },
   {
@@ -601,9 +602,7 @@
    "sede": "VES",
    "turno": "Turno Noche",
    "aulas": 5,
-   "monitores": [
-    "RAMIREZ PINEDA JOSE CIRILO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -613,7 +612,7 @@
    "turno": "Turno Noche",
    "aulas": 7,
    "monitores": [
-    "MORENO BARRERA LUIGGI AGUSTIN"
+    "CORNEJO MAVILA STEPHANIA"
    ],
    "jefatura": []
   },
@@ -624,7 +623,7 @@
    "turno": "Turno Noche",
    "aulas": 10,
    "monitores": [
-    "FIGUEROA YNCA FERNANDO FREDY"
+    "JOSÉ KOHAGURA"
    ],
    "jefatura": []
   },
@@ -634,10 +633,10 @@
    "sede": "SUR",
    "turno": "Turno Noche",
    "aulas": 11,
-   "monitores": [],
-   "jefatura": [
-    "JOSÉ KOHAGURA"
-   ]
+   "monitores": [
+    "CORNEJO MAVILA STEPHANIA"
+   ],
+   "jefatura": []
   },
   {
    "fecha": "2026-11-05",
@@ -656,7 +655,9 @@
    "sede": "SUR",
    "turno": "Turno Noche",
    "aulas": 6,
-   "monitores": [],
+   "monitores": [
+    "MORENO BARRERA LUIGGI AGUSTIN"
+   ],
    "jefatura": []
   },
   {
@@ -666,7 +667,7 @@
    "turno": "Turno Noche",
    "aulas": 12,
    "monitores": [
-    "CORNEJO MAVILA STEPHANIA"
+    "MORENO BARRERA LUIGGI AGUSTIN"
    ],
    "jefatura": []
   },
@@ -676,7 +677,10 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 13,
-   "monitores": [],
+   "monitores": [
+    "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN",
+    "DURAN DE LA FUENTE JORGE ALEJANDRO"
+   ],
    "jefatura": []
   },
   {
@@ -686,7 +690,7 @@
    "turno": "Turno Noche",
    "aulas": 11,
    "monitores": [
-    "HUAMAN ROMERO MIGUEL ANGEL"
+    "LEON ROMAN FERNANDO GONZALO"
    ],
    "jefatura": []
   },
@@ -696,7 +700,9 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 12,
-   "monitores": [],
+   "monitores": [
+    "HUAMAN ROMERO MIGUEL ANGEL"
+   ],
    "jefatura": []
   },
   {
@@ -705,9 +711,7 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 12,
-   "monitores": [
-    "LEON ROMAN FERNANDO GONZALO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -716,9 +720,7 @@
    "sede": "SJL",
    "turno": "Turno Noche",
    "aulas": 13,
-   "monitores": [
-    "HUAMAN ROMERO MIGUEL ANGEL"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -728,7 +730,7 @@
    "turno": "Turno Noche",
    "aulas": 12,
    "monitores": [
-    "SÁNCHEZ CÉSPEDES MIRKO NAPOLEÓN"
+    "HUAMAN ROMERO MIGUEL ANGEL"
    ],
    "jefatura": []
   },
@@ -749,7 +751,9 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 32,
-   "monitores": [],
+   "monitores": [
+    "CHANAME BACA JOANNA STEPHANI"
+   ],
    "jefatura": []
   },
   {
@@ -758,9 +762,7 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 69,
-   "monitores": [
-    "CHANAME BACA JOANNA STEPHANI"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -768,9 +770,9 @@
    "dia": "Jueves",
    "sede": "VIR",
    "turno": "Turno Noche",
-   "aulas": 27,
+   "aulas": 69,
    "monitores": [
-    "ARBAÑIL CHICOMA CLAUDIA"
+    "VASQUEZ CHAVEZ DIEGO ARMANDO"
    ],
    "jefatura": []
   },
@@ -780,9 +782,7 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 55,
-   "monitores": [
-    "VASQUEZ CHAVEZ DIEGO ARMANDO"
-   ],
+   "monitores": [],
    "jefatura": []
   },
   {
@@ -791,7 +791,9 @@
    "sede": "VIR",
    "turno": "Turno Noche",
    "aulas": 17,
-   "monitores": [],
+   "monitores": [
+    "ARBAÑIL CHICOMA CLAUDIA"
+   ],
    "jefatura": []
   }
  ]
