@@ -111,9 +111,39 @@ function fillSelect(id, values, etiqueta = v => v) {
 }
 
 /* ---------- cruce cronograma vs formulario ---------- */
-function reportoSlot(a, monitor) {
-  return DATA.some(r => r.fecha === a.fecha && r[CAMPUS] === a.sede && r[TURN] === a.turno && r[MON] === monitor);
+/* Estado de cada turno programado:
+   'reportado'  - el monitor registró ese día, sede y turno;
+   'otra_fecha' - no registró ese turno, pero sí una visita de la semana que no
+                  calza con ninguno de sus turnos: se le acredita (primero una de la
+                  misma sede), así no figura como «falta monitorear»;
+   'falta'      - no hay registro suyo que lo cubra. */
+const claveTurno = (a, m) => `${a.fecha}|${a.sede}|${a.turno}|${m}`;
+function estadoTurnos(filas, prog) {
+  const res = new Map(), pendientes = [], libres = {};
+  const esPropia = r => prog.asignaciones.some(a => a.fecha === r.fecha && a.sede === r[CAMPUS] && a.turno === r[TURN] && a.monitores.includes(r[MON]));
+  for (const r of filas) if (r.Origen !== 'Coordinación' && !esPropia(r)) (libres[r[MON]] = libres[r[MON]] || []).push(r);
+  for (const a of prog.asignaciones) for (const m of a.monitores) {
+    if (filas.some(r => r.fecha === a.fecha && r[CAMPUS] === a.sede && r[TURN] === a.turno && r[MON] === m)) res.set(claveTurno(a, m), { estado: 'reportado' });
+    else pendientes.push([a, m]);
+  }
+  for (const [a, m] of pendientes) {
+    const lista = libres[m] || [];
+    let i = lista.findIndex(r => r[CAMPUS] === a.sede);
+    if (i < 0 && lista.length) i = 0;
+    res.set(claveTurno(a, m), i >= 0 ? { estado: 'otra_fecha', visita: lista.splice(i, 1)[0] } : { estado: 'falta' });
+  }
+  return res;
 }
+let memoTurnos = null;
+function turnos() {
+  if (!memoTurnos || memoTurnos.d !== DATA || memoTurnos.p !== PROG) memoTurnos = { d: DATA, p: PROG, m: estadoTurnos(DATA, PROG) };
+  return memoTurnos.m;
+}
+function reportoSlot(a, monitor) {
+  const e = turnos().get(claveTurno(a, monitor));
+  return !!e && e.estado !== 'falta';
+}
+const enOtraFecha = () => [...turnos().values()].filter(e => e.estado === 'otra_fecha').length;
 function faltantes() {
   const lista = [];
   for (const a of PROG.asignaciones) {
@@ -333,7 +363,9 @@ function abrirDia(fecha) {
 /* ---------- vista: sin reporte ---------- */
 function renderFaltantes() {
   const falt = faltantes();
-  $('faltantes-sub').textContent = `${falt.length} asignaciones del cronograma sin respuesta en el formulario`;
+  const otras = enOtraFecha();
+  $('faltantes-sub').textContent = `${falt.length} asignaciones del cronograma sin respuesta en el formulario` +
+    (otras ? ` · ${otras} ${otras === 1 ? 'turno no figura porque el monitor visitó' : 'turnos no figuran porque el monitor visitó'} en otra fecha, sede o turno` : '');
   $('faltantes-rows').innerHTML = falt.length ? falt.map(f =>
     `<tr><td>${esc(f.dia)}<br><small>${shortDate(f.fecha)}</small></td><td><b>${nombreSede(f.sede)}</b><br>${esc(f.turno)}</td>` +
     `<td>${esc(f.monitor)}</td><td>${f.aulas}</td>` +
@@ -803,11 +835,8 @@ function estadisticas(c) {
     sedes[s] = { visitas: f.length, conf: o + b ? pct(o, o + b) : null, tard: tard.filter(t => t.sede === s).length };
   }
   // Cobertura: turnos del cronograma con registro del monitor asignado (mismo criterio que «Sin reporte»)
-  let prog = 0, rep = 0;
-  for (const a of c.PROG.asignaciones) for (const m of a.monitores) {
-    prog++;
-    if (filas.some(r => r.fecha === a.fecha && r[CAMPUS] === a.sede && r[TURN] === a.turno && r[MON] === m)) rep++;
-  }
+  const estados = [...estadoTurnos(filas, c.PROG).values()];
+  const prog = estados.length, rep = estados.filter(e => e.estado !== 'falta').length;
   return {
     prog, rep, cobertura: prog ? pct(rep, prog) : null,
     visitas: filas.length, monitores: new Set(filas.map(r => r[MON])).size,

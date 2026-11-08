@@ -34,8 +34,8 @@
     ],
     [
       "Cobertura del cronograma",
-      "Con el mismo cronograma de la semana 1, solo 13 de los 41 turnos programados tienen registro del monitor asignado (32%, frente a 73% en la semana 1). Además, 13 visitas se registraron en un día, sede o turno distinto al programado y no hay ninguna respuesta del viernes 06/11.",
-      "Confirmar con cada monitor si la visita no se hizo, se cambió de fecha o solo faltó registrarla, y anotar en el cronograma los cambios de fecha."
+      "Con el mismo cronograma de la semana 1, 27 de los 41 turnos programados quedan cubiertos (66%, frente a 78% en la semana 1): 17 con registro en el día, sede y turno asignados (4 de ellos son turnos de coordinación sin observaciones) y 10 con una visita del mismo monitor en otra fecha, sede o turno. Quedan 14 turnos sin ningún registro.",
+      "Confirmar con cada monitor los turnos sin registro y anotar en el cronograma las visitas que cambiaron de fecha."
     ]
   ]
 }
