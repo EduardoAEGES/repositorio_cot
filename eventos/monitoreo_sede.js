@@ -323,7 +323,7 @@ function abrirDia(fecha) {
 
     bloque(`Registros del día (${r.filas.length})`, r.filas.length ?
       `<div class="table-wrap"><table><thead><tr><th>Sede / turno</th><th>Monitor</th><th>Estados</th></tr></thead><tbody>` +
-      r.filas.map(f => `<tr><td><b>${nombreSede(f[CAMPUS])}</b><br>${esc(f[TURN])}</td><td>${esc(f[MON])}${f.corregida ? '<br><span class="tag">fecha corregida</span>' : ''}</td>` +
+      r.filas.map(f => `<tr><td><b>${nombreSede(f[CAMPUS])}</b><br>${esc(f[TURN])}</td><td>${esc(f[MON])}${f.corregida ? '<br><span class="tag">fecha corregida</span>' : ''}${etiquetaOrigen(f)}</td>` +
         `<td>${MOMENTOS.map(([k]) => f[k] ? `<span class="state-chip ${f[k] === 'Con observación' ? 'warn' : f[k] === 'Conforme' ? '' : 'neutral'}">${esc(k.split(' ')[0])}: ${esc(f[k])}</span>` : '').join('')}</td></tr>`).join('') +
       `</tbody></table></div>` : '', 'Sin registros este día.');
 
@@ -365,7 +365,7 @@ function renderRespuestas(rows) {
     const chips = MOMENTOS.map(([k]) => r[k] ? `<span class="state-chip ${r[k] === 'Con observación' ? 'warn' : r[k] === 'Conforme' ? '' : 'neutral'}">${esc(k.split(' ')[0])}: ${esc(r[k])}</span>` : '').join('');
     const notes = r.notas.map(n => `<div class="comment"><b>${esc(n.momento)}:</b> ${esc(n.comentario)}</div>`).join('');
     return `<tr><td>${shortDate(r.fecha)}${r.corregida ? '<br><span class="tag">corregida</span>' : ''}</td>` +
-      `<td><b>${nombreSede(r[CAMPUS])}</b><br>${esc(r[TURN])}</td><td>${esc(r[MON])}</td><td>${chips}</td>` +
+      `<td><b>${nombreSede(r[CAMPUS])}</b><br>${esc(r[TURN])}</td><td>${esc(r[MON])}${etiquetaOrigen(r)}</td><td>${chips}</td>` +
       `<td>${notes || '—'}${r['Recomendaciones'] ? `<div class="comment"><b>Recomendación:</b> ${esc(r['Recomendaciones'])}</div>` : ''}</td></tr>`;
   }).join('') : '<tr><td colspan="5" class="empty">No hay respuestas con los filtros elegidos.</td></tr>';
   $('table-count').textContent = `${rows.length} respuestas - usa los filtros para explorar`;
@@ -747,19 +747,34 @@ async function pedir(url, obligatorio) {
   if (!res.ok) { if (obligatorio) throw new Error('No se encontró ' + url); return null; }
   return res.json();
 }
+/* BASE: lo que viene de los JSON de datos/. OVR: lo editado desde la página
+   (monitoreo_editor.js), que reemplaza al conjunto completo cuando existe. */
+const BASE = {}, OVR = {};
 async function cargarSemana(n) {
-  if (CACHE[n]) return CACHE[n];
   const filas = await pedir(`datos/monitoreo_semana${n}.json`, true);
   const [prog, chat, tard, hall] = await Promise.all([
     pedir(`datos/programacion_semana${n}.json`), pedir(`datos/chat_semana${n}.json`),
     pedir(`datos/tardanzas_semana${n}.json`), n === 1 ? null : pedir(`datos/hallazgos_semana${n}.json`)
   ]);
+  BASE[n] = {
+    respuestas: filas, prog: prog || { asignaciones: [] }, chat: chat || { mensajes: [] },
+    tard: tard || { registros: [] }, hallazgos: n === 1 ? HALLAZGOS_SEMANA1 : (hall && hall.hallazgos) || []
+  };
+  OVR[n] = typeof leerEdiciones === 'function' ? await leerEdiciones(n) : {};
+  return armarSemana(n);
+}
+/* Arma los datos que usan las vistas: lo editado manda sobre el JSON */
+function armarSemana(n) {
+  const b = BASE[n], o = OVR[n] || {};
   return (CACHE[n] = {
-    DATA: preparar(filas),
-    PROG: prog || { asignaciones: [] }, CHAT: chat || { mensajes: [] }, TARD: tard || { registros: [] },
-    HALL: n === 1 ? HALLAZGOS_SEMANA1 : (hall && hall.hallazgos) || []
+    DATA: preparar(o.respuestas || b.respuestas),
+    PROG: b.prog,
+    CHAT: Object.assign({}, b.chat, { mensajes: o.chat || b.chat.mensajes || [] }),
+    TARD: Object.assign({}, b.tard, { registros: o.tardanzas || b.tard.registros || [] }),
+    HALL: o.hallazgos || b.hallazgos
   });
 }
+const etiquetaOrigen = r => r.Origen === 'Coordinación' ? '<br><span class="tag">coordinación · sin observaciones</span>' : '';
 /* Deja la semana n como la que muestran todas las vistas */
 function usarSemana(n) {
   const c = CACHE[n];
@@ -954,6 +969,7 @@ async function init() {
     $('download-faltantes').onclick = csvFaltantes;
     for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => cambiarVista(b.dataset.vista);
     for (const b of document.querySelectorAll('#selector-semana button')) b.onclick = () => mostrar(b.dataset.sem);
+    if (typeof iniciarEditor === 'function') iniciarEditor();
     $('modal-dia').addEventListener('click', e => { if (e.target.id === 'modal-dia' || e.target.hasAttribute('data-cerrar')) $('modal-dia').classList.remove('abierto'); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') $('modal-dia').classList.remove('abierto'); });
 

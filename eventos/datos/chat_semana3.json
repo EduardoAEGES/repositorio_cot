@@ -1,6 +1,55 @@
 {
-  "fuente": "Chat de coordinación COT-PLN (grupo de monitoreo de sedes).",
-  "nota": "Sin mensajes cargados para la semana 3.",
-  "mensajes": [],
+  "fuente": "Chat de coordinación COT-PLN (WhatsApp del grupo de monitoreo de sedes).",
+  "nota": "Solo mensajes relacionados con el monitoreo de visitas; no se incluyen otras actividades.",
+  "mensajes": [
+    {
+      "fecha": "2026-11-07",
+      "hora": "10:45",
+      "autor": "Rumboacademy",
+      "sede": "SUR",
+      "tipo": "reporte",
+      "texto": "En sede Surco todos los docentes terminaron a su hora sin observaciones."
+    },
+    {
+      "fecha": "2026-11-07",
+      "hora": "10:47",
+      "autor": "Gabinete Estrategico",
+      "sede": "AQP",
+      "tipo": "reporte",
+      "texto": "Sede Arequipa de igual manera, ningún docente se retiró de manera anticipada."
+    },
+    {
+      "fecha": "2026-11-07",
+      "hora": "19:35",
+      "autor": "ARBAÑIL CHICOMA CLAUDIA",
+      "sede": "VIR",
+      "tipo": "incidencia",
+      "texto": "Profesora Denisse Ivanna Muñoz sigue en la carátula de la diapositiva, toma asistencia y precisó a los estudiantes: «voy a ser muy sincera, son muchos en esta aula y aparte tengo otras secciones, por eso les pido disculpas si me equivoco poniéndoles la nota, no soy una máquina»."
+    },
+    {
+      "fecha": "2026-11-07",
+      "hora": "19:38",
+      "autor": "ARBAÑIL CHICOMA CLAUDIA",
+      "sede": "VIR",
+      "tipo": "pendiente",
+      "texto": "Le estoy recordando que la asistencia es automática; por favor reforzar a quien corresponda."
+    },
+    {
+      "fecha": "2026-11-07",
+      "hora": "19:38",
+      "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO",
+      "sede": "VIR",
+      "tipo": "coordinacion",
+      "texto": "Gracias (en respuesta al recordatorio sobre la asistencia automática)."
+    },
+    {
+      "fecha": "2026-11-07",
+      "hora": "19:39",
+      "autor": "VASQUEZ CHAVEZ DIEGO ARMANDO",
+      "sede": "VIR",
+      "tipo": "coordinacion",
+      "texto": "Le hacemos refuerzo."
+    }
+  ],
   "precisiones": []
 }

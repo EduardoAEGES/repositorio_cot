@@ -141,3 +141,28 @@
 @media(max-width:850px){.kpis-cmp{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:620px){.kpis-cmp{grid-template-columns:1fr}.semanas button{flex:1}}
 @media print{.semanas{display:none!important}.comparando #comparativo{display:block}}
+
+/* ===== editor local de datos ===== */
+.intro-actions #editar{border-color:var(--brand);color:var(--brand)}
+.comparando #editar{display:none!important}
+.ed-box{width:min(1380px,100%);max-height:92vh}
+.ed-tabs{padding:0 18px;margin:0;background:#fff}
+.ed-barra{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line)}
+.ed-barra button{border:1px solid var(--line);border-radius:8px;padding:7px 11px;background:#fff;font-weight:600;color:var(--ink)}
+.ed-barra button:hover:not(:disabled){border-color:var(--brand);color:var(--brand)}
+.ed-barra button:disabled{opacity:.45;cursor:default}
+.ed-barra .ed-primario{background:var(--brand);border-color:var(--brand);color:#fff}
+.ed-barra .ed-primario:hover:not(:disabled){color:#fff;background:var(--brand-dark)}
+.ed-barra input{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:12px Outfit,system-ui;min-width:220px}
+.ed-cuenta{font-size:11px;color:var(--muted)}
+.ed-sp{flex:1}
+.ed-body{padding:12px 18px 18px}
+.ed-wrap{max-height:none}
+.ed-tabla td{padding:5px 6px;vertical-align:top}
+.ed-tabla td:first-child{white-space:nowrap}
+.ed-tabla input,.ed-tabla select,.ed-tabla textarea{width:100%;font:12px Outfit,system-ui;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:#fff}
+.ed-tabla textarea{resize:vertical;min-height:40px}
+.ed-tabla input:focus,.ed-tabla select:focus,.ed-tabla textarea:focus{outline:2px solid #704b672e;border-color:var(--brand)}
+.ed-borrar{border:none;background:#fdeeee;color:#a43b3b;border-radius:6px;padding:4px 7px;font-weight:700}
+@media print{#editar{display:none!important}}
+.ed-tabla select{min-width:120px}
