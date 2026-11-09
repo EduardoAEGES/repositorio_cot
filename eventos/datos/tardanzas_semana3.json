@@ -99,6 +99,15 @@
       "curso": "ADMINISTRACIÓN DE NEGOCIOS - I",
       "detalle": "No inició a las 07:00 aunque había alumnos conectados; comenzó a las 07:06",
       "fuente": "Formulario"
+    },
+    {
+      "fecha": "2026-11-04",
+      "sede": "ATE",
+      "turno": "Turno Mañana",
+      "docente": "TUMIALAN JUAN",
+      "curso": "Experiencias formativas",
+      "detalle": "No estaba en la sede; los estudiantes lo esperaban en el laboratorio, se reportó y la clase se reprogramó",
+      "fuente": "Formulario"
     }
   ]
 }

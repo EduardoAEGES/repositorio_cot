@@ -121,7 +121,7 @@
 .semanas button.comparar:not(.on){border-style:dashed}
 #comparativo{display:none}
 .comparando #comparativo{display:block}
-.comparando .tabs,.comparando .filters,.comparando #kpis,.comparando [id^="vista-"],.comparando #reset,.comparando #slides-pdf,.comparando #slides-ppt{display:none!important}
+.comparando .tabs,.comparando .filters,.comparando #kpis,.comparando [id^="vista-"],.comparando #reset{display:none!important}
 .kpis-cmp{grid-template-columns:repeat(3,1fr)}
 .kpi.cmp .cmp-vals{display:flex;align-items:center;gap:10px;margin:5px 0 6px}
 .kpi.cmp .cmp-vals span{display:flex;flex-direction:column}

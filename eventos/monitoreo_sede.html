@@ -4,7 +4,7 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Monitoreo de visitas a sede | COT-PLN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="monitoreo_sede.css?v=3">
+  <link rel="stylesheet" href="monitoreo_sede.css?v=4">
 </head>
 <body>
   <header class="top"><a class="brand" href="../index.html">COT<span>·</span>PLN</a><div class="headtitle"><h1>Monitoreo de visitas</h1><p id="periodo">Cargando…</p></div><a class="back" href="../index.html">⌂ <span>Inicio</span></a></header>
@@ -92,6 +92,10 @@
         <div class="table-wrap"><table><thead><tr><th>Programado</th><th>Monitor</th><th>Monitoreó</th><th>Qué pasó</th></tr></thead><tbody id="otrafecha-rows"></tbody></table></div>
       </section>
       <section class="panel">
+        <div class="panel-head"><div><h3>Registros llenados fuera de plazo</h3><p id="plazo-sub"></p></div><span class="tag">Observado</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Monitor</th><th>Visita</th><th>Llenado</th><th>Demora</th><th>Registros</th></tr></thead><tbody id="plazo-rows"></tbody></table></div>
+      </section>
+      <section class="panel">
         <div class="panel-head"><div><h3>Cumplimiento por monitor</h3><p>Turnos programados en la semana frente a los que sí registraron</p></div></div>
         <div class="table-wrap"><table><thead><tr><th>Monitor</th><th>Programados</th><th>Reportados</th><th>Sin reporte</th><th>Cumplimiento</th></tr></thead><tbody id="cumplimiento-rows"></tbody></table></div>
       </section>
@@ -134,5 +138,6 @@
   </div>
 
   <script src="monitoreo_editor.js?v=1"></script>
-  <script src="monitoreo_sede.js?v=5"></script>
+  <script src="monitoreo_sede.js?v=7"></script>
+  <script src="monitoreo_diapositivas.js?v=3"></script>
 </body></html>

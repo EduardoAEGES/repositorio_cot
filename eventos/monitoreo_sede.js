@@ -70,8 +70,17 @@ function preparar(filas) {
     const estados = MOMENTOS.map(([k]) => r[k]).filter(Boolean);
     const notas = MOMENTOS.map(([k, c], i) => ({ indice: i, momento: momentoCorto(k), estado: r[k] || '', comentario: r[c] || '' }))
       .filter(n => n.comentario);
+    // Fuera de plazo: el formulario se llenó más de un día después del sábado de esa semana
+    const llenado = dia10(r['Marca temporal']);
+    let fueraDePlazo = false;
+    if (llenado && fecha) {
+      const visita = new Date(fecha + 'T12:00:00'), sabado = new Date(visita);
+      sabado.setDate(visita.getDate() + (6 - visita.getDay()));
+      fueraDePlazo = (new Date(llenado + 'T12:00:00') - sabado) / 86400000 > 1;
+    }
     return {
       ...r, fecha, fechaOriginal: original, corregida: fecha !== original,
+      llenado, fueraDePlazo,
       estados, notas,
       conformes: estados.filter(e => e === 'Conforme').length,
       observaciones: estados.filter(e => e === 'Con observación').length,
@@ -407,6 +416,15 @@ function renderFaltantes() {
   $('otrafecha-rows').innerHTML = otraFecha.length ? otraFecha.map(filaOtraFecha).join('')
     : '<tr><td colspan="4" class="empty">Todos los turnos cubiertos se registraron en su día, sede y turno.</td></tr>';
 
+  const tarde = fueraDePlazo(DATA);
+  $('plazo-sub').textContent = tarde.length
+    ? `${tarde.reduce((n, x) => n + x.n, 0)} registros llenados después de cerrar la semana: la visita se cuenta, pero queda observada`
+    : 'Todos los registros se llenaron dentro de la semana.';
+  $('plazo-rows').innerHTML = tarde.length ? tarde.map(x =>
+    `<tr><td>${esc(x.monitor)}</td><td>${esc(diaSemana(x.fecha))} ${shortDate(x.fecha).slice(0, 5)}<br><small>${nombreSede(x.sede)} · ${esc(turnoCorto(x.turno))}</small></td>` +
+    `<td>${shortDate(x.llenado)}</td><td><span class="state-chip red">${x.dias} días después</span></td><td>${x.n}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">Sin registros fuera de plazo.</td></tr>';
+
   $('cumplimiento-rows').innerHTML = cumplimiento().map(c => {
     const p = pct(c.rep, c.prog);
     return `<tr><td>${esc(c.monitor)}</td><td>${c.prog}</td><td>${c.rep}</td><td>${c.prog - c.rep}</td>` +
@@ -446,7 +464,7 @@ let HALLAZGOS = [
   ['Desarrollo de clase', 'En monitoreos virtuales aparecen sesiones con actividades pendientes, sílabo no presentado, cierres sin ideas fuerza, fondos no institucionales y dificultades técnicas.', 'Seguimiento docente individual y resolver accesos antes de la siguiente visita.'],
   ['Información en sede', 'El chat del 19/10 reportó televisores con información desactualizada en San Juan de Lurigancho (TI como responsable); el formulario señala listado desactualizado en Ate, cambio de aula por aforo y ascensor fuera de servicio en San Juan de Lurigancho.', 'Asignar responsable y fecha para pantallas, aulas y mantenimiento.'],
   ['Asistencia y acceso', 'Un grupo sin estudiantes durante los primeros 15 minutos en Arequipa y docentes de otra línea ausentes en Surco; algunas observaciones no se verificaron por falta de acceso oportuno.', 'Validar asistencia con coordinación y habilitar el acceso al monitoreo virtual.'],
-  ['Cobertura del cronograma', 'El cruce del cronograma con el formulario ya identifica los turnos programados sin respuesta; revisa la pestaña «Sin reporte» para el detalle por monitor.', 'Confirmar con cada monitor si la visita no se hizo o solo faltó registrarla.']
+  ['Cobertura del cronograma', 'El cruce del cronograma con el formulario identifica los turnos programados sin respuesta. Moreno Barrera llenó el 28/10, ya cerrada la semana, los 7 registros de su visita del 22/10 a Surco: quedan observados como registro fuera de plazo.', 'Confirmar con cada monitor si la visita no se hizo o solo faltó registrarla, y pedir el registro el mismo día.']
 ];
 const HALLAZGOS_SEMANA1 = HALLAZGOS;
 /* El hallazgo de puntualidad se arma con los datos, no con un texto fijo. */
@@ -813,7 +831,8 @@ function cambiarVista(v) {
 
 /* ---------- datos por semana ---------- */
 async function pedir(url, obligatorio) {
-  const res = await fetch(url);
+  // no-cache: revalida con el servidor para que una actualización de los datos se vea sin borrar caché
+  const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) { if (obligatorio) throw new Error('No se encontró ' + url); return null; }
   return res.json();
 }
@@ -844,7 +863,20 @@ function armarSemana(n) {
     HALL: o.hallazgos || b.hallazgos
   });
 }
-const etiquetaOrigen = r => r.Origen === 'Coordinación' ? '<br><span class="tag">coordinación · sin observaciones</span>' : '';
+const etiquetaOrigen = r => (r.Origen === 'Coordinación' ? '<br><span class="tag">coordinación · sin observaciones</span>' : '') +
+  (r.fueraDePlazo ? `<br><span class="state-chip red">fuera de plazo · llenado ${shortDate(r.llenado).slice(0, 5)}</span>` : '');
+/* Registros llenados fuera de plazo, agrupados por monitor, visita y día de llenado */
+function fueraDePlazo(filas) {
+  const g = new Map();
+  for (const r of filas.filter(x => x.fueraDePlazo)) {
+    const k = [r[MON], r.fecha, r[CAMPUS], r[TURN], r.llenado].join('|');
+    if (!g.has(k)) g.set(k, { monitor: r[MON], fecha: r.fecha, sede: r[CAMPUS], turno: r[TURN], llenado: r.llenado, n: 0 });
+    g.get(k).n++;
+  }
+  return [...g.values()].map(x => Object.assign(x, {
+    dias: Math.round((new Date(x.llenado + 'T12:00:00') - new Date(x.fecha + 'T12:00:00')) / 86400000)
+  })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
 /* Deja la semana n como la que muestran todas las vistas */
 function usarSemana(n) {
   const c = CACHE[n];
@@ -1030,8 +1062,9 @@ async function init() {
     $('buscar').addEventListener('input', render);
     $('reset').onclick = () => { for (const id of ['sede', 'turno', 'monitor', 'estado', 'buscar']) $(id).value = ''; render(); };
     $('print').onclick = () => window.print();
-    $('slides-pdf').onclick = () => generar($('slides-pdf'), reportePDF, 'PDF');
-    $('slides-ppt').onclick = () => generar($('slides-ppt'), reportePPT, 'PPT');
+    // Diapositivas con el estilo Certus de monitoreo_diapositivas.js (semana o comparativo)
+    $('slides-pdf').onclick = () => generar($('slides-pdf'), diapositivasPDF, 'PDF');
+    $('slides-ppt').onclick = () => generar($('slides-ppt'), diapositivasPPT, 'PPT');
     $('download').onclick = csvRespuestas;
     $('download-faltantes').onclick = csvFaltantes;
     for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => cambiarVista(b.dataset.vista);
