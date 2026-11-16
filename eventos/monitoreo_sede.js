@@ -76,7 +76,11 @@ function preparar(filas) {
     if (llenado && fecha) {
       const visita = new Date(fecha + 'T12:00:00'), sabado = new Date(visita);
       sabado.setDate(visita.getDate() + (6 - visita.getDay()));
-      fueraDePlazo = (new Date(llenado + 'T12:00:00') - sabado) / 86400000 > 1;
+      const despues = (new Date(llenado + 'T12:00:00') - sabado) / 86400000;
+      fueraDePlazo = despues > 1;
+      // semana en la que se subió: la del formulario más las semanas transcurridas desde ese sábado
+      const base = parseInt(String(r['Número de semana en la que se hace la visita'] || '').replace(/\D/g, ''), 10);
+      if (fueraDePlazo && base) r = Object.assign({}, r, { semanaSubida: base + Math.ceil(despues / 7) });
     }
     return {
       ...r, fecha, fechaOriginal: original, corregida: fecha !== original,
@@ -91,7 +95,7 @@ function preparar(filas) {
 }
 
 function diasDeLaSemana() {
-  const fechas = [...new Set([...PROG.asignaciones.map(a => a.fecha), ...DATA.map(r => r.fecha)])].sort();
+  const fechas = [...new Set([...PROG.asignaciones.map(a => a.fecha), ...DATA.filter(r => !/^Semana/.test(r.Origen || '')).map(r => r.fecha)])].sort();
   const nombre = {};
   for (const a of PROG.asignaciones) nombre[a.fecha] = a.dia;
   const diaDe = f => {
@@ -422,7 +426,7 @@ function renderFaltantes() {
     : 'Todos los registros se llenaron dentro de la semana.';
   $('plazo-rows').innerHTML = tarde.length ? tarde.map(x =>
     `<tr><td>${esc(x.monitor)}</td><td>${esc(diaSemana(x.fecha))} ${shortDate(x.fecha).slice(0, 5)}<br><small>${nombreSede(x.sede)} · ${esc(turnoCorto(x.turno))}</small></td>` +
-    `<td>${shortDate(x.llenado)}</td><td><span class="state-chip red">${x.dias} días después</span></td><td>${x.n}</td></tr>`).join('')
+    `<td>${shortDate(x.llenado)}${x.semanaSubida ? `<br><small>semana ${x.semanaSubida}</small>` : ''}</td><td><span class="state-chip red">${x.dias} días después</span></td><td>${x.n}</td></tr>`).join('')
     : '<tr><td colspan="5" class="empty">Sin registros fuera de plazo.</td></tr>';
 
   $('cumplimiento-rows').innerHTML = cumplimiento().map(c => {
@@ -864,13 +868,14 @@ function armarSemana(n) {
   });
 }
 const etiquetaOrigen = r => (r.Origen === 'Coordinación' ? '<br><span class="tag">coordinación · sin observaciones</span>' : '') +
-  (r.fueraDePlazo ? `<br><span class="state-chip red">fuera de plazo · llenado ${shortDate(r.llenado).slice(0, 5)}</span>` : '');
+  (r.fueraDePlazo ? `<br><span class="state-chip red">subido ${r.semanaSubida ? 'en la semana ' + r.semanaSubida : 'fuera de plazo'} · ${shortDate(r.llenado).slice(0, 5)}</span>` : '') +
+  (r.Origen === 'Semana 4' ? `<br><span class="tag">registro de la semana 4 · cubre un turno pendiente</span>` : '');
 /* Registros llenados fuera de plazo, agrupados por monitor, visita y día de llenado */
 function fueraDePlazo(filas) {
   const g = new Map();
   for (const r of filas.filter(x => x.fueraDePlazo)) {
     const k = [r[MON], r.fecha, r[CAMPUS], r[TURN], r.llenado].join('|');
-    if (!g.has(k)) g.set(k, { monitor: r[MON], fecha: r.fecha, sede: r[CAMPUS], turno: r[TURN], llenado: r.llenado, n: 0 });
+    if (!g.has(k)) g.set(k, { monitor: r[MON], fecha: r.fecha, sede: r[CAMPUS], turno: r[TURN], llenado: r.llenado, semanaSubida: r.semanaSubida, n: 0 });
     g.get(k).n++;
   }
   return [...g.values()].map(x => Object.assign(x, {

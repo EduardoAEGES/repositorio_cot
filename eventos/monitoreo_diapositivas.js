@@ -38,7 +38,7 @@ function datosSemana(n, filas) {
     const a = filas.filter(r => r[k] === 'Conforme').length, b = filas.filter(r => r[k] === 'Con observación').length;
     return { m: momentoCorto(k), conf: a + b ? pct(a, a + b) : 0, obs: b };
   });
-  const dias = [...new Set(filas.map(r => r.fecha))].sort().map(f => {
+  const dias = [...new Set(filas.filter(r => !/^Semana/.test(r.Origen || '')).map(r => r.fecha))].sort().map(f => {
     const g = filas.filter(r => r.fecha === f);
     const a = g.reduce((x, r) => x + r.conformes, 0), b = g.reduce((x, r) => x + r.observaciones, 0);
     return { f, n: g.length, conf: a + b ? pct(a, a + b) : 0 };
@@ -156,27 +156,29 @@ function laminasSemana(d, pie) {
           { tam: 11.5, alto: 0.33, centrar: [1, 2], colores: Object.fromEntries(filasM.map((m, j) => m.cub === 0 ? [`${j},1`, DC.red] : null).filter(Boolean)) })
           : P.texto((i === 0 ? 4.55 : MX) + 0.25, 2.7, 7, 0.4, 'Todos los turnos programados tienen registro.', { size: 13, color: DC.green })
       ])));
-    // turnos en otra fecha y registros fuera de plazo
-    if (d.otra.length || d.plazo.length) {
-      const piezas = [];
-      let y = 1.75;
-      if (d.otra.length) {
-        const h = 1.0 + 0.36 * (d.otra.length + 1);
-        piezas.push(P.tarjeta(MX, y, ANCHO, h), P.cabecera(MX + 0.25, y + 0.13, ANCHO - 0.5, `Turnos cubiertos en otra fecha (${d.otra.length})`, 'El monitor no visitó en su día programado, pero sí en otra fecha, sede o turno'),
-          P.tabla(MX + 0.25, y + 0.85, ANCHO - 0.5, [2.8, 2.6, 2.8, 3.2], ['Programado', 'Monitor', 'Monitoreó', 'Qué pasó'],
-            d.otra.slice(0, 8).map(f => [`${etiquetaDia(f.fecha)} · ${CORTO[nomSede(f.sede)] || nomSede(f.sede)} · ${turnoCorto(f.turno)}`, titular(f.monitor),
-              `${etiquetaDia(f.visita.fecha)} · ${CORTO[nomSede(f.visita[CAMPUS])] || nomSede(f.visita[CAMPUS])} · ${turnoCorto(f.visita[TURN])}`, f.cambio]), { tam: 11, alto: 0.36 }));
-        y += h + 0.2;
-      }
-      if (d.plazo.length && y < 5.6) {
-        const h = Math.min(6.75 - y, 1.0 + 0.36 * (d.plazo.length + 1));
-        piezas.push(P.tarjeta(MX, y, ANCHO, h, DC.soft), P.cabecera(MX + 0.25, y + 0.13, ANCHO - 0.5, 'Registros llenados fuera de plazo (observado)', 'La visita se cuenta, pero el formulario se llenó después de cerrar la semana'),
-          P.tabla(MX + 0.25, y + 0.85, ANCHO - 0.5, [3.2, 3.0, 2.0, 1.8, 1.4], ['Monitor', 'Visita', 'Llenado', 'Demora', 'Registros'],
-            d.plazo.slice(0, 4).map(x => [titular(x.monitor), `${etiquetaDia(x.fecha)} · ${nomSede(x.sede)} · ${turnoCorto(x.turno)}`, shortDate(x.llenado), `${x.dias} días después`, x.n]),
-            { tam: 11, alto: 0.36, centrar: [2, 3, 4], colores: Object.fromEntries(d.plazo.slice(0, 4).map((_, j) => [`${j},3`, DC.red])) }));
-      }
-      L.push(contenido(`${d.semana}: visitas en otra fecha y registros tardíos`, 'Cómo se cuentan los turnos que no se registraron en su día', piezas));
-    }
+    // turnos cubiertos en otra fecha (hasta 11 por lámina)
+    trozos(d.otra, 11).forEach((grupo, i) => {
+      if (!grupo.length) return;
+      L.push(contenido(`${d.semana}: turnos cubiertos en otra fecha${i ? ' (continuación)' : ''}`, 'El monitor no visitó en su día programado, pero sí en otra fecha, sede o turno: el turno se cuenta como cubierto', [
+        P.tarjeta(MX, 1.75, ANCHO, 0.95 + 0.38 * (grupo.length + 1)),
+        P.cabecera(MX + 0.25, 1.88, ANCHO - 0.5, `${d.otra.length} ${d.otra.length === 1 ? 'turno' : 'turnos'} en la ${d.semana.toLowerCase()}`, 'Programado según el cronograma frente a la visita registrada'),
+        P.tabla(MX + 0.25, 2.6, ANCHO - 0.5, [2.8, 2.6, 2.8, 3.2], ['Programado', 'Monitor', 'Monitoreó', 'Qué pasó'],
+          grupo.map(f => [`${etiquetaDia(f.fecha)} · ${CORTO[nomSede(f.sede)] || nomSede(f.sede)} · ${turnoCorto(f.turno)}`, titular(f.monitor),
+            `${etiquetaDia(f.visita.fecha)} · ${CORTO[nomSede(f.visita[CAMPUS])] || nomSede(f.visita[CAMPUS])} · ${turnoCorto(f.visita[TURN])}`, f.cambio]), { tam: 11, alto: 0.38 })
+      ]));
+    });
+    // registros subidos después de cerrar la semana (hasta 11 por lámina)
+    trozos(d.plazo, 11).forEach((grupo, i) => {
+      if (!grupo.length) return;
+      const total = d.plazo.reduce((n, x) => n + x.n, 0);
+      L.push(contenido(`${d.semana}: registros subidos fuera de plazo${i ? ' (continuación)' : ''}`, 'La visita se cuenta, pero el formulario se subió después de cerrar la semana: queda observado', [
+        P.tarjeta(MX, 1.75, ANCHO, 0.95 + 0.38 * (grupo.length + 1), DC.soft),
+        P.cabecera(MX + 0.25, 1.88, ANCHO - 0.5, `${total} ${total === 1 ? 'registro subido' : 'registros subidos'} tarde`, 'Agrupados por monitor, visita y día en que se subió el formulario'),
+        P.tabla(MX + 0.25, 2.6, ANCHO - 0.5, [3.2, 3.2, 2.0, 2.0, 1.0], ['Monitor', 'Visita', 'Subido', 'Demora', 'Registros'],
+          grupo.map(x => [titular(x.monitor), `${etiquetaDia(x.fecha)} · ${nomSede(x.sede)} · ${turnoCorto(x.turno)}`, `${shortDate(x.llenado)}${x.semanaSubida ? ' (sem. ' + x.semanaSubida + ')' : ''}`, `${x.dias} días después`, x.n]),
+          { tam: 11, alto: 0.38, centrar: [2, 3, 4], colores: Object.fromEntries(grupo.map((_, j) => [`${j},3`, DC.red])) })
+      ]));
+    });
   }
   // hallazgos (6 por lámina)
   const colores = [DC.red, DC.red, DC.purple, DC.purple, DC.cyan, DC.cyan];
@@ -262,7 +264,7 @@ function deckComparativo() {
     [String(A.registros), String(B.registros), DC.navy, 'Registros de monitoreo', signo(B.registros - A.registros), DC.gray, `${A.monitores} y ${B.monitores} monitores con registro`],
     [A.conf + '%', B.conf + '%', DC.green, 'Conformidad promedio', signo(dConf, 0, 'pts'), mejora(dConf), `${A.ok}/${A.ok + A.obs} y ${B.ok}/${B.ok + B.obs} conformes`],
     [A.obsReg.toFixed(2), B.obsReg.toFixed(2), DC.purple, 'Observaciones por registro', signo(+(B.obsReg - A.obsReg).toFixed(2), 2), mejora(B.obsReg - A.obsReg, false), `${A.obs} y ${B.obs} observaciones en total`],
-    A.hayCrono && B.hayCrono ? [A.cobertura + '%', B.cobertura + '%', DC.red, 'Cobertura del cronograma', signo(dCob, 0, 'pts'), mejora(dCob), `${A.cub} de ${A.prog} y ${B.cub} de ${B.prog} turnos`]
+    A.hayCrono && B.hayCrono ? [A.cobertura + '%', B.cobertura + '%', B.cobertura < 70 ? DC.red : DC.cyan, 'Cobertura del cronograma', signo(dCob, 0, 'pts'), mejora(dCob), `${A.cub} de ${A.prog} y ${B.cub} de ${B.prog} turnos`]
       : [String(A.sedes.length), String(B.sedes.length), DC.navy, 'Sedes visitadas', signo(B.sedes.length - A.sedes.length), DC.gray, 'sedes con al menos un registro'],
     [String(A.tard.length), String(B.tard.length), DC.purple, 'Tardanzas registradas', signo(B.tard.length - A.tard.length), mejora(B.tard.length - A.tard.length, false), `${(A.tard.length / A.registros).toFixed(2)} y ${(B.tard.length / B.registros).toFixed(2)} por registro`],
     vA && vB ? [fmtPct(vA.conf), fmtPct(vB.conf), DC.red, 'Conformidad en Virtual', signo((vB.conf ?? 0) - (vA.conf ?? 0), 0, 'pts'), mejora((vB.conf ?? 0) - (vA.conf ?? 0)), `${vA.obs} y ${vB.obs} observaciones`]
@@ -333,7 +335,7 @@ function deckComparativo() {
     const mA = new Map(A.porMonitor.map(m => [m.monitor, m])), pendB = B.porMonitor.filter(m => m.cub < m.prog)
       .sort((x, y) => ((mA.get(x.monitor) || { cub: 1 }).cub === 0 ? 0 : 1) - ((mA.get(y.monitor) || { cub: 1 }).cub === 0 ? 0 : 1) || x.cub / x.prog - y.cub / y.prog || y.prog - x.prog);
     L.push(contenido('Evolutivo de monitores y cobertura', `Cronograma de cada semana: ${A.prog} turnos con monitor en la ${sA.toLowerCase()} y ${B.prog} en la ${sB.toLowerCase()}`, [
-      kpiCmp(MX, 1.75, 3.6, 1.55, A.cobertura + '%', B.cobertura + '%', DC.red, 'Cobertura del cronograma', signo(dCob, 0, 'pts'), mejora(dCob), `${A.cub} de ${A.prog} y ${B.cub} de ${B.prog} turnos`),
+      kpiCmp(MX, 1.75, 3.6, 1.55, A.cobertura + '%', B.cobertura + '%', B.cobertura < 70 ? DC.red : DC.cyan, 'Cobertura del cronograma', signo(dCob, 0, 'pts'), mejora(dCob), `${A.cub} de ${A.prog} y ${B.cub} de ${B.prog} turnos`),
       kpiCmp(MX, 3.47, 3.6, 1.55, String(A.monitores), String(B.monitores), DC.navy, 'Monitores con registro', signo(B.monitores - A.monitores), DC.gray, 'incluye coordinación'),
       kpiCmp(MX, 5.19, 3.6, 1.55, String(A.otra.length), String(B.otra.length), DC.purple, 'Turnos cubiertos en otra fecha', signo(B.otra.length - A.otra.length), DC.gray, 'visita en otro día, sede o turno'),
       P.tarjeta(4.55, 1.75, 8.05, 5.0), P.cabecera(4.8, 1.88, 7.6, `Monitores con turnos sin registro en la ${sB.toLowerCase()}`, 'Turnos cubiertos sobre programados, contando las visitas en otra fecha'),

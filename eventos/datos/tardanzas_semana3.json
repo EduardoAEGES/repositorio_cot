@@ -108,6 +108,33 @@
       "curso": "Experiencias formativas",
       "detalle": "No estaba en la sede; los estudiantes lo esperaban en el laboratorio, se reportó y la clase se reprogramó",
       "fuente": "Formulario"
+    },
+    {
+      "fecha": "2026-11-06",
+      "sede": "SJL",
+      "turno": "Turno Noche",
+      "docente": "BERROCAL",
+      "curso": "",
+      "detalle": "No estaba en su aula a las 7:00 pm; se le envió mensaje (aulas 601L, 402A, 302A y 301L sin docente; 402A y 302A llegaron después de las 7:15 pm)",
+      "fuente": "Formulario (subido el 09/11, en la semana 4)"
+    },
+    {
+      "fecha": "2026-11-06",
+      "sede": "SJL",
+      "turno": "Turno Noche",
+      "docente": "CORONADO",
+      "curso": "",
+      "detalle": "No estaba en su aula a las 7:00 pm; se le envió mensaje (aulas 601L, 402A, 302A y 301L sin docente; 402A y 302A llegaron después de las 7:15 pm)",
+      "fuente": "Formulario (subido el 09/11, en la semana 4)"
+    },
+    {
+      "fecha": "2026-11-05",
+      "sede": "NOR",
+      "turno": "Turno Mañana",
+      "docente": "ABRAHAM HUAMAN VALER",
+      "curso": "",
+      "detalle": "No estaba en el pre monitoreo; se comunicó su tardanza a Claudia Arbañil",
+      "fuente": "Formulario (subido el 10/11, en la semana 4)"
     }
   ]
 }
