@@ -16,7 +16,7 @@
   const urlHoja = gid => `https://docs.google.com/spreadsheets/d/${LIBRO}/export?format=csv&gid=${gid}`;
 
   const LS = 'cot_reporte_dia_filtros';
-  const CACHE = 'cot_reporte_dia_datos_v1';
+  const CACHE = 'cot_reporte_dia_datos_v2';
   const CACHE_MIN = 15;               // minutos de vigencia del cache
 
   const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -143,6 +143,10 @@
     if (x.includes('COT') || x.includes('CONTA')) return 'COT';
     return x || 'OTROS';
   };
+  // DNI sin ceros a la izquierda: clave estable aunque el nombre difiera entre hojas
+  const dniKey = d => String(d || '').replace(/\D/g, '').replace(/^0+/, '');
+  const areaDe = (areas, dni, nombre) =>
+    areas['DNI:' + dniKey(dni)] || areas[norm(nombre)] || 'OTROS';
   // En PLN solo cuentan las clases del curso Pensamiento Logico
   const enPrograma = (f, p) => f.area === p &&
     (p !== 'PLN' || norm(f.curso).includes('PENSAMIENTO LOGICO'));
@@ -155,8 +159,8 @@
     const areas = areasDesdeContract();
     const out = [];
     Object.keys(gsc).forEach(docente => {
-      const area = areas[norm(docente)] || 'OTROS';
       (gsc[docente] || []).forEach(c => {
+        const area = areaDe(areas, c.dni, docente);
         (c.days || []).forEach(d => out.push({
           docente, dni: c.dni || '', area,
           curso: c.name || '', seccion: c.section || '', nrc: c.nrc || '',
@@ -175,7 +179,11 @@
     if (!cd) return mapa;
     Object.keys(cd).forEach(k => {
       const v = cd[k];
-      if (v && v.name) mapa[norm(v.name)] = areaNorm(v.area);
+      if (!v || !v.name) return;
+      const a = areaNorm(v.area);
+      if (!mapa[norm(v.name)]) mapa[norm(v.name)] = a;
+      const dk = dniKey(v.dni);
+      if (dk && !mapa['DNI:' + dk]) mapa['DNI:' + dk] = a;
     });
     return mapa;
   }
@@ -203,12 +211,15 @@
         const h = rows[cab].map(norm);
         const iN = h.findIndex(x => x.includes('APELLIDO') || x.includes('NOMBRE'));
         const iA = h.findIndex(x => x.includes('AREA'));
+        const iD = h.findIndex(x => x === 'DNI');
         for (let i = cab + 1; i < rows.length; i++) {
           const r = rows[i];
           const nombre = iN >= 0 ? norm(r[iN]) : '';
           if (!nombre || nombre.includes('APELLIDO')) continue;
-          if (areas[nombre]) continue;             // vale la primera aparicion
-          areas[nombre] = iA >= 0 ? areaNorm(r[iA]) : 'OTROS';
+          const a = iA >= 0 ? areaNorm(r[iA]) : 'OTROS';
+          if (!areas[nombre]) areas[nombre] = a;   // vale la primera aparicion
+          const dk = iD >= 0 ? dniKey(r[iD]) : '';
+          if (dk && !areas['DNI:' + dk]) areas['DNI:' + dk] = a;
         }
       }
     }
@@ -221,7 +232,7 @@
       if (!docente) continue;
       const horarios = parseHorarios(String(r[16] || ''), String(r[17] || ''));
       if (!horarios.length) continue;
-      const area = areas[norm(docente)] || 'OTROS';
+      const area = areaDe(areas, r[1], docente);
       const bloque = `${norm(r[11]) || '—'}|${moduloDe(r[6])}`;
       const modalidad = norm(r[15]).includes('VIR') ? 'VIRTUAL' : 'PRESENCIAL';
       const seccion = String(r[5] || '').trim();
