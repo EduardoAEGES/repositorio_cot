@@ -168,6 +168,7 @@ function bind() {
     $('masterCerrar').onclick = cerrarMaster;
     $('modalMaster').onclick = (e) => { if (e.target === $('modalMaster')) cerrarMaster(); };
     $('autoBtn').onclick = abrirAsistente;
+    if (esLocal()) { $('contactosBox').hidden = false; $('contactosBtn').onclick = pulsarContactos; }
     $('publicarBtn').onclick = publicarEquipo;
     $('claveForm').onsubmit = enviarClave;
     $('claveOmitir').onclick = cerrarClave;
@@ -395,6 +396,7 @@ function pintarManual() {
     const cont = $('listaManual');
     const combos = combosElegidos();
     $('nAuto').textContent = combosParaAuto().length;
+    if ($('nContactos')) $('nContactos').textContent = contactosElegidos().length;
     if (!combos.length) {
         cont.innerHTML = '<div class="ev-muted">Marca grado, ciclo y sede para ver las combinaciones a descargar.</div>';
         $('manualInfo').textContent = '';
@@ -1059,6 +1061,53 @@ async function agente(ruta, opc) {
     } finally { clearTimeout(t); }
 }
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ─── Contactos de estudiantes (solo en la página local del agente) ───────────
+// Correo personal y teléfonos (consulta AC_REPORTE_MATRICULADOS). Son datos personales:
+// el botón solo existe en 127.0.0.1:8765, el agente rechaza otros orígenes y el Excel
+// queda en la PC (carpeta datos_personales), nunca en "Publicar para el equipo".
+function esLocal() { return location.port === '8765' && /^(127\.0\.0\.1|localhost)$/.test(location.hostname); }
+function contactosElegidos() {
+    const out = [];
+    for (const g of C.GRADOS) {
+        if (!dsel.grados.has(g.codigo)) continue;
+        for (const [strm] of C.CICLOS[g.codigo]) if (dsel.strms.has(strm)) out.push({ grado: g.codigo, strm });
+    }
+    return out;
+}
+async function pulsarContactos() {
+    const el = $('contactosEstado'), btn = $('contactosBtn');
+    const aviso = (txt, cls) => { el.className = 'ev-agente' + (cls ? ' ' + cls : ''); el.textContent = txt; };
+    const combos = contactosElegidos();
+    if (!combos.length) return aviso('Marca arriba grado y ciclo.', 'warn');
+    btn.disabled = true;
+    try {
+        let r;
+        try { r = await agente('/contactos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ combos }) }); }
+        catch (e) { return aviso('El agente no responde. Abre EVALDO_Agente.bat.', 'warn'); }
+        if (!r.ok) return aviso(r.error === 'sin_sesion' ? 'Inicia sesión en Campus Evolution en el Brave del agente y vuelve a pulsar.' : (r.error || 'No se pudo empezar.'), 'warn');
+        let nlog = (await agente('/estado').catch(() => ({}))).nlog || 0;
+        aviso(`Descargando contactos de ${combos.length} grado(s) × ciclo(s)... (unos minutos cada uno)`);
+        for (;;) {
+            await dormir(3000);
+            let e;
+            try { e = await agente('/estado?desde=' + nlog); } catch (_) { continue; }
+            nlog = e.nlog;
+            const ult = (e.log || []).filter((l) => /Contactos/.test(l)).pop();
+            const ct = e.contactos || {};
+            if (ct.corriendo) { if (ult) aviso(ult.replace(/^\S+\s/, '')); continue; }
+            if (ct.ok) {
+                el.className = 'ev-agente ok';
+                el.innerHTML = '';
+                const a = document.createElement('a');
+                a.href = AGENTE + '/contactos/archivo';
+                a.textContent = 'Descargar Excel';
+                el.append(`✓ ${ct.mensaje} (también quedó en la carpeta datos_personales del agente). `, a);
+            } else aviso(ct.mensaje === 'sin_sesion' ? 'La sesión de Campus venció: vuelve a iniciarla y pulsa de nuevo.' : (ct.mensaje || 'Terminó con errores: mira la ventana del agente.'), 'warn');
+            break;
+        }
+    } finally { btn.disabled = false; }
+}
 
 function logAuto(msg) {
     const box = $('autoLog');

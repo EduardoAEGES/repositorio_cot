@@ -342,3 +342,7 @@ table.ev-tabla { width: 100%; border-collapse: collapse; font-size: .8rem; }
     .ev-paso { flex-wrap: wrap; }
     .ev-paso .ev-btn { width: 100%; justify-content: center; }
 }
+
+/* Contactos de estudiantes (solo página local) */
+.ev-contactos { margin-top: 14px; padding-top: 12px; border-top: 1px dashed rgba(0,0,0,.15); }
+.ev-contactos .ev-muted { font-size: .85em; }

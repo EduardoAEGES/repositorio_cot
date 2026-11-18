@@ -72,6 +72,14 @@
                         <label class="ev-check"><input type="checkbox" id="incluirCompletas"> Volver a bajar también las completas</label>
                     </div>
                     <div class="ev-agente" id="agenteEstado"></div>
+                    <!-- Solo en la página local (127.0.0.1:8765): datos personales, nunca se publican. -->
+                    <div class="ev-contactos" id="contactosBox" hidden>
+                        <div class="ev-auto-acciones">
+                            <button class="ev-btn ev-btn-ghost" id="contactosBtn"><i class="fas fa-address-book"></i> Descargar contactos de estudiantes (<span id="nContactos">0</span>)</button>
+                            <span class="ev-muted"><i class="fas fa-lock"></i> Correo personal y teléfonos de los grados y ciclos marcados (todas las sedes). Se guarda solo en esta PC; no se publica.</span>
+                        </div>
+                        <div class="ev-agente" id="contactosEstado"></div>
+                    </div>
                 </div>
                 <details class="ev-pasos">
                     <summary><b>Hacerlo a mano (Programación de Consultas)</b>: clic para ver los pasos</summary>
